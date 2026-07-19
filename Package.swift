@@ -6,12 +6,17 @@ let package = Package(
     platforms: [.macOS(.v13)],
     products: [
         .library(name: "SecondBrainCore", targets: ["SecondBrainCore"]),
-        .executable(name: "secondbrain-mcp", targets: ["secondbrain-mcp"])
+        .executable(name: "secondbrain-mcp", targets: ["secondbrain-mcp"]),
+        .executable(name: "UnliRice", targets: ["UnliRice"])
     ],
     targets: [
         .target(name: "SecondBrainCore"),
         .executableTarget(
             name: "secondbrain-mcp",
+            dependencies: ["SecondBrainCore"]
+        ),
+        .executableTarget(
+            name: "UnliRice",
             dependencies: ["SecondBrainCore"]
         ),
         .testTarget(

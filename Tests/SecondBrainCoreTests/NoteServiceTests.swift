@@ -92,6 +92,17 @@ final class NoteServiceTests: XCTestCase {
         XCTAssertEqual(pending.count, 0)
     }
 
+    func testResolveReviewRecordsOutcome() throws {
+        let a = try service.createNote(title: "A", body: "duplicate of B", source: "claude")
+        try service.flagForReview(id: a.id, reason: "possible duplicate of note B", source: "gemini")
+        let flagId = try service.pendingReviews().first!.flag.id
+
+        try service.resolveReview(id: a.id, flagId: flagId, source: "human", outcome: "rejected")
+
+        let resolveEvent = try service.transactionLog().first { $0.kind == .reviewResolved }
+        XCTAssertEqual(resolveEvent?.reason, "rejected")
+    }
+
     func testSearchNotesMatchesTitleBodyAndTags() throws {
         let note = try service.createNote(title: "Roof repair notes", body: "shingles and flashing", source: "claude")
         try service.tagNote(id: note.id, tag: "construction", source: "claude")

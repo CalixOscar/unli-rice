@@ -85,7 +85,8 @@ struct ToolDispatcher {
                 let note = try service.resolveReview(
                     id: try uuid(arguments, "id"),
                     flagId: try uuid(arguments, "flag_id"),
-                    source: try string(arguments, "source")
+                    source: try string(arguments, "source"),
+                    outcome: arguments["outcome"] as? String
                 )
                 payload = try JSONRPC.plain(note)
 

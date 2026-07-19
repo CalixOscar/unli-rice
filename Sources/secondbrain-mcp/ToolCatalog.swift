@@ -92,7 +92,8 @@ enum ToolCatalog {
             "inputSchema": schema([
                 "id": string("Note id (UUID)"),
                 "flag_id": string("The id of the flag being resolved"),
-                "source": string(sourceDescription)
+                "source": string(sourceDescription),
+                "outcome": string("Optional free-form outcome, e.g. \"accepted\" or \"rejected\" — for the human's own record, not enforced")
             ], required: ["id", "flag_id", "source"])
         ],
         [

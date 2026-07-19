@@ -78,9 +78,9 @@ public final class NoteService {
     }
 
     @discardableResult
-    public func resolveReview(id: UUID, flagId: UUID, source: String) throws -> Note {
+    public func resolveReview(id: UUID, flagId: UUID, source: String, outcome: String? = nil) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .reviewResolved, relatedEventId: flagId))
+        try store.append(Event(noteId: id, source: source, kind: .reviewResolved, reason: outcome, relatedEventId: flagId))
         return try require(id)
     }
 
