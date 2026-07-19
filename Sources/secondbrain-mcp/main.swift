@@ -1,0 +1,80 @@
+import Foundation
+import SecondBrainCore
+
+/// Data location: defaults to where a real macOS app would keep it, override
+/// with SECONDBRAIN_DATA_PATH (used by tests / local runs so they don't touch
+/// the real event log).
+func defaultDataFileURL() -> URL {
+    if let override = ProcessInfo.processInfo.environment["SECONDBRAIN_DATA_PATH"] {
+        return URL(fileURLWithPath: override)
+    }
+    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    return support.appendingPathComponent("SecondBrain", isDirectory: true).appendingPathComponent("events.jsonl")
+}
+
+func logToStderr(_ message: String) {
+    FileHandle.standardError.write((message + "\n").data(using: .utf8)!)
+}
+
+let dataURL = defaultDataFileURL()
+let store: EventStore
+do {
+    store = try EventStore(fileURL: dataURL)
+} catch {
+    logToStderr("secondbrain-mcp: failed to open event log at \(dataURL.path): \(error)")
+    exit(1)
+}
+let service = NoteService(store: store)
+let dispatcher = ToolDispatcher(service: service)
+
+logToStderr("secondbrain-mcp: ready, event log at \(dataURL.path)")
+
+// MCP stdio transport: one JSON-RPC 2.0 message per line on stdin, one per
+// line on stdout. Nothing else may ever be written to stdout — that would
+// corrupt the protocol stream, so all diagnostics go to stderr.
+while let line = readLine(strippingNewline: true) {
+    guard !line.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+    guard let message = JSONRPC.parseLine(line) else {
+        logToStderr("secondbrain-mcp: could not parse line: \(line)")
+        continue
+    }
+
+    let method = message["method"] as? String
+    let id = message["id"]
+    let params = message["params"] as? [String: Any] ?? [:]
+
+    switch method {
+    case "initialize":
+        JSONRPC.writeLine(JSONRPC.result(id: id, [
+            "protocolVersion": "2024-11-05",
+            "capabilities": ["tools": [:]],
+            "serverInfo": ["name": "secondbrain-mcp", "version": "0.1.0"]
+        ]))
+
+    case "notifications/initialized":
+        break // no response required for notifications
+
+    case "tools/list":
+        JSONRPC.writeLine(JSONRPC.result(id: id, ["tools": ToolCatalog.all]))
+
+    case "tools/call":
+        guard let toolName = params["name"] as? String else {
+            JSONRPC.writeLine(JSONRPC.error(id: id, code: -32602, message: "Missing tool name"))
+            continue
+        }
+        let arguments = params["arguments"] as? [String: Any] ?? [:]
+        let result = dispatcher.dispatch(name: toolName, arguments: arguments)
+        JSONRPC.writeLine(JSONRPC.result(id: id, result))
+
+    case "ping":
+        JSONRPC.writeLine(JSONRPC.result(id: id, [:]))
+
+    case .some(let other):
+        if id != nil {
+            JSONRPC.writeLine(JSONRPC.error(id: id, code: -32601, message: "Method not found: \(other)"))
+        }
+
+    case .none:
+        break
+    }
+}
