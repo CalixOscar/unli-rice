@@ -1,5 +1,5 @@
 import XCTest
-@testable import SecondBrainCore
+@testable import UnliRiceCore
 
 final class NoteServiceTests: XCTestCase {
     var tempURL: URL!
@@ -7,7 +7,7 @@ final class NoteServiceTests: XCTestCase {
 
     override func setUpWithError() throws {
         tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("secondbrain-tests-\(UUID().uuidString)")
+            .appendingPathComponent("unlirice-tests-\(UUID().uuidString)")
             .appendingPathComponent("events.jsonl")
         let store = try EventStore(fileURL: tempURL)
         service = NoteService(store: store)
@@ -116,6 +116,102 @@ final class NoteServiceTests: XCTestCase {
 
     func testNoteNotFoundThrows() throws {
         XCTAssertThrowsError(try service.appendToNote(id: UUID(), text: "x", source: "claude"))
+    }
+
+    // MARK: - Wiki-links
+
+    func testLinkResolvesToNoteCreatedLaterInTheLog() throws {
+        // The forward reference is the whole reason link resolution is a second
+        // pass — "Target" does not exist yet when "Source" is written.
+        let source = try service.createNote(title: "Source", body: "see [[Target]]", source: "human")
+        let target = try service.createNote(title: "Target", body: "the destination", source: "human")
+
+        let resolved = try service.getNote(id: source.id)!
+        XCTAssertEqual(resolved.outboundLinks, [target.id])
+        XCTAssertTrue(resolved.danglingLinks.isEmpty)
+    }
+
+    func testBacklinksAreBidirectional() throws {
+        let target = try service.createNote(title: "Hub", body: "central note", source: "human")
+        let a = try service.createNote(title: "A", body: "refs [[Hub]]", source: "human")
+        let b = try service.createNote(title: "B", body: "also refs [[hub]]", source: "human")
+
+        let hub = try service.getNote(id: target.id)!
+        XCTAssertEqual(hub.backlinks, [a.id, b.id])
+        XCTAssertTrue(hub.outboundLinks.isEmpty)
+    }
+
+    func testLinkResolvesByRawUUID() throws {
+        let target = try service.createNote(title: "Target", body: "x", source: "human")
+        let source = try service.createNote(title: "Source", body: "see [[\(target.id.uuidString)]]", source: "human")
+
+        XCTAssertEqual(try service.getNote(id: source.id)!.outboundLinks, [target.id])
+    }
+
+    func testUnresolvableLinkIsDanglingNotAnError() throws {
+        let note = try service.createNote(title: "Orphan", body: "points at [[Nothing At All]]", source: "human")
+
+        let projected = try service.getNote(id: note.id)!
+        XCTAssertTrue(projected.outboundLinks.isEmpty)
+        XCTAssertEqual(projected.danglingLinks, ["Nothing At All"])
+    }
+
+    func testMalformedLinkSyntaxIsIgnored() throws {
+        let note = try service.createNote(
+            title: "Messy",
+            body: "unterminated [[ and empty [[]] and [[Messy]] self-link",
+            source: "human"
+        )
+
+        let projected = try service.getNote(id: note.id)!
+        XCTAssertTrue(projected.outboundLinks.isEmpty, "a note linking to itself is not a relationship")
+        XCTAssertTrue(projected.danglingLinks.isEmpty)
+    }
+
+    func testLinksSurviveAppendAndTrackNewText() throws {
+        let target = try service.createNote(title: "Target", body: "x", source: "human")
+        let note = try service.createNote(title: "Grower", body: "nothing yet", source: "human")
+        XCTAssertTrue(try service.getNote(id: note.id)!.outboundLinks.isEmpty)
+
+        try service.appendToNote(id: note.id, text: "now it mentions [[Target]]", source: "claude")
+
+        XCTAssertEqual(try service.getNote(id: note.id)!.outboundLinks, [target.id])
+        XCTAssertEqual(try service.getNote(id: target.id)!.backlinks, [note.id])
+    }
+
+    // MARK: - Cross-process write safety
+
+    func testConcurrentAppendsFromMultipleStoresDoNotCorruptTheLog() throws {
+        // Simulates what happens once several MCP clients (Claude Code, Codex,
+        // Antigravity, ...) each run their own unlirice-mcp process against
+        // the same events.jsonl: independent EventStore instances, each with
+        // its own in-process queue, writing concurrently. `flock` — not the
+        // queue — is what has to keep this safe; this is a regression test for
+        // the old seek-then-write race that could interleave/corrupt lines.
+        let raceURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("unlirice-race-\(UUID().uuidString)")
+            .appendingPathComponent("events.jsonl")
+        defer { try? FileManager.default.removeItem(at: raceURL.deletingLastPathComponent()) }
+
+        let writers = 8
+        let eventsPerWriter = 25
+        let noteId = UUID()
+        let stores = try (0..<writers).map { _ in try EventStore(fileURL: raceURL) }
+
+        DispatchQueue.concurrentPerform(iterations: writers * eventsPerWriter) { i in
+            let store = stores[i % writers]
+            let event = Event(noteId: noteId, source: "writer-\(i % writers)", kind: .tagged, tag: "t\(i)")
+            try? store.append(event)
+        }
+
+        let expectedCount = writers * eventsPerWriter
+        let rawLineCount = try String(contentsOf: raceURL, encoding: .utf8)
+            .split(separator: "\n")
+            .count
+        XCTAssertEqual(rawLineCount, expectedCount, "no line should be dropped or merged with another")
+
+        let decoded = try EventStore(fileURL: raceURL).readAll()
+        XCTAssertEqual(decoded.count, expectedCount, "every line must still be valid, parseable JSON")
     }
 
     func testEventLogSurvivesReopenAndReprojectsIdentically() throws {

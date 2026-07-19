@@ -1,5 +1,5 @@
 import AppKit
-import SecondBrainCore
+import UnliRiceCore
 import SwiftUI
 
 @main

@@ -1,33 +1,24 @@
 import Foundation
-import SecondBrainCore
-
-/// Data location: defaults to where a real macOS app would keep it, override
-/// with SECONDBRAIN_DATA_PATH (used by tests / local runs so they don't touch
-/// the real event log).
-func defaultDataFileURL() -> URL {
-    if let override = ProcessInfo.processInfo.environment["SECONDBRAIN_DATA_PATH"] {
-        return URL(fileURLWithPath: override)
-    }
-    let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-    return support.appendingPathComponent("SecondBrain", isDirectory: true).appendingPathComponent("events.jsonl")
-}
+import UnliRiceCore
 
 func logToStderr(_ message: String) {
     FileHandle.standardError.write((message + "\n").data(using: .utf8)!)
 }
 
-let dataURL = defaultDataFileURL()
+// Shared with the GUI via DataLocation so both read and write the same log —
+// override with UNLIRICE_DATA_PATH for tests and smoke runs.
+let dataURL = DataLocation.eventLogURL()
 let store: EventStore
 do {
     store = try EventStore(fileURL: dataURL)
 } catch {
-    logToStderr("secondbrain-mcp: failed to open event log at \(dataURL.path): \(error)")
+    logToStderr("unlirice-mcp: failed to open event log at \(dataURL.path): \(error)")
     exit(1)
 }
 let service = NoteService(store: store)
 let dispatcher = ToolDispatcher(service: service)
 
-logToStderr("secondbrain-mcp: ready, event log at \(dataURL.path)")
+logToStderr("unlirice-mcp: ready, event log at \(dataURL.path)")
 
 // MCP stdio transport: one JSON-RPC 2.0 message per line on stdin, one per
 // line on stdout. Nothing else may ever be written to stdout — that would
@@ -35,7 +26,7 @@ logToStderr("secondbrain-mcp: ready, event log at \(dataURL.path)")
 while let line = readLine(strippingNewline: true) {
     guard !line.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
     guard let message = JSONRPC.parseLine(line) else {
-        logToStderr("secondbrain-mcp: could not parse line: \(line)")
+        logToStderr("unlirice-mcp: could not parse line: \(line)")
         continue
     }
 
@@ -48,7 +39,7 @@ while let line = readLine(strippingNewline: true) {
         JSONRPC.writeLine(JSONRPC.result(id: id, [
             "protocolVersion": "2024-11-05",
             "capabilities": ["tools": [:]],
-            "serverInfo": ["name": "secondbrain-mcp", "version": "0.1.0"]
+            "serverInfo": ["name": "unlirice-mcp", "version": "0.1.0"]
         ]))
 
     case "notifications/initialized":

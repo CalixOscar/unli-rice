@@ -84,6 +84,51 @@ public final class NoteService {
         return try require(id)
     }
 
+    /// Consolidates a group of near-duplicate notes into one: each `other`
+    /// note's content is appended onto `keepID` (nothing is lost — this is
+    /// exactly `appendToNote`, once per other note), each `other` note is
+    /// archived (soft and reversible via `unarchiveNote` — decision #2, never a
+    /// delete), and every flag in `flags` is marked resolved so the whole
+    /// group clears from the review queue together.
+    ///
+    /// This is the human-decides counterpart PROJECT_NOTES.md's decision #3
+    /// named as deferred: "resolving a flag is meant to happen after a human
+    /// decides — there's no UI for that yet." It is never called by
+    /// `JanitorRunner` or any agent — the janitor can only ever propose a
+    /// duplicate via `flagForReview`, and this method doesn't exist on that
+    /// path. It only runs from the GUI, once, when a person looks at the
+    /// specific notes and presses "Keep this one." Composed entirely from the
+    /// same three primitives above; nothing here reaches into `EventStore`
+    /// directly, so this file stays the only thing that writes.
+    @discardableResult
+    public func consolidateDuplicates(
+        keeping keepID: UUID,
+        archiving otherIDs: [UUID],
+        resolving flags: [(noteID: UUID, flagID: UUID)],
+        source: String
+    ) throws -> Note {
+        try requireExists(keepID)
+        let keeperTitle = try require(keepID).title
+
+        for otherID in otherIDs where otherID != keepID {
+            let other = try require(otherID)
+            if !other.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                try appendToNote(
+                    id: keepID,
+                    text: "Merged from \"\(other.title)\":\n\n\(other.body)",
+                    source: source
+                )
+            }
+            try archiveNote(id: otherID, reason: "consolidated into \"\(keeperTitle)\"", source: source)
+        }
+
+        for flag in flags {
+            try resolveReview(id: flag.noteID, flagId: flag.flagID, source: source, outcome: "consolidated")
+        }
+
+        return try require(keepID)
+    }
+
     public func getNote(id: UUID) throws -> Note? {
         try currentNotes()[id]
     }

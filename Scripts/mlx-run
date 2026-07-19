@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# Builds and runs a target that uses MLX.
+#
+# `swift build` cannot compile Metal shaders, so anything touching UnliRiceMLX
+# has to be built by xcodebuild instead — this is a documented mlx-swift
+# limitation, not something wrong with this package. A plain `swift run
+# janitor-calibrate` builds fine and then dies at runtime with "Failed to load
+# the default metallib".
+#
+# Everything that does NOT use MLX (the core, the tests, unlirice-mcp) still
+# builds and runs with plain `swift build` / `swift test` — that separation is
+# the whole reason UnliRiceMLX is its own target.
+#
+# Usage: Scripts/mlx-run [--debug|--release] <scheme> [args...]
+#
+# Adapted from the mlx-run script in ml-explore/mlx-swift-examples.
+
+set -e
+
+if [ "$#" -lt 1 ]; then
+	echo "usage: Scripts/mlx-run [--debug|--release] <scheme> [arguments]"
+	exit 1
+fi
+
+CONFIGURATION=Debug
+if [ "$1" = "--release" ]; then
+	CONFIGURATION=Release
+	shift
+elif [ "$1" = "--debug" ]; then
+	CONFIGURATION=Debug
+	shift
+fi
+
+SCHEME="$1"
+shift
+
+cd "$(dirname "$0")/.."
+
+# Pinned rather than left to Xcode's hashed DerivedData path, so the products
+# are findable without parsing `-showBuildSettings` (which prints nothing useful
+# for a package scheme).
+DERIVED=".build/xcode"
+
+xcodebuild -scheme "$SCHEME" -destination 'platform=OS X' -configuration "$CONFIGURATION" \
+	-derivedDataPath "$DERIVED" build >/dev/null
+
+BUILD_DIR="$DERIVED/Build/Products/$CONFIGURATION"
+
+if [ -d "$BUILD_DIR/$SCHEME.app" ]; then
+	exec "$BUILD_DIR/$SCHEME.app/Contents/MacOS/$SCHEME" "$@"
+fi
+
+if [ -f "$BUILD_DIR/$SCHEME" ]; then
+	export DYLD_FRAMEWORK_PATH="$BUILD_DIR/PackageFrameworks:$BUILD_DIR"
+	exec "$BUILD_DIR/$SCHEME" "$@"
+fi
+
+echo "$BUILD_DIR/$SCHEME does not exist -- check the configuration ($CONFIGURATION)"
+exit 1

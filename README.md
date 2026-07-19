@@ -1,4 +1,4 @@
-# Second Brain
+# Unli Rice
 
 A persistent memory layer for autonomous LLM agents (Claude, Gemini, ChatGPT,
 Kimi, coding assistants, local daemons), exposed over MCP. Multiple agents can
@@ -13,5 +13,5 @@ and what's deferred — read that first before making changes.
 ```sh
 swift build
 swift test
-swift run secondbrain-mcp
+swift run unlirice-mcp
 ```

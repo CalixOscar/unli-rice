@@ -78,6 +78,50 @@ public enum Projector {
             }
         }
 
+        resolveLinks(&notes)
         return notes
+    }
+
+    /// Second pass, run only once every note exists: a note can link to one
+    /// created later in the log, so `[[...]]` targets cannot be resolved inline
+    /// in the loop above.
+    ///
+    /// Targets match either a note's title (case-insensitively) or a bare UUID.
+    /// Title matching is sound here specifically because there is no `retitled`
+    /// event kind — a title is fixed at creation, so a link can't silently
+    /// re-point later. If that ever changes, this needs to change with it.
+    private static func resolveLinks(_ notes: inout [UUID: Note]) {
+        // Deterministic on duplicate titles: oldest note wins, ties broken by id,
+        // so projection never depends on dictionary ordering.
+        var idsByTitle: [String: UUID] = [:]
+        for note in notes.values.sorted(by: { ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString) }) {
+            let key = note.title.lowercased()
+            if idsByTitle[key] == nil { idsByTitle[key] = note.id }
+        }
+
+        for (id, note) in notes {
+            var outbound: Set<UUID> = []
+            var dangling: Set<String> = []
+
+            for target in WikiLink.targets(in: note.body) {
+                if let uuid = UUID(uuidString: target), notes[uuid] != nil {
+                    outbound.insert(uuid)
+                } else if let match = idsByTitle[target.lowercased()] {
+                    outbound.insert(match)
+                } else {
+                    dangling.insert(target)
+                }
+            }
+
+            outbound.remove(id) // a note citing itself isn't a relationship
+            notes[id]?.outboundLinks = outbound
+            notes[id]?.danglingLinks = dangling
+        }
+
+        for (id, note) in notes {
+            for target in note.outboundLinks {
+                notes[target]?.backlinks.insert(id)
+            }
+        }
     }
 }

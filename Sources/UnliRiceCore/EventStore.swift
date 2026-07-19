@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum EventStoreError: Error, CustomStringConvertible {
@@ -19,7 +20,7 @@ public enum EventStoreError: Error, CustomStringConvertible {
 /// reversible by construction. See PROJECT_NOTES.md.
 public final class EventStore: @unchecked Sendable {
     private let fileURL: URL
-    private let queue = DispatchQueue(label: "com.secondbrain.eventstore")
+    private let queue = DispatchQueue(label: "com.unlirice.eventstore")
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -38,14 +39,31 @@ public final class EventStore: @unchecked Sendable {
         self.decoder = dec
     }
 
+    /// Appends one line, holding an exclusive `flock` for the duration.
+    ///
+    /// This file is meant to be written by several independent MCP client
+    /// *processes* at once — Claude Code, Codex, Antigravity, or anything
+    /// else, each running its own copy of unlirice-mcp against the same
+    /// events.jsonl. The `queue` above only serializes writers within this
+    /// one process; it does nothing for a second process racing the same
+    /// file. `flock` is what actually stops two processes from both seeking
+    /// to the same end-of-file offset and interleaving their writes — a real
+    /// bug this method used to have (seekToEndOfFile + a bare FileHandle,
+    /// with no OS-level lock at all).
     public func append(_ event: Event) throws {
         try queue.sync {
-            let data = try encoder.encode(event)
-            let handle = try FileHandle(forWritingTo: fileURL)
-            defer { try? handle.close() }
-            handle.seekToEndOfFile()
-            handle.write(data)
-            handle.write("\n".data(using: .utf8)!)
+            var payload = try encoder.encode(event)
+            payload.append(UInt8(ascii: "\n"))
+
+            let fd = open(fileURL.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+            guard fd >= 0 else { throw EventStoreError.fileUnavailable }
+            defer { close(fd) }
+
+            guard flock(fd, LOCK_EX) == 0 else { throw EventStoreError.fileUnavailable }
+            defer { flock(fd, LOCK_UN) }
+
+            let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+            handle.write(payload)
         }
     }
 

@@ -1,5 +1,5 @@
 import Foundation
-import SecondBrainCore
+import UnliRiceCore
 
 enum ToolDispatchError: Error, CustomStringConvertible {
     case unknownTool(String)

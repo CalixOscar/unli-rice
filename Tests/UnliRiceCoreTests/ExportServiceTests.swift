@@ -1,5 +1,5 @@
 import XCTest
-@testable import SecondBrainCore
+@testable import UnliRiceCore
 
 final class ExportServiceTests: XCTestCase {
     var tempURL: URL!
@@ -8,7 +8,7 @@ final class ExportServiceTests: XCTestCase {
 
     override func setUpWithError() throws {
         workDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("secondbrain-export-tests-\(UUID().uuidString)")
+            .appendingPathComponent("unlirice-export-tests-\(UUID().uuidString)")
         tempURL = workDir.appendingPathComponent("events.jsonl")
         let store = try EventStore(fileURL: tempURL)
         service = NoteService(store: store)

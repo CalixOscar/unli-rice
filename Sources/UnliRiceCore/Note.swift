@@ -33,6 +33,16 @@ public struct Note: Codable, Sendable, Identifiable {
     public var archived: Bool
     public var flags: [ReviewFlag]
 
+    /// Notes this one points at via `[[...]]`, and notes pointing back at it.
+    /// Both are derived by `Projector` from body text on every projection — see
+    /// `WikiLink`. Nothing here is ever written to the event log.
+    public var outboundLinks: Set<UUID>
+    public var backlinks: Set<UUID>
+
+    /// `[[targets]]` in this note's body that match no existing note. Kept so the
+    /// UI can show a link as unresolved instead of silently dropping it.
+    public var danglingLinks: Set<String>
+
     public init(
         id: UUID,
         title: String,
@@ -42,7 +52,10 @@ public struct Note: Codable, Sendable, Identifiable {
         createdAt: Date,
         updatedAt: Date,
         archived: Bool = false,
-        flags: [ReviewFlag] = []
+        flags: [ReviewFlag] = [],
+        outboundLinks: Set<UUID> = [],
+        backlinks: Set<UUID> = [],
+        danglingLinks: Set<String> = []
     ) {
         self.id = id
         self.title = title
@@ -53,5 +66,8 @@ public struct Note: Codable, Sendable, Identifiable {
         self.updatedAt = updatedAt
         self.archived = archived
         self.flags = flags
+        self.outboundLinks = outboundLinks
+        self.backlinks = backlinks
+        self.danglingLinks = danglingLinks
     }
 }
