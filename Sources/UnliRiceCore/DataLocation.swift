@@ -17,12 +17,56 @@ public enum DataLocation {
     /// Resolves the event-log path, migrating a pre-rename log into place the
     /// first time if one exists.
     public static func eventLogURL() -> URL {
-        if let override = ProcessInfo.processInfo.environment["UNLIRICE_DATA_PATH"] {
+        eventLogURL(persistedFolderPath: nil)
+    }
+
+    /// As above, honouring a folder the user has pointed the app at.
+    ///
+    /// `persistedFolderPath` is passed in rather than read here so this stays
+    /// free of `UserDefaults` — `unlirice-mcp` links this same file and has no
+    /// business reading the GUI's preferences. The GUI supplies it; the server
+    /// gets its equivalent through `UNLIRICE_DATA_PATH`, which the Get Started
+    /// wizard writes into the MCP config block it generates.
+    public static func eventLogURL(persistedFolderPath: String?) -> URL {
+        let url = resolvedEventLogURL(
+            environment: ProcessInfo.processInfo.environment,
+            persistedFolderPath: persistedFolderPath
+        )
+        // Only the default location can inherit a pre-rename log. A user who
+        // has pointed the app somewhere else is asking for that corpus, not for
+        // an old one to be copied into it.
+        if url == defaultEventLogURL() {
+            migrateLegacyStoreIfNeeded(to: url)
+        }
+        return url
+    }
+
+    /// The precedence rule, as a pure function so it can be tested without
+    /// touching real defaults or the real environment.
+    ///
+    /// `UNLIRICE_DATA_PATH` wins over a persisted folder deliberately: it's what
+    /// tests and smoke runs use to stay off real data, and a persisted
+    /// preference silently overriding it would let a test write into whatever
+    /// vault the user last opened.
+    public static func resolvedEventLogURL(
+        environment: [String: String],
+        persistedFolderPath: String?,
+        defaultURL: URL? = nil
+    ) -> URL {
+        if let override = environment["UNLIRICE_DATA_PATH"], !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
-        let url = defaultEventLogURL()
-        migrateLegacyStoreIfNeeded(to: url)
-        return url
+        if let folder = persistedFolderPath, !folder.isEmpty {
+            return eventLogURL(inFolder: URL(fileURLWithPath: folder, isDirectory: true))
+        }
+        return defaultURL ?? defaultEventLogURL()
+    }
+
+    /// The log file inside a folder the user chose. One place decides the
+    /// filename so the GUI, the generated MCP config, and any future importer
+    /// can't disagree about it.
+    public static func eventLogURL(inFolder folder: URL) -> URL {
+        folder.appendingPathComponent("events.jsonl")
     }
 
     /// The path without the env override or the migration side-effect — for

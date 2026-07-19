@@ -5,15 +5,45 @@ struct ContentView: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            Divider()
-            mainColumn
-            Divider()
-            AutonomyPanel()
-                .frame(width: 260)
+        ZStack {
+            // Dark space background
+            Theme.background
+                .ignoresSafeArea()
+            
+            // Glowing neon background blobs
+            GeometryReader { geo in
+                ZStack {
+                    Circle()
+                        .fill(Theme.violet.opacity(0.18))
+                        .frame(width: 450, height: 450)
+                        .blur(radius: 90)
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                    
+                    Circle()
+                        .fill(Theme.accent.opacity(0.14))
+                        .frame(width: 350, height: 350)
+                        .blur(radius: 80)
+                        .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
+                    
+                    Circle()
+                        .fill(Theme.brass.opacity(0.12))
+                        .frame(width: 380, height: 380)
+                        .blur(radius: 95)
+                        .position(x: geo.size.width * 0.85, y: geo.size.height * 0.2)
+                }
+                .ignoresSafeArea()
+            }
+            
+            // Main structure
+            HStack(spacing: 0) {
+                sidebar
+                Divider().opacity(0.3)
+                mainColumn
+                Divider().opacity(0.3)
+                AutonomyPanel()
+                    .frame(width: 260)
+            }
         }
-        .background(Theme.background)
         .onAppear { store.reload() }
     }
 
@@ -31,9 +61,27 @@ struct ContentView: View {
             .padding(.top, 20)
             .padding(.bottom, 18)
 
-            sidebarRow("All Notes", active: store.selectedNoteID == nil && !store.showingArchived) {
+            sidebarRow(
+                "Get Started",
+                active: store.selectedNoteID == nil && store.showingGetStarted
+            ) {
+                store.selectNote(nil)
+                store.showGetStarted()
+            }
+            sidebarRow(
+                "All Notes",
+                active: store.selectedNoteID == nil && !store.showingArchived
+                    && !store.showingGraph && !store.showingGetStarted
+            ) {
                 store.selectNote(nil)
                 store.showAllNotes()
+            }
+            sidebarRow(
+                "Note Graph",
+                active: store.selectedNoteID == nil && store.showingGraph
+            ) {
+                store.selectNote(nil)
+                store.showGraph()
             }
             sidebarRow(
                 "Review Queue",
@@ -76,7 +124,8 @@ struct ContentView: View {
         }
         .frame(width: 190, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.panel)
+        .background(Color.black.opacity(0.18))
+        .background(.ultraThinMaterial)
     }
 
     private func sidebarRow(_ title: String, active: Bool = false, badge: Int? = nil, action: @escaping () -> Void) -> some View {
@@ -102,12 +151,18 @@ struct ContentView: View {
 
     private var mainColumn: some View {
         Group {
-            if let note = store.selectedNote {
+            // First, not last: this is the launch default on an empty corpus,
+            // and it should win over anything a stale selection might point at.
+            if store.showingGetStarted {
+                GetStartedWizardView()
+            } else if let note = store.selectedNote {
                 NoteDetailView(note: note)
             } else if store.showingAssistant {
                 AssistantView()
             } else if store.showingReviewQueue {
                 ReviewQueueView()
+            } else if store.showingGraph {
+                NoteGraphView()
             } else {
                 noteListColumn
             }
@@ -269,6 +324,345 @@ private struct ChatTurnView: View {
         .background(Theme.panel)
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Get Started — connecting an AI tool to these notes.
+///
+/// This used to interview the user with the local model. It was cut after a
+/// real run ended the interview one answer in and produced a setup prompt with
+/// nothing useful in it. Nothing in this view calls a model; every step is
+/// deterministic and instant.
+///
+/// The flow is three screens: choose Autopilot, pick at least one MCP client,
+/// see what happened. Requiring a client is the point — a note store nothing is
+/// connected to is exactly the state this feature exists to get someone out of.
+private struct GetStartedWizardView: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Get Started")
+                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Text(store.dataURL.deletingLastPathComponent().lastPathComponent)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Theme.inkDim)
+            }
+
+            switch store.setupStage {
+            case .start: startScreen
+            case .chooseTargets: targetPicker
+            case .results: resultsScreen
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Start
+
+    private var startScreen: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("""
+            Unli Rice is memory your AI tools share. Connect one and it can read \
+            what you've saved, and write back what's worth keeping next time.
+            """)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Theme.inkDim)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle(isOn: $store.autopilotEnabled) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Autopilot")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    Text("""
+                    Also saves a note telling your assistant to read these notes \
+                    at the start of every session and write back at the end. \
+                    Turn it off if you'd rather set your own conventions.
+                    """)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.inkDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .toggleStyle(.switch)
+            .tint(Theme.accent)
+            .padding(14)
+            .background(Theme.panel)
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+
+            HStack(spacing: 10) {
+                Button("Connect a tool") { store.beginTargetSelection() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(Color.white)
+                    .background(Theme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                Button("I already have notes in a folder…") { store.chooseExistingVault() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(Theme.ink)
+                    .background(Theme.panel)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            }
+
+            if let error = store.errorMessage {
+                Text(error)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.crit)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: - Target picker
+
+    private var targetPicker: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Which tools should reach these notes? Pick at least one.")
+                .font(.system(size: 12.5))
+                .foregroundStyle(Theme.inkDim)
+
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(store.availableTargets) { target in
+                        targetRow(target)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button("Connect") { store.connectSelectedTargets() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .foregroundStyle(Color.white)
+                    .background(store.canConnect ? Theme.accent : Theme.inkDim)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .disabled(!store.canConnect)
+
+                Button("Add another tool…") { store.addCustomTarget() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.inkDim)
+
+                Spacer()
+
+                Button("Back") { store.restartSetup() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.inkDim)
+            }
+        }
+    }
+
+    private func targetRow(_ target: MCPTarget) -> some View {
+        let selected = store.selectedTargetIDs.contains(target.id)
+        let needsFolder = selected && target.requiresProjectFolder
+            && store.targetProjectFolders[target.id] == nil
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Button(action: { store.toggleTarget(target) }) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: selected ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 13))
+                        .foregroundStyle(selected ? Theme.accent : Theme.inkDim)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(target.displayName)
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(Theme.ink)
+                        // Says what will be touched before the user agrees to it.
+                        Text(target.detail)
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundStyle(Theme.inkDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    if !target.supportsAutomaticWrite {
+                        Text("paste")
+                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .foregroundStyle(Theme.brass)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.brass, lineWidth: 1))
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            if selected, target.requiresProjectFolder {
+                HStack(spacing: 8) {
+                    Button(store.targetProjectFolders[target.id] == nil ? "Choose project folder…" : "Change…") {
+                        store.chooseProjectFolder(for: target)
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(Theme.ink)
+                    .background(Theme.panel)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(needsFolder ? Theme.brass : Theme.border, lineWidth: 1))
+
+                    if let folder = store.targetProjectFolders[target.id] {
+                        Text(folder.path)
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundStyle(Theme.emerald)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                    } else {
+                        Text("required — this tool keeps MCP servers per project")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Theme.brass)
+                    }
+                }
+                .padding(.leading, 23)
+            }
+        }
+        .padding(12)
+        .background(Theme.panel)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(selected ? Theme.accent.opacity(0.5) : Theme.border, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Results
+
+    private var resultsScreen: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if store.autopilotEnabled {
+                Text("Autopilot saved “\(Autopilot.noteTitleBase)” to your notes — your assistant will find it the first time it looks.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.emerald)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(store.connectionResults) { result in
+                        resultCard(result)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button("Go to my notes") {
+                    store.selectNote(nil)
+                    store.showAllNotes()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .foregroundStyle(Color.white)
+                .background(Theme.accent)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                Button("Connect another tool") { store.beginTargetSelection() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.inkDim)
+            }
+        }
+    }
+
+    private func resultCard(_ result: ConnectionResult) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(result.target.displayName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                statusBadge(result.status)
+            }
+
+            Text(result.configPath)
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(Theme.inkDim)
+                .fixedSize(horizontal: false, vertical: true)
+
+            switch result.status {
+            case .written(let backup):
+                if let backup {
+                    // Named explicitly: this app edited a file it didn't create,
+                    // and the user is entitled to know exactly how to undo it.
+                    Text("Your previous config was backed up to \(backup.lastPathComponent)")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.inkDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Restart \(result.target.displayName) for it to pick this up.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.inkDim)
+            case .alreadyCorrect:
+                Text("Already pointed here — nothing changed.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.inkDim)
+            case .pasteRequired(let reason):
+                Text(reason)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.brass)
+                    .fixedSize(horizontal: false, vertical: true)
+                snippetBlock(result.snippet)
+            }
+        }
+        .padding(14)
+        .background(Theme.panel)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+    }
+
+    private func statusBadge(_ status: ConnectionResult.Status) -> some View {
+        let (label, color): (String, Color) = {
+            switch status {
+            case .written: return ("connected", Theme.emerald)
+            case .alreadyCorrect: return ("already set", Theme.inkDim)
+            case .pasteRequired: return ("paste needed", Theme.brass)
+            }
+        }()
+        return Text(label)
+            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .foregroundStyle(color)
+            .overlay(RoundedRectangle(cornerRadius: 3).stroke(color, lineWidth: 1))
+    }
+
+    private func snippetBlock(_ snippet: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ScrollView {
+                Text(snippet)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Theme.ink)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(maxHeight: 200)
+            .background(Color.black.opacity(0.25))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+
+            Button("Copy to Clipboard") { store.copySnippet(snippet) }
+                .buttonStyle(.plain)
+                .font(.system(size: 11.5, weight: .medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .foregroundStyle(Color.white)
+                .background(Theme.accent)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
     }
 }
 
@@ -858,7 +1252,8 @@ private struct AutonomyPanel: View {
         }
         .padding(18)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.panel)
+        .background(Color.black.opacity(0.18))
+        .background(.ultraThinMaterial)
     }
 
     private func header(_ title: String) -> some View {

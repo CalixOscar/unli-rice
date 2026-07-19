@@ -36,6 +36,32 @@ final class AppStore: ObservableObject {
     @Published var showingArchived: Bool = false
     @Published var showingAssistant: Bool = false
     @Published var showingReviewQueue: Bool = false
+    @Published var showingGraph: Bool = false
+    @Published var showingGetStarted: Bool = false
+
+    // MARK: - Get Started / Autopilot (see AppStore+Autopilot.swift)
+
+    /// Which step of Get Started is on screen.
+    @Published var setupStage: SetupStage = .start
+
+    /// On by default. Governs only whether the house-rules note gets written —
+    /// connecting an MCP client is required either way, since an unconnected
+    /// note store is the problem this whole flow exists to solve.
+    @Published var autopilotEnabled: Bool = true
+
+    /// Targets the user has ticked, by `MCPTarget.id`.
+    @Published var selectedTargetIDs: Set<String> = []
+
+    /// Project folders for project-scoped targets (Claude Code, Antigravity),
+    /// keyed by target id. There is no correct folder to guess here — both
+    /// tools scope MCP servers per project.
+    @Published var targetProjectFolders: [String: URL] = [:]
+
+    /// Extra targets the user added by hand, for tools not in the catalog.
+    @Published var customTargets: [MCPTarget] = []
+
+    /// What happened for each target, once Connect has run.
+    @Published var connectionResults: [ConnectionResult] = []
 
     // MARK: - Janitor (see AppStore+Janitor.swift)
 
@@ -66,8 +92,23 @@ final class AppStore: ObservableObject {
 
     private static let autonomyKey = "unliRice.autonomyLevel"
     private static let onboardingSeededKey = "unliRice.didSeedOnboardingNotes"
-    let service: NoteService
-    let dataURL: URL
+
+    /// The folder the user pointed the app at, if they ever did. A plain path
+    /// is enough — this target ships no sandbox entitlement, so there's no
+    /// security-scoped bookmark to keep alive across launches.
+    static let dataFolderKey = "unliRice.dataFolderPath"
+
+    /// Set once the user has finished, skipped, or otherwise dealt with Get
+    /// Started. Without it, someone who generates a setup prompt but doesn't
+    /// write a note gets the wizard again on every launch — the same
+    /// resurfacing problem `Onboarding.seedIfNeeded`'s flag already solves for
+    /// the seeded guides.
+    private static let getStartedDoneKey = "unliRice.didCompleteGetStarted"
+
+    /// Reassigned by `switchDataFolder(to:)` — the whole point of the "I
+    /// already have a vault" path is that the corpus is not fixed at launch.
+    private(set) var service: NoteService
+    private(set) var dataURL: URL
 
     /// Every known note (active or archived) by id, refreshed on every `reload()`.
     /// Exists so the detail view can resolve a wiki-link's target — including one
@@ -101,12 +142,81 @@ final class AppStore: ObservableObject {
         }
 
         reload()
+
+        // Open on Get Started for someone who has nothing of their own yet —
+        // the seeded guides don't count, since they arrived without the user
+        // doing anything. Suppressed once they've dealt with the wizard, so
+        // generating a setup prompt and closing the app doesn't bring it back.
+        showingGetStarted = !hasUserAuthoredNotes
+            && !UserDefaults.standard.bool(forKey: Self.getStartedDoneKey)
+    }
+
+    /// Whether anything in this corpus was written by a person or an agent, as
+    /// opposed to arriving from `Onboarding.seedIfNeeded`.
+    var hasUserAuthoredNotes: Bool {
+        (notes + archivedNotes).contains { !$0.sources.isSubset(of: [Onboarding.source]) }
     }
 
     /// Same resolution as unlirice-mcp — both go through `DataLocation`, so the
     /// GUI and any connected agent are always reading and writing the same file.
+    /// A folder the user chose is honoured here; `UNLIRICE_DATA_PATH` still
+    /// outranks it, so tests and smoke runs can't be redirected into a real
+    /// vault by a stale preference.
     static func defaultDataFileURL() -> URL {
-        DataLocation.eventLogURL()
+        DataLocation.eventLogURL(
+            persistedFolderPath: UserDefaults.standard.string(forKey: dataFolderKey)
+        )
+    }
+
+    /// Points the app at a different folder's `events.jsonl` — the superuser
+    /// half of Get Started, for someone who already keeps a corpus somewhere.
+    ///
+    /// Opening a different corpus invalidates everything derived from the old
+    /// one, which is why the reset below is not optional: `mlxSimilarity` holds
+    /// a title-embedding cache, `chatHistory` and `clusterRecommendations` are
+    /// answers about notes that are no longer loaded, and a `selectedNoteID`
+    /// from the old corpus resolves to nothing. Leaving any of them in place
+    /// would have the window confidently describing a corpus it isn't showing.
+    /// Returns whether the switch happened. Callers need that as a return value
+    /// rather than inferring it from `errorMessage`, which may already be
+    /// carrying something unrelated from an earlier failure.
+    @discardableResult
+    func switchDataFolder(to folder: URL) -> Bool {
+        let url = DataLocation.eventLogURL(inFolder: folder)
+        do {
+            let store = try EventStore(fileURL: url)
+            service = NoteService(store: store)
+            dataURL = url
+            UserDefaults.standard.set(folder.path, forKey: Self.dataFolderKey)
+            resetCorpusScopedState()
+            reload()
+            statusMessage = "Now using \(folder.lastPathComponent) — \(notes.count) note\(notes.count == 1 ? "" : "s")."
+            return true
+        } catch {
+            errorMessage = "Couldn't open a note log in \(folder.path): \(error)"
+            return false
+        }
+    }
+
+    /// Drops everything that describes the *previous* corpus. `janitorChat`
+    /// deliberately survives: the loaded model isn't corpus-specific and costs
+    /// seconds to load again.
+    private func resetCorpusScopedState() {
+        mlxSimilarity = nil
+        similarityEngine = .tokenOverlap
+        chatHistory = []
+        clusterRecommendations = [:]
+        janitorPreview = []
+        janitorSummary = nil
+        selectedNoteID = nil
+        errorMessage = nil
+    }
+
+    /// Remembers that Get Started has been dealt with, so it stops opening by
+    /// itself. Called when the wizard produces a prompt or a vault is chosen —
+    /// not merely when the view is looked at.
+    func markGetStartedComplete() {
+        UserDefaults.standard.set(true, forKey: Self.getStartedDoneKey)
     }
 
     func reload() {
@@ -152,6 +262,8 @@ final class AppStore: ObservableObject {
         showingArchived = false
         showingAssistant = false
         showingReviewQueue = false
+        showingGraph = false
+        showingGetStarted = false
         visibleCount = 1
         statusMessage = "Showing: the single most recently updated note."
     }
@@ -160,6 +272,8 @@ final class AppStore: ObservableObject {
         showingArchived = false
         showingAssistant = false
         showingReviewQueue = false
+        showingGraph = false
+        showingGetStarted = false
         visibleCount = n
         statusMessage = "Showing: last \(n) updated notes."
     }
@@ -172,6 +286,8 @@ final class AppStore: ObservableObject {
         showingArchived = true
         showingAssistant = false
         showingReviewQueue = false
+        showingGraph = false
+        showingGetStarted = false
         visibleCount = 50
         statusMessage = archivedNotes.isEmpty
             ? "No archived notes."
@@ -184,6 +300,8 @@ final class AppStore: ObservableObject {
         showingArchived = false
         showingAssistant = true
         showingReviewQueue = false
+        showingGraph = false
+        showingGetStarted = false
         statusMessage = "Local assistant — advisory only. Nothing it says changes a note without your say."
     }
 
@@ -195,9 +313,20 @@ final class AppStore: ObservableObject {
         showingArchived = false
         showingAssistant = false
         showingReviewQueue = true
+        showingGraph = false
+        showingGetStarted = false
         statusMessage = pending.isEmpty
             ? "Nothing is waiting on you right now."
             : "\(pending.count) item\(pending.count == 1 ? "" : "s") waiting for your OK."
+    }
+
+    func showGraph() {
+        showingArchived = false
+        showingAssistant = false
+        showingReviewQueue = false
+        showingGraph = true
+        showingGetStarted = false
+        statusMessage = "Note Graph View — visualizing note connections."
     }
 
     func selectNote(_ id: UUID?) {
@@ -205,7 +334,21 @@ final class AppStore: ObservableObject {
         if id != nil {
             showingAssistant = false
             showingReviewQueue = false
+            showingGraph = false
+            showingGetStarted = false
         }
+    }
+
+    /// Get Started — see `AppStore+Autopilot.swift`. Stays reachable from the
+    /// sidebar forever, not just on an empty corpus: it's also how someone
+    /// connects a second AI tool later, which has nothing to do with being new.
+    func showGetStarted() {
+        showingArchived = false
+        showingAssistant = false
+        showingReviewQueue = false
+        showingGraph = false
+        showingGetStarted = true
+        statusMessage = "Get Started — connect an AI assistant to these notes."
     }
 
     @discardableResult

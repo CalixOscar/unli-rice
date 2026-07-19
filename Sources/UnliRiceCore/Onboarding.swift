@@ -57,7 +57,7 @@ public enum Onboarding {
     /// Distinct from `"human"` and from any connected agent's name, so these
     /// two notes are visibly the app's own voice in the transaction log, not
     /// something a person or an LLM wrote.
-    static let source = "unlirice"
+    public static let source = "unlirice"
 
     static let welcomeBody = """
     This is a note. Anything you write here — and anything an AI agent \

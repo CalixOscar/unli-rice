@@ -142,6 +142,7 @@ client config.
 
 ## MCP client registration (done)
 
+- **Google Antigravity**: project-scoped `.agents/mcp_config.json` at the repo root points to the Swift PM stdio command. Takes effect on session initialization.
 - **Claude Code**: project-scoped `.mcp.json` at the repo root points at
   `swift run --package-path <this dir> --quiet unlirice-mcp`. Takes effect
   next time a Claude Code session starts in this project folder — this
@@ -457,9 +458,7 @@ them, specifically so that editing the text after selecting a tag — which can
 make that tag stop being suggested — can't leave a stale selection silently
 attached to the saved note with no chip ever having shown it.
 
-**Deferred, not started:** the user asked for "some kind of animation to view
-the brain" once the rest of this is done — a visual/graph view of the note
-corpus. Noted here so it survives a session boundary; nothing built yet.
+**Completed (this session):** Added an interactive 2D graph/constellation view of the note corpus (Note Graph View) styled with liquid glass 3D spheres, glowing edge lines, zoom/pan gestures, legends, and a detail inspector.
 
 ## Onboarding (rename/MLX session)
 
@@ -484,6 +483,133 @@ agent connecting over MCP before any human has ever opened the window should
 never find two notes it didn't write. A `UserDefaults` flag makes it one-time —
 a user who archives both notes doesn't get them silently reinjected on the
 next launch.
+
+### Get Started: Autopilot (this session)
+
+The seeded guides above solve the janitor's cold start, not the user's. Someone
+opening this app with zero notes has nothing connected to it, and the whole
+pitch is "memory your AI tools share." `Sources/UnliRiceCore/Autopilot.swift`,
+`Sources/UnliRiceCore/MCP/`, `AppStore+Autopilot.swift` and
+`GetStartedWizardView` are the fix.
+
+**The first version of this used the local model to interview the user, and it
+was cut after one real run.** Qwen3-1.7B was asked to run a four-topic
+conversation (project, stack, tool, conventions) and emit `===FINISHED===` when
+done. On the first genuine test it emitted the marker after a single answer,
+producing a setup prompt with no stack, no tool and no conventions in it. That
+is not a prompt to iterate on — it is the third time this file has recorded the
+same conclusion about 1–3B models, after the similarity work and after the chat
+panel needed two independent workarounds. **Nothing in Get Started calls a model
+now.** Every step is deterministic, instant, and unit-tested.
+
+Three things the deleted version got wrong are worth remembering, because they
+are the kind of mistake that looks reasonable while you're making it:
+
+1. **A silent fallback made success and failure indistinguishable.** The
+   interview's `catch` generated the artifact anyway, so a model that never
+   loaded produced the same screen as one that finished properly — and left no
+   log either way. Debugging the real run meant checking a model cache
+   timestamp to infer what had happened.
+2. **UI framing text leaked into the deliverable.** The opening question
+   included its own hint ("A sentence or two… is plenty"), and the whole string
+   was stored as the label for the answer, so it came out embedded in the
+   pasted artifact.
+3. **A throwaway path got baked into a config.** The override was computed as
+   `dataURL != default`, which is true whenever `UNLIRICE_DATA_PATH` is set —
+   including for a one-off test run. `AppStore.mcpDataPathOverride` now reads
+   the *persisted* folder preference, which is the only signal meaning "the user
+   chose this."
+
+**The flow is three deterministic screens.** Start (Autopilot toggle, on by
+default), pick at least one MCP client, then per-target results. Requiring a
+client is the point — a note store nothing is connected to is the state this
+feature exists to get someone out of. Autopilot ON additionally writes the
+house-rules note (`Autopilot.noteBody`, `source: "unlirice"`): standing
+instructions addressed to the *assistant*, telling it to call `list_notes` at
+the start of a session and `append_to_note`/`create_note` at the end. That note
+is what closes the loop, because it's the first thing a connected tool finds
+when it looks.
+
+### Why MCP setup is a table, not one copy-paste block
+
+There is no single MCP config format. Verified against real files on this
+machine, not from memory:
+
+| Target | Path | Format |
+| --- | --- | --- |
+| Claude Code | `.mcp.json` (per project) | `mcpServers` JSON |
+| Claude Desktop | `~/Library/Application Support/Claude/claude_desktop_config.json` | `mcpServers` JSON |
+| Cursor | `~/.cursor/mcp.json` | `mcpServers` JSON |
+| Antigravity | `.agents/mcp_config.json` (per project) | `mcpServers` JSON |
+| Codex / ChatGPT | `~/.codex/config.toml` | TOML `[mcp_servers.x]` |
+
+Claude Code and Antigravity are **project-scoped**, so there is no correct path
+to guess — `configURL(projectFolder:)` returns nil until the user picks a
+folder, and that nil is what blocks the Connect button.
+
+Grok and OpenCode are deliberately **not** in the catalog. Their formats would
+have been written from memory, and a wrong format produces a config that
+silently never connects — worse than not listing the tool. `MCPTarget.custom`
+covers them: the user picks the config file, and the format is inferred from
+the extension.
+
+### The rules around writing someone else's config
+
+`MCPConfigWriter` is the only code in this app that edits a file the user owns
+and this app did not create. Three rules, none optional:
+
+1. **Never write a file we could not read.** If an existing config doesn't parse
+   as JSON, the write is refused *before* any backup or modification, and the
+   user gets the paste block instead. A config we can't parse is one we'd be
+   replacing wholesale — and the tool that config belongs to is very often the
+   tool they'd use to fix it.
+2. **Back up before changing anything**, timestamped, alongside the original.
+   A no-op merge writes nothing and backs up nothing, so re-running Get Started
+   doesn't churn the config or litter the directory.
+3. **Touch exactly one key.** A real `claude_desktop_config.json` carries
+   `coworkUserFilesPath` and `preferences` next to `mcpServers`, and
+   `mcpServers` itself holds other servers. All of it round-trips.
+
+**Codex TOML is paste-only, on purpose.** Writing TOML correctly means a
+dependency or a hand-rolled parser, and the file it would edit holds plugin
+tables and five other servers. The generated block was verified by a real TOML
+parser *and* by appending it to the actual `~/.codex/config.toml` — all six
+servers parse, none clobbered — but verifying output is not the same as safely
+rewriting someone's file in place, and the second is what an in-place edit
+would require.
+
+### Pointing the app at a different folder
+
+The "I already have notes" path needed a capability that didn't exist:
+`AppStore.service` and `dataURL` were `let`, resolved once, with the env var as
+the only way to move the corpus. Both are now `private(set) var` and
+`switchDataFolder(to:)` reopens the store against any folder, persisting the
+choice in `UserDefaults` (a plain path — this target ships no sandbox
+entitlement, so there's no security-scoped bookmark to keep alive).
+
+Two traps:
+
+- **Precedence is env → persisted folder → default**, and `UNLIRICE_DATA_PATH`
+  outranking the preference is deliberate: it's what tests and smoke runs use to
+  stay off real data, and a stale preference silently winning would let a test
+  write into whatever vault the user last opened. The rule lives in
+  `DataLocation.resolvedEventLogURL`, a pure function taking the environment and
+  persisted path as arguments. `DataLocation` still reads no `UserDefaults`
+  itself — `unlirice-mcp` links the same file and has no business reading the
+  GUI's preferences.
+- **Switching corpora invalidates everything derived from the old one.**
+  `resetCorpusScopedState()` clears `mlxSimilarity` (it holds a title-embedding
+  cache), `chatHistory`, `clusterRecommendations`, `janitorPreview` and
+  `selectedNoteID`. Leaving any would have the window confidently describing a
+  corpus it isn't showing. `janitorChat` deliberately survives — the model isn't
+  corpus-specific and costs seconds to reload.
+
+Package-path detection walks up from `Bundle.main.bundleURL` for `Package.swift`,
+which resolves because `Scripts/mlx-run` pins `-derivedDataPath .build/xcode`
+*inside* the repo. Verified against the real build output, which is a bare
+executable rather than a `.app`, so `bundleURL` is the containing directory — it
+resolves either way. Detection failing yields a visible placeholder rather than a
+confidently wrong path.
 
 ## The chat panel (rename/MLX session)
 
@@ -531,6 +657,14 @@ Worth knowing if this is touched again:
   An API-backed alternative was considered and explicitly not built — it would
   send note content off-device, a real change in posture for an app whose
   whole pitch is local memory.
+
+## UI Redesign: Liquid Glass & Note Graph (this session)
+
+We overhauled the application aesthetics to support a premium, fixed-dark **"liquid glass"** design system:
+- **Frosted Panels**: Left sidebar and right autonomy column use `.ultraThinMaterial` on top of translucent black backing.
+- **Neon Back-Gradients**: Large, heavily blurred gradient circles (Violet, Teal, Amber) glow from behind the windows to bleed through frosted panels.
+- **Glossy 3D Note Graph**: Rendered note nodes as glossy 3D spheres using offset radial specular highlights. Edges glow with custom multi-stroke lines (neon glow background + sharp neon core). Labels are centered inside legible semi-transparent capsules. Spaced physics values (repulsion: `-450.0`, spring rest length: `130.0`) prevent overlapping of nodes and text.
+- **Recenter & Zoom**: The graph view supports trackpad zoom, mouse wheel, panning drag on background, and custom node manipulation. Double-clicking any note node navigates directly to its standard detail pane.
 
 ## Deferred / explicitly not done yet, in rough priority order
 
@@ -582,4 +716,5 @@ Worth knowing if this is touched again:
   brain`). The user's home directory (`~`) separately has an unrelated, empty
   git repo at `~/.git` — not connected to this project, left untouched,
   don't let the two get confused.
-- No remote configured yet. No commits pushed anywhere.
+- Remote configured: origin is https://github.com/CalixOscar/unli-rice.git.
+- Active branch: feature/unli-rice-animation.
