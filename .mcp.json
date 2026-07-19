@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "secondbrain": {
+      "command": "swift",
+      "args": [
+        "run",
+        "--package-path",
+        "/Users/calmdownoscar/Documents/Projects/Second brain",
+        "--quiet",
+        "secondbrain-mcp"
+      ]
+    }
+  }
+}

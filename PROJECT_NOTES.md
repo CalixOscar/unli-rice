@@ -103,11 +103,29 @@ entry to that client's MCP server config pointing at the built binary, e.g.
 command). **Not yet done in this session** — nothing is registered with any
 client config.
 
+## MCP client registration (done)
+
+- **Claude Code**: project-scoped `.mcp.json` at the repo root points at
+  `swift run --package-path <this dir> --quiet secondbrain-mcp`. Takes effect
+  next time a Claude Code session starts in this project folder — this
+  session couldn't hot-load it into itself.
+- **Claude Desktop**: added a `secondbrain` entry to `mcpServers` in
+  `~/Library/Application Support/Claude/claude_desktop_config.json` (same
+  command). Verified via `jq diff` that no other keys in that file changed —
+  the existing `Roblox_Studio` server entry and all app preferences are
+  untouched. Takes effect after restarting Claude Desktop.
+- Both configs were smoke-tested by running the exact configured command
+  and sending a raw `initialize` request — responded correctly.
+- Data file is still the shared default (`~/Library/Application
+  Support/SecondBrain/events.jsonl` unless `SECONDBRAIN_DATA_PATH` is set),
+  so both clients read/write the same underlying notes.
+
 ## Deferred / explicitly not done yet, in rough priority order
 
-1. **Register the server with an actual MCP client** (Claude Code config,
-   Claude Desktop config, etc.) and confirm a real agent can call the tools
-   end-to-end, not just raw stdio smoke tests.
+1. ~~Register the server with an actual MCP client~~ — done, see above.
+   Still TODO: actually drive it from within a live Claude Code/Desktop
+   session (ask it to create/search notes in conversation) to confirm the
+   full loop works, not just the raw protocol handshake.
 2. **Swap the hand-rolled JSON-RPC layer for the official MCP Swift SDK**,
    once dependency resolution is confirmed reliable — hand-rolled was chosen
    for this MVP to avoid dependency-resolution risk while getting something
