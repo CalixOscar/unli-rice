@@ -39,10 +39,16 @@ struct AutomationView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    AutonomyCard()
-                    ScheduleCard()
-                    JanitorCard()
-                    IngestCard()
+                    AdvancedModeToggleCard()
+
+                    if store.advancedModeEnabled {
+                        AutonomyCard()
+                        ScheduleCard()
+                        JanitorCard()
+                        IngestCard()
+                    } else {
+                        SimpleScanRootsCard()
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -57,25 +63,47 @@ struct AutomationView: View {
 private struct Card<Content: View>: View {
     let title: String
     let subtitle: String
+    let icon: String
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title.uppercased())
-                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
-                Text(subtitle)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title.uppercased())
+                        .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Theme.ink)
+                    Text(subtitle)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                }
             }
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.panel.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+        .background(
+            LinearGradient(
+                colors: [Color.white.opacity(0.06), Color.white.opacity(0.01)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
     }
 }
 
@@ -92,7 +120,8 @@ private struct AutonomyCard: View {
     var body: some View {
         Card(
             title: "Agent autonomy",
-            subtitle: "How eagerly the janitor acts. Read by the background agent too, not just this window."
+            subtitle: "How eagerly the janitor acts. Read by the background agent too, not just this window.",
+            icon: "slider.horizontal.3"
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 Slider(value: Binding(
@@ -135,7 +164,8 @@ private struct ScheduleCard: View {
     var body: some View {
         Card(
             title: "Schedule",
-            subtitle: "Both off by default, and they stay that way until you say otherwise — this app reads your own files, which is not something to start doing because an update shipped."
+            subtitle: "Both off by default, and they stay that way until you say otherwise — this app reads your own files, which is not something to start doing because an update shipped.",
+            icon: "calendar.badge.clock"
         ) {
             VStack(alignment: .leading, spacing: 14) {
                 toggleRow(
@@ -222,7 +252,8 @@ private struct JanitorCard: View {
     var body: some View {
         Card(
             title: "Janitor",
-            subtitle: "Tidies what's already here. With the schedule off, these two buttons are the only way it ever runs."
+            subtitle: "Tidies what's already here. With the schedule off, these two buttons are the only way it ever runs.",
+            icon: "wand.and.stars"
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -338,7 +369,8 @@ private struct IngestCard: View {
     var body: some View {
         Card(
             title: "Data pipelines",
-            subtitle: "What fills the store, as opposed to what tidies it. Reads your Claude Code sessions and any folder you add."
+            subtitle: "What fills the store, as opposed to what tidies it. Reads your Claude Code sessions and any folder you add.",
+            icon: "doc.on.doc.fill"
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
@@ -359,9 +391,33 @@ private struct IngestCard: View {
                 }
                 .disabled(store.ingestBusy)
 
-                Text("Claude Code sessions" + (store.scanRoots.isEmpty ? "" : " · \(store.scanRoots.count) folder\(store.scanRoots.count == 1 ? "" : "s")"))
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim.opacity(0.85))
+                // Both pipelines are named, including the one that isn't
+                // running. `Pipelines.standard` drops LocalFileImporter
+                // entirely when no folder is nominated — correct behaviour, but
+                // the UI used to render that as silence, so a vault full of
+                // notes simply never appeared and nothing on screen said why.
+                VStack(alignment: .leading, spacing: 3) {
+                    Label("Claude Code sessions", systemImage: "checkmark.circle")
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.emerald)
+
+                    if store.scanRoots.isEmpty {
+                        Label(
+                            "Local documents — off. No folders added, so nothing on disk is read.",
+                            systemImage: "exclamationmark.circle"
+                        )
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.brass)
+                        .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Label(
+                            "Local documents — \(store.scanRoots.count) folder\(store.scanRoots.count == 1 ? "" : "s"), searched recursively",
+                            systemImage: "checkmark.circle"
+                        )
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.emerald)
+                    }
+                }
 
                 ForEach(store.scanRoots, id: \.self) { root in
                     HStack(spacing: 8) {
@@ -416,5 +472,80 @@ private struct IngestCard: View {
             .padding(.vertical, 5)
             .foregroundStyle(color)
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+    }
+}
+
+private struct AdvancedModeToggleCard: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        Card(
+            title: "Advanced Features",
+            subtitle: "Show background daemon configurations, janitorial autonomy levels, and detailed raw previews.",
+            icon: "gearshape.2.fill"
+        ) {
+            HStack {
+                Text("Enable Advanced Mode")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Toggle("", isOn: $store.advancedModeEnabled)
+                    .toggleStyle(.switch)
+            }
+        }
+    }
+}
+
+private struct SimpleScanRootsCard: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        Card(
+            title: "Import Folders",
+            subtitle: "Choose folders containing text files. Markdown and text files in these folders are automatically imported as notes.",
+            icon: "folder.badge.plus"
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("NOMINATED FOLDERS")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(Theme.inkDim)
+                    Spacer()
+                    Button("+ Add Folder") { store.chooseScanRoot() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Theme.accent)
+                }
+
+                if store.scanRoots.isEmpty {
+                    Text("No folders added yet. Click '+ Add Folder' to begin importing documents.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .padding(.vertical, 4)
+                } else {
+                    ForEach(store.scanRoots, id: \.self) { root in
+                        HStack(spacing: 8) {
+                            Text(root.path)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Theme.inkDim)
+                                .lineLimit(1)
+                                .truncationMode(.head)
+                            Spacer()
+                            Button("remove") { store.removeScanRoot(root) }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(Theme.inkDim.opacity(0.7))
+                        }
+                    }
+                }
+
+                if let summary = store.ingestSummary {
+                    Text(summary)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.inkDim)
+                        .padding(.top, 4)
+                }
+            }
+        }
     }
 }

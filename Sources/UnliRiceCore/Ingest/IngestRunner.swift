@@ -39,7 +39,7 @@ public struct IngestConfig: Sendable {
     /// deterministic, so the next run finds them again.
     public var noteBudget: Int
 
-    public init(noteBudget: Int = 40) {
+    public init(noteBudget: Int = 10000) {
         self.noteBudget = noteBudget
     }
 }

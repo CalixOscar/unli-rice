@@ -180,6 +180,18 @@ struct NoteGraphView: View {
                             if draggedNodeID == nil {
                                 accumulatedPan = pan
                             } else {
+                                let start = value.startLocation
+                                let end = value.location
+                                let dx = start.x - end.x
+                                let dy = start.y - end.y
+                                let dist = sqrt(dx*dx + dy*dy)
+                                if dist < 5.0, let clickedNodeID = draggedNodeID {
+                                    if selectedNodeID == clickedNodeID {
+                                        store.selectNote(clickedNodeID)
+                                    } else {
+                                        selectedNodeID = clickedNodeID
+                                    }
+                                }
                                 draggedNodeID = nil
                             }
                         }
@@ -213,7 +225,13 @@ struct NoteGraphView: View {
                     HStack(alignment: .top) {
                         groupLegend
                         Spacer()
-                        controlsPanel(viewport: geometry.size)
+                        VStack(alignment: .trailing, spacing: 6) {
+                            controlsPanel(viewport: geometry.size)
+                            Text("💡 Tip: Click selected node again to open note. Drag to move.")
+                                .font(.system(size: 9.5, design: .monospaced))
+                                .foregroundStyle(Theme.inkDim.opacity(0.85))
+                                .padding(.trailing, 8)
+                        }
                     }
                     .padding(16)
                     

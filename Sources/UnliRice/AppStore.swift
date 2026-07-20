@@ -182,6 +182,13 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Whether advanced settings and panes are shown in the GUI.
+    @Published var advancedModeEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(advancedModeEnabled, forKey: Self.advancedModeKey)
+        }
+    }
+
     private static let autonomyKey = "unliRice.autonomyLevel"
     static let scanRootsKey = "unliRice.scanRoots"
     static let embeddingServerKey = "unliRice.embeddingServer"
@@ -189,6 +196,7 @@ final class AppStore: ObservableObject {
     static let routinesEnabledKey = "unliRice.routinesEnabled"
     static let monthlyReviewKey = "unliRice.monthlyReviewEnabled"
     static let houseRulesKey = "unliRice.houseRulesText"
+    static let advancedModeKey = "unliRice.advancedModeEnabled"
     /// Where last-run stamps *used* to live. They're in `RoutineState` beside
     /// the event log now, because `unlirice-agent` runs the same routines and a
     /// stamp only this process could see would let the same 09:00 slot be served
@@ -232,6 +240,7 @@ final class AppStore: ObservableObject {
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
         routinesEnabled = UserDefaults.standard.bool(forKey: AppStore.routinesEnabledKey)
         monthlyReviewEnabled = UserDefaults.standard.object(forKey: AppStore.monthlyReviewKey) as? Bool ?? true
+        advancedModeEnabled = UserDefaults.standard.bool(forKey: AppStore.advancedModeKey)
         embeddingServerPath = UserDefaults.standard.string(forKey: AppStore.embeddingServerKey) ?? ""
         embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
         houseRulesText = UserDefaults.standard.string(forKey: AppStore.houseRulesKey) ?? Autopilot.noteBody
@@ -317,8 +326,29 @@ final class AppStore: ObservableObject {
     /// Returns whether the switch happened. Callers need that as a return value
     /// rather than inferring it from `errorMessage`, which may already be
     /// carrying something unrelated from an earlier failure.
+    /// Whether the app is reading its default location rather than a folder the
+    /// user nominated. Drives the "Use the default location" affordance, which
+    /// exists because this preference used to be one-way: it could be set from
+    /// the UI and never cleared, so a wrong folder was unrecoverable without
+    /// editing defaults by hand.
+    var usingDefaultDataFolder: Bool {
+        (UserDefaults.standard.string(forKey: Self.dataFolderKey) ?? "").isEmpty
+    }
+
+    /// Points the app back at `~/Library/Application Support/Unli Rice`.
+    func useDefaultDataFolder() {
+        UserDefaults.standard.removeObject(forKey: Self.dataFolderKey)
+        _ = switchDataFolder(
+            to: DataLocation.defaultEventLogURL().deletingLastPathComponent(),
+            persist: false
+        )
+    }
+
+    /// - Parameter persist: whether to remember this folder for next launch.
+    ///   False only for `useDefaultDataFolder`, which wants the preference
+    ///   *absent* rather than set to the default path.
     @discardableResult
-    func switchDataFolder(to folder: URL) -> Bool {
+    func switchDataFolder(to folder: URL, persist: Bool = true) -> Bool {
         let url = DataLocation.eventLogURL(inFolder: folder)
         do {
             let store = try EventStore(fileURL: url)
@@ -327,11 +357,20 @@ final class AppStore: ObservableObject {
             let driver = RoutineDriver(service: service, eventLogURL: url)
             routineDriver = driver
             noticeStore = driver.noticeStore
-            UserDefaults.standard.set(folder.path, forKey: Self.dataFolderKey)
+            if persist {
+                UserDefaults.standard.set(folder.path, forKey: Self.dataFolderKey)
+            }
             syncAgentSettings()
             resetCorpusScopedState()
+            // Also clears the search box and any "last 5" narrowing. A filter
+            // carried across a corpus switch describes the corpus you just
+            // left, and an empty result would read as "the folder is empty".
+            searchText = ""
+            visibleCount = max(visibleCount, 5)
             reload()
-            statusMessage = "Now using \(folder.lastPathComponent) — \(notes.count) note\(notes.count == 1 ? "" : "s")."
+            statusMessage = notes.isEmpty
+                ? "Now using \(folder.lastPathComponent) — it's empty. Your other notes are still where you left them."
+                : "Now using \(folder.lastPathComponent) — \(notes.count) note\(notes.count == 1 ? "" : "s")."
             return true
         } catch {
             errorMessage = "Couldn't open a note log in \(folder.path): \(error)"

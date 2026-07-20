@@ -92,9 +92,82 @@ extension AppStore {
         addScanRoot(folder)
     }
 
+    /// Any folder is allowed — Documents, Desktop, a vault, one project. The
+    /// only thing enforced is that roots don't nest inside one another; see
+    /// `ScanRoots` for why that matters more than it looks.
     func addScanRoot(_ folder: URL) {
-        guard !scanRoots.contains(folder) else { return }
-        scanRoots.append(folder)
+        let change = ScanRoots.adding(folder, to: scanRoots)
+
+        guard change.didChange else {
+            statusMessage = """
+            \(folder.lastPathComponent) is already covered by \
+            \(change.alreadyCoveredBy?.lastPathComponent ?? "an existing folder") — \
+            folders are searched all the way down.
+            """
+            return
+        }
+
+        scanRoots = change.roots
+        let baseStatus = change.removed.isEmpty
+            ? "Indexing \(folder.lastPathComponent)."
+            : """
+            Indexing \(folder.lastPathComponent) — it contains \
+            \(change.removed.map(\.lastPathComponent).joined(separator: ", ")), \
+            so \(change.removed.count == 1 ? "that folder is" : "those folders are") \
+            no longer listed separately.
+            """
+
+        statusMessage = baseStatus
+
+        // Automatic preview & prompt to import notes immediately
+        let importer = LocalFileImporter(
+            roots: [folder],
+            maximumDepth: 20,
+            maximumFilesPerRoot: 10000,
+            minimumBytes: 0
+        )
+
+        do {
+            let discovered = try importer.discover()
+            guard !discovered.isEmpty else {
+                statusMessage = "\(baseStatus) No importable prose documents found."
+                return
+            }
+
+            let count = discovered.count
+            let alert = NSAlert()
+
+            if count > 50 {
+                alert.alertStyle = .warning
+                alert.messageText = "Import \(count) notes from “\(folder.lastPathComponent)”?"
+                alert.informativeText = """
+                Unli Rice found \(count) prose documents in this folder.
+
+                Warning: Importing this many files will write many entries to your permanent, append-only event log.
+
+                Are you sure you want to proceed?
+                """
+                alert.addButton(withTitle: "Import Anyway")
+                alert.addButton(withTitle: "Cancel")
+            } else {
+                alert.alertStyle = .informational
+                alert.messageText = "Import \(count) note\(count == 1 ? "" : "s") from “\(folder.lastPathComponent)”?"
+                alert.informativeText = "Unli Rice found \(count) prose document\(count == 1 ? "" : "s") ready to be imported."
+                alert.addButton(withTitle: "Import")
+                alert.addButton(withTitle: "Cancel")
+            }
+
+            if alert.runModal() == .alertFirstButtonReturn {
+                let runner = IngestRunner(service: service, rawStore: rawStore)
+                let report = try runner.run(importer: importer)
+                reload()
+                statusMessage = report.summary
+            } else {
+                statusMessage = "\(baseStatus) Automatic import cancelled. Folder added to scan roots."
+            }
+        } catch {
+            errorMessage = "Failed to preview \(folder.lastPathComponent): \(error)"
+        }
     }
 
     func removeScanRoot(_ folder: URL) {

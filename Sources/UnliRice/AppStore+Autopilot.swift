@@ -237,13 +237,51 @@ extension AppStore {
     /// to navigate to afterwards.
     func chooseExistingVault() {
         let panel = NSOpenPanel()
-        panel.title = "Choose the folder holding your notes"
-        panel.message = "Pick a folder containing events.jsonl — or an empty folder to start one there."
+        panel.title = "Switch to a different note store"
+        panel.message = """
+        Pick a folder containing an events.jsonl written by Unli Rice. \
+        This replaces which notes the app shows — it is NOT how you add a folder \
+        of documents to index; that lives under Automation → Data pipelines.
+        """
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.prompt = "Use This Folder"
         guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        // The bug this guards against, seen for real: pick any folder — a
+        // projects directory, the repo itself — and `EventStore.init` creates
+        // `events.jsonl` there because that's what it does when the file is
+        // missing. The app then showed an entirely empty store with no
+        // explanation, and picking a *different* wrong folder to "go back"
+        // simply made a second empty one. The notes were never touched; there
+        // was just nothing on screen saying where they'd gone.
+        //
+        // So: starting an empty store is still allowed, but it has to be asked
+        // for, and the alert names the path the current notes are actually at.
+        let candidate = DataLocation.eventLogURL(inFolder: folder)
+        if !FileManager.default.fileExists(atPath: candidate.path) {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "“\(folder.lastPathComponent)” has no notes in it."
+            alert.informativeText = """
+            There's no events.jsonl in \(folder.path), so continuing gives you an \
+            empty app: a brand-new store starts there and your \
+            \(notes.count + archivedNotes.count) existing notes stop being shown.
+
+            They are not moved, changed, or deleted — they stay at \(dataURL.path), \
+            and “Use the default location” brings them back.
+
+            If you meant to index the documents in this folder, cancel and use \
+            Automation → Data pipelines → Add a folder to index instead.
+            """
+            // Cancel is the default button: the overwhelmingly likely reason to
+            // be here with an empty folder is having wanted the other feature.
+            alert.addButton(withTitle: "Cancel")
+            alert.addButton(withTitle: "Start an Empty Store")
+            // Second, not first — Cancel is now the default button above.
+            guard alert.runModal() == .alertSecondButtonReturn else { return }
+        }
 
         guard switchDataFolder(to: folder) else { return }
         connectionResults = []

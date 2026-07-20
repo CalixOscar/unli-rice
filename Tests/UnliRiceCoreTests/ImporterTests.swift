@@ -224,12 +224,54 @@ final class LocalFileImporterTests: XCTestCase {
         XCTAssertEqual(found.count, 1, "found: \(found.map(\.title))")
     }
 
+    /// The case `skippedDirectories` structurally cannot cover: a folder that is
+    /// junk by *meaning* rather than by name.
+    func testSkipsDirectoriesCarryingTheIgnoreMarker() throws {
+        try write("docs/real.md", prose)
+        try write("_Archive/retired-system/notes.md", prose)
+        try write("_Archive/\(LocalFileImporter.ignoreMarkerFilename)", "retired 2026-07-20")
+
+        let found = try LocalFileImporter(roots: [root]).discover()
+        XCTAssertEqual(found.count, 1, "found: \(found.map(\.title))")
+        XCTAssertTrue(try XCTUnwrap(found.first).title.hasSuffix("docs/real.md"))
+    }
+
+    /// The enumerator yields a root's contents but never the root itself, so
+    /// this is the one placement that a naive implementation silently ignores.
+    func testMarkerInTheNominatedRootSuppressesTheWholeRoot() throws {
+        try write("docs/real.md", prose)
+        try write(LocalFileImporter.ignoreMarkerFilename, "not this folder")
+
+        XCTAssertEqual(try LocalFileImporter(roots: [root]).discover().count, 0)
+    }
+
+    /// The marker only ever suppresses — it must not be able to widen the walk.
+    func testMarkerDoesNotRescueAnAlreadySkippedDirectory() throws {
+        try write("node_modules/pkg/README.md", prose)
+        try write("node_modules/\(LocalFileImporter.ignoreMarkerFilename)", "")
+
+        XCTAssertEqual(try LocalFileImporter(roots: [root]).discover().count, 0)
+    }
+
     func testSkipsFilesBelowTheSizeFloor() throws {
         try write("docs/stub.md", "tiny")
         try write("docs/real.md", prose)
 
         let found = try LocalFileImporter(roots: [root]).discover()
         XCTAssertEqual(found.count, 1)
+    }
+
+    func testSkipsFilesAboveTheSizeCeiling() throws {
+        try write("docs/huge.md", String(repeating: "Large file. ", count: 200)) // 2400 bytes
+        try write("docs/real.md", prose) // ~380 bytes
+
+        let found = try LocalFileImporter(
+            roots: [root],
+            maximumBytes: 1000
+        ).discover()
+
+        XCTAssertEqual(found.count, 1)
+        XCTAssertTrue(try XCTUnwrap(found.first).title.hasSuffix("docs/real.md"))
     }
 
     /// A nominated folder is usually a folder *of projects*, and the

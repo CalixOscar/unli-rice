@@ -15,9 +15,34 @@ here.
 
 ## Before you start
 
-Call `search_notes` or `list_notes` first, not just at the end of a session.
-Another agent may have already written the note you're about to duplicate,
-or left a decision you need to know about before touching related code.
+Read the note titled **`Wiki: index`** first — not `list_notes`. It is the top of
+the wiki layer and it exists precisely so you don't have to list a corpus of a few
+hundred index entries to find the four that matter.
+
+Then call `search_notes` for your specific topic. Another agent may have already
+written the note you're about to duplicate, or left a decision you need to know
+about before touching related code.
+
+## The wiki layer
+
+Three layers, and knowing which one you're holding is most of using this well:
+
+1. **`raw/`** — verbatim copies of ingested files and session transcripts, next to
+   `events.jsonl`. Hundreds of them. Nothing reads these by default.
+2. **Index entries** — the `Session:` and `Doc:` notes written by `ingest`, one per
+   raw file. Machine-built descriptions, *not* conclusions (see below).
+3. **Wiki hubs** — notes titled `Wiki: <topic>` and tagged `wiki`, written by a
+   reasoning agent. Each says what exists for a topic and where the authority
+   actually is. `Wiki: index` links to all of them.
+
+The hubs are the only layer with judgement in them, which is exactly why they're
+the layer that rots. **If you add something substantial, update the relevant hub in
+the same session.** Don't leave it for a routine — a hub that has drifted from the
+corpus is worse than no hub, because it gets trusted. Equally: if a hub has stopped
+earning its place, archive it. The system serves you, not the reverse.
+
+A hub is a table of contents, not an essay. If you're writing a third paragraph of
+reasoning into one, that reasoning wants to be its own note that the hub links to.
 
 ## Identify yourself consistently
 

@@ -15,7 +15,12 @@ public enum Pipelines {
     public static func standard(scanRoots: [URL]) -> [ResourceImporter] {
         var pipelines: [ResourceImporter] = [ClaudeSessionImporter()]
         if !scanRoots.isEmpty {
-            pipelines.append(LocalFileImporter(roots: scanRoots))
+            pipelines.append(LocalFileImporter(
+                roots: scanRoots,
+                maximumDepth: 20,
+                maximumFilesPerRoot: 10000,
+                minimumBytes: 0
+            ))
         }
         return pipelines
     }

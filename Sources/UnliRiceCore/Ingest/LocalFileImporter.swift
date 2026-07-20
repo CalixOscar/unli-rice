@@ -29,11 +29,30 @@ public struct LocalFileImporter: ResourceImporter {
         "dist", "build", "target", "Carthage", ".terraform", "site-packages"
     ]
 
+    /// Drop a file with this name into a folder and the walk skips that folder
+    /// and everything under it.
+    ///
+    /// `skippedDirectories` can only ever cover directories that are junk *by
+    /// name*, which is a fine rule for `node_modules` and a useless one for
+    /// "this is my archive of a system I retired". That case is about meaning,
+    /// not naming, and only the person who retired it knows. The alternatives
+    /// were worse: a settings list of excluded paths is invisible from the
+    /// folder it governs and rots the moment anything is renamed, and hiding a
+    /// folder with a leading dot to exploit `skipsHiddenFiles` hides it from the
+    /// user in Finder too, which is a real cost paid to a side effect.
+    ///
+    /// A marker file travels with the folder, survives renames and moves, is
+    /// discoverable by anyone who opens the folder, and is removed by deleting
+    /// it. The contents are never read — its presence is the whole signal — so
+    /// it is a good place to write down why.
+    public static let ignoreMarkerFilename = ".unliriceignore"
+
     private let roots: [URL]
     private let extensions: Set<String>
     private let maximumDepth: Int
     private let maximumFilesPerRoot: Int
     private let minimumBytes: Int
+    private let maximumBytes: Int
     private let fileManager: FileManager
 
     public init(
@@ -42,6 +61,7 @@ public struct LocalFileImporter: ResourceImporter {
         maximumDepth: Int = 6,
         maximumFilesPerRoot: Int = 300,
         minimumBytes: Int = 200,
+        maximumBytes: Int = 5 * 1024 * 1024,
         fileManager: FileManager = .default
     ) {
         self.roots = roots
@@ -49,18 +69,41 @@ public struct LocalFileImporter: ResourceImporter {
         self.maximumDepth = maximumDepth
         self.maximumFilesPerRoot = maximumFilesPerRoot
         self.minimumBytes = minimumBytes
+        self.maximumBytes = maximumBytes
         self.fileManager = fileManager
     }
 
     public func discover() throws -> [DiscoveredResource] {
         var found: [DiscoveredResource] = []
+        // One resource per file, even if two roots reach it. `ScanRoots` keeps
+        // the nominated folders non-overlapping, but a symlink can still lead
+        // two unrelated roots to the same file, and `disambiguate` below would
+        // read that as a name collision and brand the file with a permanent
+        // hash suffix. Path is already this resource's identity (see `key`).
+        var seen: Set<String> = []
         for root in roots {
-            found.append(contentsOf: discover(in: root))
+            for resource in discover(in: root) where seen.insert(resource.sourceURL.path).inserted {
+                found.append(resource)
+            }
         }
         return disambiguate(found).sorted { $0.occurredAt > $1.occurredAt }
     }
 
+    /// The marker only ever suppresses; it can't pull in a file the walk would
+    /// otherwise have skipped. That asymmetry is deliberate — a stray file in a
+    /// folder should never be able to *widen* what gets indexed.
+    private func isIgnored(_ directory: URL) -> Bool {
+        fileManager.fileExists(
+            atPath: directory.appendingPathComponent(Self.ignoreMarkerFilename).path
+        )
+    }
+
     private func discover(in root: URL) -> [DiscoveredResource] {
+        // The enumerator yields a root's *contents*, never the root itself, so a
+        // marker sitting in the nominated folder would otherwise be ignored by
+        // the one check that should honour it most.
+        guard !isIgnored(root) else { return [] }
+
         let keys: [URLResourceKey] = [.isDirectoryKey, .isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
         guard let walker = fileManager.enumerator(
             at: root,
@@ -75,7 +118,7 @@ public struct LocalFileImporter: ResourceImporter {
             guard let values = try? url.resourceValues(forKeys: Set(keys)) else { continue }
 
             if values.isDirectory == true {
-                if Self.skippedDirectories.contains(url.lastPathComponent) {
+                if Self.skippedDirectories.contains(url.lastPathComponent) || isIgnored(url) {
                     walker.skipDescendants()
                 }
                 continue
@@ -87,6 +130,7 @@ public struct LocalFileImporter: ResourceImporter {
             // A near-empty file has nothing to summarise and would enter the
             // corpus as an orphan the janitor then has to flag.
             guard (values.fileSize ?? 0) >= minimumBytes else { continue }
+            guard (values.fileSize ?? 0) <= maximumBytes else { continue }
 
             results.append(
                 resource(at: url, under: root, modifiedAt: values.contentModificationDate ?? Date())

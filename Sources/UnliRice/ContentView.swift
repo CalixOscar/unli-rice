@@ -62,14 +62,7 @@ struct ContentView: View {
             .padding(.bottom, 18)
 
             sidebarRow(
-                "Connect",
-                active: store.selectedNoteID == nil && store.showingGetStarted
-            ) {
-                store.selectNote(nil)
-                store.showGetStarted()
-            }
-            sidebarRow(
-                "All Notes",
+                "Home",
                 active: store.selectedNoteID == nil && !store.showingArchived
                     && !store.showingGraph && !store.showingGetStarted
                     && !store.showingReviewQueue && !store.showingRetrospective
@@ -86,35 +79,6 @@ struct ContentView: View {
                 store.showGraph()
             }
             sidebarRow(
-                "Review Notes",
-                active: store.selectedNoteID == nil && store.showingReviewQueue,
-                badge: store.pending.count
-            ) {
-                store.selectNote(nil)
-                store.showReviewQueue()
-            }
-            sidebarRow(
-                "Archived",
-                active: store.selectedNoteID == nil && store.showingArchived,
-                badge: store.archivedNotes.count
-            ) {
-                store.selectNote(nil)
-                store.showArchived()
-            }
-
-            Divider().opacity(0.15).padding(.horizontal, 14).padding(.vertical, 6)
-
-            // The two additions that make this app worth opening rather than
-            // worth maintaining: what happened while you were away, and what
-            // the last month or year actually consisted of.
-            sidebarRow(
-                "Notifications",
-                active: store.selectedNoteID == nil && store.showingNotices,
-                badge: store.unreadNoticeCount
-            ) {
-                store.showNotices()
-            }
-            sidebarRow(
                 "Your Review",
                 active: store.selectedNoteID == nil && store.showingRetrospective
             ) {
@@ -126,6 +90,41 @@ struct ContentView: View {
             ) {
                 store.selectNote(nil)
                 store.showAutomation()
+            }
+            sidebarRow(
+                "Connect",
+                active: store.selectedNoteID == nil && store.showingGetStarted
+            ) {
+                store.selectNote(nil)
+                store.showGetStarted()
+            }
+
+            if store.advancedModeEnabled {
+                Divider().opacity(0.15).padding(.horizontal, 14).padding(.vertical, 6)
+
+                sidebarRow(
+                    "Review Notes",
+                    active: store.selectedNoteID == nil && store.showingReviewQueue,
+                    badge: store.pending.count
+                ) {
+                    store.selectNote(nil)
+                    store.showReviewQueue()
+                }
+                sidebarRow(
+                    "Archived",
+                    active: store.selectedNoteID == nil && store.showingArchived,
+                    badge: store.archivedNotes.count
+                ) {
+                    store.selectNote(nil)
+                    store.showArchived()
+                }
+                sidebarRow(
+                    "Notifications",
+                    active: store.selectedNoteID == nil && store.showingNotices,
+                    badge: store.unreadNoticeCount
+                ) {
+                    store.showNotices()
+                }
             }
             Spacer()
 
@@ -450,9 +449,44 @@ private struct ReviewQueueView: View {
             // Answers "why am I seeing this at all" before the cards do — a
             // person shouldn't have to infer that from the presence of
             // action buttons.
-            Text("A background helper (Preview/Run now, in the panel on the right) noticed something in each of these and wants your OK — it never changes a note by itself. Nothing below is deleted by any button; the closest thing is Archive, which is always reversible.")
+            // Two stale claims fixed at once: the janitor's controls are no
+            // longer "in the panel on the right" (there is no right panel), and
+            // an empty queue said nothing about how it ever gets filled. The
+            // buttons are now on this page, because "run the thing that puts
+            // items here" belongs on the page that lists them.
+            Text("The janitor reads your notes and flags what it can't decide alone — likely duplicates, notes worth merging. It never changes anything itself; everything below waits for your OK. Nothing here is deleted by any button. The closest is Archive, which is always reversible.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.inkDim)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Button("Preview") { Task { await store.previewJanitor() } }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(Theme.accent)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+
+                Button("Run the janitor") { Task { await store.runJanitorNow() } }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(Theme.brass)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+
+                if store.janitorBusy {
+                    ProgressView().controlSize(.small).scaleEffect(0.7)
+                }
+
+                if let summary = store.janitorSummary {
+                    Text(summary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.inkDim)
+                }
+            }
+            .disabled(store.janitorBusy)
 
             if store.pending.isEmpty {
                 Text("Nothing flagged right now.")
