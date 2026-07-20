@@ -6,10 +6,41 @@ dist/
 .data/
 default.profraw
 
+# Local tool state and agent worktrees can contain transcripts, prompts, and
+# machine-specific paths. Project-wide agent instructions belong in AGENTS.md.
+.claude/
+.codex/
+
+# Credentials and Apple signing material must never enter the repository.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p8
+*.p12
+*.pfx
+*.cer
+*.mobileprovision
+*.provisionprofile
+credentials*.json
+
+# Build/distribution output may contain signed binaries and embedded profiles.
+*.xcarchive/
+*.xcresult/
+*.dmg
+
+# Runtime stores, raw ingestion copies, and logs are personal content.
+*.jsonl
+raw/
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
 # Runtime data, written when the MCP server, the agent, or a test is run from
 # the repo root rather than against the real support directory. events.jsonl is
 # the note store itself — personal content by definition, and never something
 # that belongs in version control even when it happens to be empty.
-events.jsonl
 routine-state.json
 routine.lock
