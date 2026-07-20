@@ -5,7 +5,7 @@
       "args": [
         "run",
         "--package-path",
-        "/Users/calmdownoscar/Documents/Projects/Unli Rice",
+        ".",
         "--quiet",
         "unlirice-mcp"
       ]
