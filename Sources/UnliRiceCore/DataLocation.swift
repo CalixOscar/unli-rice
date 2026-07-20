@@ -72,10 +72,20 @@ public enum DataLocation {
     /// The path without the env override or the migration side-effect — for
     /// tools that want to name the real log without opening it.
     public static func defaultEventLogURL() -> URL {
+        supportDirectory().appendingPathComponent("events.jsonl")
+    }
+
+    /// `~/Library/Application Support/Unli Rice`. The app's own directory, as
+    /// opposed to whichever folder the corpus currently lives in — the two are
+    /// the same by default but need not be.
+    ///
+    /// Anything here must be app-scoped rather than corpus-scoped, because it
+    /// stays put when the user points the app at a different vault.
+    /// `AgentSettings` qualifies (it *names* the corpus, so it can't live inside
+    /// one); routine state and notices do not, and live beside the event log.
+    public static func supportDirectory() -> URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support
-            .appendingPathComponent(directoryName, isDirectory: true)
-            .appendingPathComponent("events.jsonl")
+        return support.appendingPathComponent(directoryName, isDirectory: true)
     }
 
     /// Carries a log written under the old app name across to the new location.

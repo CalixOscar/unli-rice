@@ -22,12 +22,23 @@ public struct ReviewFlag: Codable, Sendable, Identifiable, Equatable {
 
 /// The current, human/agent-facing view of a note. This is a *projection* — derived
 /// entirely from the event log at read time and safe to throw away and rebuild.
-public struct Note: Codable, Sendable, Identifiable {
+public struct Note: Codable, Sendable, Identifiable, Equatable {
     public let id: UUID
     public var title: String
     public var body: String
     public var tags: Set<String>
     public var sources: Set<String>
+    /// The source that wrote the `.created` event — who started this note, as
+    /// opposed to `sources`, which is everyone who has since touched it.
+    ///
+    /// Kept separately because a set cannot answer "who wrote it": once the
+    /// janitor tags a note or a second agent appends to it, the author is
+    /// indistinguishable from the editors. Empty only for a note built by hand
+    /// in a test.
+    public var creator: String
+    /// Everyone who changed this note without having written it — appends,
+    /// tags, archiving, review flags. Disjoint from `creator` by construction.
+    public var editors: Set<String>
     public var createdAt: Date
     public var updatedAt: Date
     public var archived: Bool
@@ -49,6 +60,8 @@ public struct Note: Codable, Sendable, Identifiable {
         body: String,
         tags: Set<String> = [],
         sources: Set<String> = [],
+        creator: String = "",
+        editors: Set<String> = [],
         createdAt: Date,
         updatedAt: Date,
         archived: Bool = false,
@@ -62,6 +75,8 @@ public struct Note: Codable, Sendable, Identifiable {
         self.body = body
         self.tags = tags
         self.sources = sources
+        self.creator = creator
+        self.editors = editors
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.archived = archived

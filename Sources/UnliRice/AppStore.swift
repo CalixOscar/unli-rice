@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 import UnliRiceCore
-import UnliRiceMLX
+import UnliRiceHost
 import UniformTypeIdentifiers
 
 /// The view-model backing the whole window. Talks to `NoteService` directly —
@@ -14,7 +14,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var pending: [(note: Note, flag: ReviewFlag)] = []
 
     /// The same queue, grouped into the decisions a person actually faces — see
-    /// `ReviewQueue.cluster`. What `JanitorControls`/`AutonomyPanel` render.
+    /// `ReviewQueue.cluster`. What `ReviewQueueView` renders.
     ///
     /// Passes `note(id:)` — which resolves against `noteIndex`, not just the
     /// pending set — because a duplicate flag lives on only one side of a pair;
@@ -27,27 +27,76 @@ final class AppStore: ObservableObject {
     @Published var statusMessage: String = "Showing: last 5 updated notes (default view)."
     @Published var errorMessage: String?
     @Published var autonomyLevel: Int {
-        didSet { UserDefaults.standard.set(autonomyLevel, forKey: Self.autonomyKey) }
+        didSet {
+            UserDefaults.standard.set(autonomyLevel, forKey: Self.autonomyKey)
+            syncAgentSettings()
+        }
     }
 
     /// The note shown in the detail pane, if any. Cleared automatically if the
     /// selected note is archived out of the default list — see `reload()`.
     @Published var selectedNoteID: UUID?
+
+    /// Filters the note list by title, body, and tag. Lives here rather than in
+    /// the view because it has to survive the list being rebuilt by `reload()`
+    /// — an ingest run finishing mid-search would otherwise silently drop you
+    /// back to the unfiltered list.
+    ///
+    /// While it's non-empty it also overrides `visibleCount`: "last 5 updated"
+    /// and "notes matching 'paywall'" are different questions, and intersecting
+    /// them produces the answer to neither. Searching means searching everything.
+    @Published var searchText: String = ""
+
+    /// Which archived notes are ticked for a bulk action. Only ever populated
+    /// from the Archived pane — see `moveToTrash`, the one destructive path in
+    /// the app, which is why the selection is deliberately not shared with the
+    /// active note list.
+    @Published var archiveSelection: Set<UUID> = []
+
     @Published var showingArchived: Bool = false
-    @Published var showingAssistant: Bool = false
     @Published var showingReviewQueue: Bool = false
     @Published var showingGraph: Bool = false
     @Published var showingGetStarted: Bool = false
+    @Published var showingRetrospective: Bool = false
+    @Published var showingNotices: Bool = false
 
-    // MARK: - Get Started / Autopilot (see AppStore+Autopilot.swift)
+    /// The settings/triggers pane. Was a permanently-visible right-hand column
+    /// until it became a destination like every other pane — see `AutomationView`.
+    @Published var showingAutomation: Bool = false
 
-    /// Which step of Get Started is on screen.
-    @Published var setupStage: SetupStage = .start
+    // MARK: - Notification centre (see AppStore+Notices.swift)
 
-    /// On by default. Governs only whether the house-rules note gets written —
-    /// connecting an MCP client is required either way, since an unconnected
-    /// note store is the problem this whole flow exists to solve.
-    @Published var autopilotEnabled: Bool = true
+    /// Newest first. Refreshed from `NoticeStore` on every `reload()`, because
+    /// `unlirice-agent` posts into the same file while this window is open —
+    /// notices are the one thing here a second process writes behind our back.
+    /// Written only through `refreshNotices()` — `NoticeStore` is the source of
+    /// truth, and assigning here without going through it would show the user a
+    /// list the agent's next post would silently overwrite.
+    @Published var notices: [Notice] = []
+
+    // MARK: - Retrospective (see AppStore+Retrospective.swift)
+
+    /// Which period the review screen is showing. Nil means "the most recent
+    /// one worth showing", resolved at display time.
+    @Published var retrospectivePeriodID: String?
+
+    // MARK: - Connect / Autopilot (see AppStore+Autopilot.swift)
+
+    /// The house rules handed to a connected assistant — the text of the note
+    /// Autopilot used to write silently.
+    ///
+    /// This replaced an "Autopilot" switch, and the reason generalises: the
+    /// switch's entire effect was writing one note whose body was this prompt.
+    /// A binary is the worst possible control for prompt text — it can only
+    /// choose between someone else's wording and nothing, when the thing a
+    /// person actually wants is to change a line. It was also a lie twice over:
+    /// nothing persisted it, so "off" silently became "on" at the next launch,
+    /// and once the note existed the switch had no effect in either position.
+    ///
+    /// Editable, persisted, and seeded from `Autopilot.noteBody`.
+    @Published var houseRulesText: String {
+        didSet { UserDefaults.standard.set(houseRulesText, forKey: Self.houseRulesKey) }
+    }
 
     /// Targets the user has ticked, by `MCPTarget.id`.
     @Published var selectedTargetIDs: Set<String> = []
@@ -72,25 +121,79 @@ final class AppStore: ObservableObject {
     @Published var janitorBusy: Bool = false
     @Published var similarityEngine: SimilarityEngine = .tokenOverlap
 
-    /// Loaded lazily on first janitor use and kept for the session — the model
-    /// costs seconds to load and nothing at all to hold.
-    var mlxSimilarity: MLXSimilarity?
+    /// Bring-your-own embeddings. Empty by default — the app ships no model and
+    /// makes no network calls unless someone fills these in. `RemoteSimilarity`
+    /// additionally refuses anything that isn't a loopback address.
+    @Published var embeddingServerPath: String = "" {
+        didSet { UserDefaults.standard.set(embeddingServerPath, forKey: Self.embeddingServerKey) }
+    }
+    @Published var embeddingModelName: String? {
+        didSet { UserDefaults.standard.set(embeddingModelName, forKey: Self.embeddingModelKey) }
+    }
 
-    // MARK: - Chat (see AppStore+Chat.swift)
+    var embeddingServerURL: URL? {
+        embeddingServerPath.isEmpty ? nil : URL(string: embeddingServerPath)
+    }
 
-    @Published var chatHistory: [ChatTurn] = []
-    @Published var chatBusy: Bool = false
-    @Published var chatEngineStatus: ChatEngineStatus = .notLoaded
+    // MARK: - Ingest (see AppStore+Ingest.swift)
 
-    /// Per-cluster duplicate recommendations, keyed by `ReviewCluster.id`.
-    /// `"…"` while a request is in flight; cleared on `reload()` since a
-    /// cluster's identity (and membership) can change once its flags are
-    /// resolved or a new run adds more.
-    @Published var clusterRecommendations: [String: String] = [:]
+    /// What the pipelines *would* pull in, from the last preview. Cleared after
+    /// a real run, the same lifecycle as `janitorPreview`.
+    @Published var ingestPreview: [DiscoveredResource] = []
+    @Published var ingestSummary: String?
+    @Published var ingestBusy: Bool = false
 
-    var janitorChat: JanitorChat?
+    /// Folders the user has nominated for the local-document pipeline.
+    ///
+    /// Persisted as plain paths, and empty by default — `LocalFileImporter` has
+    /// no fallback root, so an empty list means that pipeline finds nothing
+    /// rather than scanning everything.
+    @Published var scanRoots: [URL] = [] {
+        didSet {
+            UserDefaults.standard.set(scanRoots.map(\.path), forKey: Self.scanRootsKey)
+            syncAgentSettings()
+        }
+    }
+
+    /// Whether the two routines may fire on their schedule. Off by default: this
+    /// app reads the user's own files, and that is not something to start doing
+    /// because they installed an update.
+    @Published var routinesEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(routinesEnabled, forKey: Self.routinesEnabledKey)
+            syncAgentSettings()
+        }
+    }
+
+    /// Whether the launchd job is installed — i.e. whether any of this happens
+    /// with the window closed. Read from disk rather than remembered, since the
+    /// user can remove the plist by hand and a toggle claiming otherwise would
+    /// be describing a job that isn't there.
+    @Published var backgroundAgentInstalled: Bool = false
+
+    /// Why the last install/uninstall failed, shown next to the toggle itself.
+    @Published var backgroundAgentFailure: String?
+
+    /// Whether the app may leave a "your month is ready" notice.
+    @Published var monthlyReviewEnabled: Bool = true {
+        didSet {
+            UserDefaults.standard.set(monthlyReviewEnabled, forKey: Self.monthlyReviewKey)
+            syncAgentSettings()
+        }
+    }
 
     private static let autonomyKey = "unliRice.autonomyLevel"
+    static let scanRootsKey = "unliRice.scanRoots"
+    static let embeddingServerKey = "unliRice.embeddingServer"
+    static let embeddingModelKey = "unliRice.embeddingModel"
+    static let routinesEnabledKey = "unliRice.routinesEnabled"
+    static let monthlyReviewKey = "unliRice.monthlyReviewEnabled"
+    static let houseRulesKey = "unliRice.houseRulesText"
+    /// Where last-run stamps *used* to live. They're in `RoutineState` beside
+    /// the event log now, because `unlirice-agent` runs the same routines and a
+    /// stamp only this process could see would let the same 09:00 slot be served
+    /// twice. Read once, to carry an existing install across.
+    static let routineLastRunKey = "unliRice.routineLastRun"
     private static let onboardingSeededKey = "unliRice.didSeedOnboardingNotes"
 
     /// The folder the user pointed the app at, if they ever did. A plain path
@@ -110,6 +213,12 @@ final class AppStore: ObservableObject {
     private(set) var service: NoteService
     private(set) var dataURL: URL
 
+    /// Both are corpus-scoped and both are rebuilt by `switchDataFolder(to:)` —
+    /// notices are about a corpus, and the driver's routine state lives beside
+    /// its event log.
+    private(set) var noticeStore: NoticeStore
+    private(set) var routineDriver: RoutineDriver
+
     /// Every known note (active or archived) by id, refreshed on every `reload()`.
     /// Exists so the detail view can resolve a wiki-link's target — including one
     /// that's archived — without a second round trip through `NoteService`.
@@ -119,12 +228,25 @@ final class AppStore: ObservableObject {
         let url = AppStore.defaultDataFileURL()
         dataURL = url
         autonomyLevel = UserDefaults.standard.object(forKey: AppStore.autonomyKey) as? Int ?? 1
+        scanRoots = (UserDefaults.standard.stringArray(forKey: AppStore.scanRootsKey) ?? [])
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        routinesEnabled = UserDefaults.standard.bool(forKey: AppStore.routinesEnabledKey)
+        monthlyReviewEnabled = UserDefaults.standard.object(forKey: AppStore.monthlyReviewKey) as? Bool ?? true
+        embeddingServerPath = UserDefaults.standard.string(forKey: AppStore.embeddingServerKey) ?? ""
+        embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
+        houseRulesText = UserDefaults.standard.string(forKey: AppStore.houseRulesKey) ?? Autopilot.noteBody
         do {
             let store = try EventStore(fileURL: url)
             service = NoteService(store: store)
         } catch {
             fatalError("Could not open event log at \(url.path): \(error)")
         }
+        let driver = RoutineDriver(service: service, eventLogURL: url)
+        routineDriver = driver
+        // The driver's own store, not a second one over the same file: two
+        // instances would both be correct (every mutation is under an flock) but
+        // only one of them would be the one the routines post through.
+        noticeStore = driver.noticeStore
 
         // GUI-only, deliberately: an agent connecting over MCP before any human
         // has ever opened the app should never find two mystery notes it didn't
@@ -149,6 +271,21 @@ final class AppStore: ObservableObject {
         // generating a setup prompt and closing the app doesn't bring it back.
         showingGetStarted = !hasUserAuthoredNotes
             && !UserDefaults.standard.bool(forKey: Self.getStartedDoneKey)
+
+        backgroundAgentInstalled = BackgroundAgent.isInstalled()
+        migrateRoutineStampsIfNeeded()
+        // Written on every launch, not only on change: this file is what the
+        // background agent reads, and an install where the GUI's preferences
+        // were set before the agent existed would otherwise leave it defaulted
+        // to off while the window's toggle said on.
+        syncAgentSettings()
+
+        // Say what's waiting before the user goes looking. This is the whole
+        // "don't make a special trip" idea — the review queue and a finished
+        // month both surface as notices rather than as a chore you'd have to
+        // remember to check.
+        routineDriver.announceNow(settings: agentSettings)
+        refreshNotices()
     }
 
     /// Whether anything in this corpus was written by a person or an agent, as
@@ -187,7 +324,11 @@ final class AppStore: ObservableObject {
             let store = try EventStore(fileURL: url)
             service = NoteService(store: store)
             dataURL = url
+            let driver = RoutineDriver(service: service, eventLogURL: url)
+            routineDriver = driver
+            noticeStore = driver.noticeStore
             UserDefaults.standard.set(folder.path, forKey: Self.dataFolderKey)
+            syncAgentSettings()
             resetCorpusScopedState()
             reload()
             statusMessage = "Now using \(folder.lastPathComponent) — \(notes.count) note\(notes.count == 1 ? "" : "s")."
@@ -198,18 +339,65 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// Drops everything that describes the *previous* corpus. `janitorChat`
-    /// deliberately survives: the loaded model isn't corpus-specific and costs
-    /// seconds to load again.
+    /// Drops everything that describes the *previous* corpus.
     private func resetCorpusScopedState() {
-        mlxSimilarity = nil
-        similarityEngine = .tokenOverlap
-        chatHistory = []
-        clusterRecommendations = [:]
         janitorPreview = []
         janitorSummary = nil
         selectedNoteID = nil
         errorMessage = nil
+        // News about the corpus we just stopped looking at, and a review screen
+        // describing a period of it.
+        notices = []
+        retrospectivePeriodID = nil
+        showingRetrospective = false
+        showingNotices = false
+    }
+
+    /// Everything the background agent needs, as the GUI currently has it.
+    var agentSettings: AgentSettings {
+        AgentSettings(
+            routinesEnabled: routinesEnabled,
+            autonomyLevel: autonomyLevel,
+            dataFolderPath: UserDefaults.standard.string(forKey: Self.dataFolderKey),
+            scanRootPaths: scanRoots.map(\.path),
+            monthlyReviewEnabled: monthlyReviewEnabled
+        )
+    }
+
+    /// Mirrors the GUI's preferences into the file `unlirice-agent` reads.
+    ///
+    /// The GUI is the only writer, and the agent only reads — an agent that
+    /// could change what it's allowed to do would be a different kind of
+    /// component than this one is. See `AgentSettings` for why it isn't
+    /// `UserDefaults`.
+    func syncAgentSettings() {
+        do {
+            try agentSettings.save()
+        } catch {
+            errorMessage = "Couldn't save background settings: \(error)"
+        }
+    }
+
+    /// Carries pre-daemon last-run stamps out of `UserDefaults` and into the
+    /// corpus-scoped state file, once.
+    ///
+    /// Without this, installing the agent would make every routine look
+    /// unserved, so the first tick after upgrading would run an unexpected
+    /// ingest. Not a data risk — `IngestRunner` skips what it already indexed —
+    /// but a surprise, and a surprise from a component whose entire job is to be
+    /// unsurprising.
+    private func migrateRoutineStampsIfNeeded() {
+        let stateURL = RoutineState.url(besideEventLog: dataURL)
+        guard !FileManager.default.fileExists(atPath: stateURL.path),
+              let stamps = UserDefaults.standard.dictionary(forKey: Self.routineLastRunKey) as? [String: Double],
+              !stamps.isEmpty
+        else { return }
+
+        var state = RoutineState()
+        for (key, seconds) in stamps {
+            state.lastRuns[key] = Date(timeIntervalSince1970: seconds)
+        }
+        try? state.save(to: stateURL)
     }
 
     /// Remembers that Get Started has been dealt with, so it stops opening by
@@ -226,14 +414,7 @@ final class AppStore: ObservableObject {
             notes = all.filter { !$0.archived }
             archivedNotes = all.filter { $0.archived }
             pending = try service.pendingReviews()
-            // Drop cached recommendations for clusters that no longer exist —
-            // a cluster's id is derived from union-find over its member ids, so
-            // resolving one flag in a group (or a new run adding another) can
-            // legitimately produce a different id for what's conceptually "the
-            // same" pile. Worst case a live cluster loses its cached answer and
-            // re-asks; better than showing a stale answer under a stale key.
-            let liveClusterIDs = Set(pendingClusters.map(\.id))
-            clusterRecommendations = clusterRecommendations.filter { liveClusterIDs.contains($0.key) }
+            refreshNotices()
             errorMessage = nil
             if let selected = selectedNoteID, noteIndex[selected] == nil {
                 selectedNoteID = nil
@@ -255,27 +436,60 @@ final class AppStore: ObservableObject {
 
     var visibleNotes: [Note] {
         let source = showingArchived ? archivedNotes : notes
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard query.isEmpty else { return source.filter { $0.matches(query) } }
         return visibleCount == 0 ? [] : Array(source.prefix(visibleCount))
     }
 
-    func showLatest() {
+    /// True when the list is showing fewer notes than exist and the user hasn't
+    /// asked it to. Drives the "showing N of M" affordance — with a scrolling
+    /// list there's no longer any visual cue that the list was truncated at all,
+    /// which is precisely the bug that made 144 ingested notes look like 5.
+    var hiddenNoteCount: Int {
+        guard searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return 0 }
+        let total = showingArchived ? archivedNotes.count : notes.count
+        return max(0, total - visibleNotes.count)
+    }
+
+    func showEverything() {
+        showLast(Int.max)
+    }
+
+    /// Turns every main-column pane off, so a `show…` method only has to turn
+    /// its own on.
+    ///
+    /// Each of these methods used to list the others by hand, which worked
+    /// exactly until a new pane was added — the review screen and the
+    /// notification centre would each have needed a line in six places, and the
+    /// one that got missed would show through underneath another view.
+    func closeAllPanes() {
         showingArchived = false
-        showingAssistant = false
         showingReviewQueue = false
         showingGraph = false
         showingGetStarted = false
+        showingRetrospective = false
+        showingNotices = false
+        showingAutomation = false
+    }
+
+    func showLatest() {
+        closeAllPanes()
         visibleCount = 1
         statusMessage = "Showing: the single most recently updated note."
     }
 
+    /// `n` is a ceiling, not a promise — "Everything" passes `Int.max`, and
+    /// `showAllNotes` re-passes whatever the last ceiling was. The message has
+    /// to describe what's on screen rather than echo the number, or asking for
+    /// everything and then clicking All Notes reports "last
+    /// 9223372036854775807 updated notes".
     func showLast(_ n: Int) {
-        showingArchived = false
-        showingAssistant = false
-        showingReviewQueue = false
-        showingGraph = false
-        showingGetStarted = false
+        closeAllPanes()
         visibleCount = n
-        statusMessage = "Showing: last \(n) updated notes."
+        let total = notes.count
+        statusMessage = n >= total
+            ? "Showing every note."
+            : "Showing: last \(n) updated notes."
     }
 
     func showAllNotes() {
@@ -283,26 +497,15 @@ final class AppStore: ObservableObject {
     }
 
     func showArchived() {
+        closeAllPanes()
         showingArchived = true
-        showingAssistant = false
-        showingReviewQueue = false
-        showingGraph = false
-        showingGetStarted = false
-        visibleCount = 50
+        archiveSelection = []
+        // No cap: the list scrolls now, and a hidden 51st archived note is one
+        // the user can neither restore nor trash.
+        visibleCount = Int.max
         statusMessage = archivedNotes.isEmpty
             ? "No archived notes."
             : "Showing \(archivedNotes.count) archived note\(archivedNotes.count == 1 ? "" : "s")."
-    }
-
-    /// The chat panel — see `AppStore+Chat.swift`. Advisory only: nothing said
-    /// here changes a note, same as the janitor's own proposals.
-    func showAssistant() {
-        showingArchived = false
-        showingAssistant = true
-        showingReviewQueue = false
-        showingGraph = false
-        showingGetStarted = false
-        statusMessage = "Local assistant — advisory only. Nothing it says changes a note without your say."
     }
 
     /// The review queue, full width in the main column — not the narrow
@@ -310,32 +513,37 @@ final class AppStore: ObservableObject {
     /// needs room for full titles and an actual "Keep this one" button per
     /// note; 260pt of sidebar was cramping both into truncated text.
     func showReviewQueue() {
-        showingArchived = false
-        showingAssistant = false
+        closeAllPanes()
         showingReviewQueue = true
-        showingGraph = false
-        showingGetStarted = false
         statusMessage = pending.isEmpty
             ? "Nothing is waiting on you right now."
             : "\(pending.count) item\(pending.count == 1 ? "" : "s") waiting for your OK."
     }
 
+    func showAutomation() {
+        closeAllPanes()
+        showingAutomation = true
+        statusMessage = "Automation — what runs on its own, and what only runs when you ask."
+    }
+
     func showGraph() {
-        showingArchived = false
-        showingAssistant = false
-        showingReviewQueue = false
+        closeAllPanes()
         showingGraph = true
-        showingGetStarted = false
         statusMessage = "Note Graph View — visualizing note connections."
     }
 
     func selectNote(_ id: UUID?) {
         selectedNoteID = id
         if id != nil {
-            showingAssistant = false
+            // Not `closeAllPanes()`: `showingArchived` deliberately survives
+            // opening a note, so closing it returns you to the archived list you
+            // were reading rather than to All Notes.
             showingReviewQueue = false
             showingGraph = false
             showingGetStarted = false
+            showingRetrospective = false
+            showingNotices = false
+            showingAutomation = false
         }
     }
 
@@ -343,10 +551,7 @@ final class AppStore: ObservableObject {
     /// sidebar forever, not just on an empty corpus: it's also how someone
     /// connects a second AI tool later, which has nothing to do with being new.
     func showGetStarted() {
-        showingArchived = false
-        showingAssistant = false
-        showingReviewQueue = false
-        showingGraph = false
+        closeAllPanes()
         showingGetStarted = true
         statusMessage = "Get Started — connect an AI assistant to these notes."
     }

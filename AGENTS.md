@@ -28,14 +28,41 @@ lowercase, the same way every time: `claude`, `codex`, `antigravity` (or
 whatever you actually are). This is the only thing that makes multi-agent
 history attributable later — get it wrong and the audit trail lies.
 
-## `janitor` is a reserved source — don't write as it
+## `janitor` and `ingest` are reserved sources — don't write as either
 
-One writer isn't a chat agent: the local janitor (`Sources/UnliRiceCore/
-Janitor/`) writes as `source: "janitor"`. Never use that string as your own
-identity, whatever you are. It's the only way the log can answer "did a
-reasoning agent conclude this, or did a background heuristic?".
+Two writers aren't chat agents:
 
-Two things follow for you:
+- the local janitor (`Sources/UnliRiceCore/Janitor/`) writes as
+  `source: "janitor"`
+- the data pipelines (`Sources/UnliRiceCore/Ingest/`) write as
+  `source: "ingest"`
+
+Never use either string as your own identity, whatever you are. They're the
+only way the log can answer "did a reasoning agent conclude this, or did a
+machine put it there?".
+
+### What an `ingest` note is
+
+A note written by `ingest` is an **index entry, not a thought.** It points at a
+file in the `raw/` folder next to `events.jsonl` — a Claude Code session
+transcript, or a document from a folder the user nominated — and summarises it
+just enough to decide whether it's the one you want. The body carries a
+`**Raw:** \`<filename>\` [raw:<digest>]` line; that marker is the pipeline's
+deduplication fingerprint, so leave it in place if you quote the body.
+
+Read these freely. But:
+
+- **Don't treat an ingested summary as a conclusion.** It's a machine-built
+  description of a file, generated without anything reading the file for
+  meaning. If it matters, open the raw file.
+- **Don't append your own reasoning onto one.** Write your conclusion as its
+  own note and `[[link]]` to the index entry by title. Ingest re-appends to
+  these notes whenever the underlying file changes, so anything you add is
+  liable to end up buried under revision entries.
+- **Ingest will never touch a note it didn't create**, so your notes are safe
+  from it even if a title collides — it skips instead.
+
+Two more things follow for you:
 
 - **Flags whose `source` is `janitor` are machine-generated proposals**, not a
   colleague's considered judgement. A janitor flag reason ends in a

@@ -36,6 +36,24 @@ final class NoteServiceTests: XCTestCase {
         XCTAssertTrue(final.body.contains("from gemini"))
         XCTAssertTrue(final.body.contains("from chatgpt"))
         XCTAssertEqual(final.sources, ["claude", "gemini", "chatgpt"])
+        // The set says who touched it; only `creator` says who wrote it, which
+        // is what the retrospective's contributor list counts.
+        XCTAssertEqual(final.creator, "claude")
+        XCTAssertEqual(final.editors, ["gemini", "chatgpt"])
+    }
+
+    /// The janitor never writes a word — it tags, files, and flags. That work
+    /// leaves no mark on the body or on `sources`, so `editors` is the only
+    /// place it can be counted.
+    func testWorkThatChangesNoTextStillNamesWhoDidIt() throws {
+        let note = try service.createNote(title: "T", body: "B", source: "claude")
+        try service.tagNote(id: note.id, tag: "memory", source: "janitor")
+        try service.archiveNote(id: note.id, reason: "duplicate", source: "human")
+        // Its own author is not one of its editors.
+        try service.appendToNote(id: note.id, text: "more", source: "claude")
+
+        let final = try service.getNote(id: note.id)!
+        XCTAssertEqual(final.editors, ["janitor", "human"])
     }
 
     func testTagAndUntagNote() throws {

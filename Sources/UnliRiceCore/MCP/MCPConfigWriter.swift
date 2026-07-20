@@ -82,6 +82,44 @@ public enum MCPConfigWriter {
         return .updated(url, backup: backup)
     }
 
+    /// What a config file currently says about us, without writing anything.
+    ///
+    /// The connector table needs this because it shows every tool's state at
+    /// once, on appear. `merge` could answer the same question — it returns
+    /// `.unchanged` when we're already there — but only by attempting a write on
+    /// five of the user's config files every time the screen is drawn. A status
+    /// display must not have side effects.
+    public enum Presence: Equatable, Sendable {
+        /// No config file at that path yet.
+        case noFile
+        /// A config exists, but has no `unlirice` server in it.
+        case absent
+        /// Present, and pointing exactly where this build would point it.
+        case current
+        /// Present but different — an older install, or another data folder.
+        /// Worth surfacing separately: "Connect" would silently change it, and
+        /// the user should see "Update" instead.
+        case stale
+        /// The file exists but isn't JSON we can read. We refuse to touch these.
+        case unreadable
+    }
+
+    public static func presence(
+        of entry: MCPServerEntry,
+        serverKey: String = MCPServerEntry.serverKey,
+        inJSONAt url: URL?
+    ) -> Presence {
+        guard let url else { return .noFile }
+        guard FileManager.default.fileExists(atPath: url.path) else { return .noFile }
+        guard let data = try? Data(contentsOf: url),
+              let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return .unreadable }
+        guard let servers = root["mcpServers"] as? [String: Any],
+              let existing = servers[serverKey] as? [String: Any]
+        else { return .absent }
+        return NSDictionary(dictionary: existing).isEqual(to: entry.jsonObject) ? .current : .stale
+    }
+
     static func backupURL(for url: URL, now: Date) -> URL {
         let stamp = DateFormatter.backupStamp.string(from: now)
         return url.appendingPathExtension("unlirice-backup-\(stamp)")

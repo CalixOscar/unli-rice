@@ -3,57 +3,56 @@ import PackageDescription
 
 let package = Package(
     name: "UnliRice",
-    // macOS 14 is MLX's floor. Only UnliRiceMLX needs it, but SPM platforms are
-    // package-wide, so the whole package moves up with it.
-    platforms: [.macOS(.v14)],
+    // Back to macOS 13. The package sat on 14 only because that was MLX's floor
+    // and SPM platforms are package-wide — see PROJECT_NOTES.md for why the
+    // on-device model was removed.
+    platforms: [.macOS(.v13)],
     products: [
         .library(name: "UnliRiceCore", targets: ["UnliRiceCore"]),
-        .library(name: "UnliRiceMLX", targets: ["UnliRiceMLX"]),
         .executable(name: "unlirice-mcp", targets: ["unlirice-mcp"]),
         .executable(name: "janitor-calibrate", targets: ["janitor-calibrate"]),
+        .executable(name: "unlirice-agent", targets: ["unlirice-agent"]),
         .executable(name: "UnliRice", targets: ["UnliRice"])
     ],
-    dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift-examples", from: "2.29.1")
-    ],
+    // No external dependencies, on purpose. The whole package now builds and
+    // runs under plain `swift build` — no xcodebuild, no Metal shader
+    // compilation, no `Scripts/mlx-run`.
     targets: [
-        // Stays dependency-free on purpose — the engine, the janitor's rules and
-        // its safety boundary all live here and must be testable without a model.
+        // The engine, the janitor's rules and its safety boundary. Was already
+        // dependency-free; now the rest of the package is too.
         .target(name: "UnliRiceCore"),
 
-        // The MLX seam, deliberately a separate target: nothing in the core, the
-        // MCP server, or the test suite pulls MLX in, so `swift test` stays fast
-        // and the safety-critical code keeps building on a machine with no model.
-        .target(
-            name: "UnliRiceMLX",
-            dependencies: [
-                "UnliRiceCore",
-                .product(name: "MLXEmbedders", package: "mlx-swift-examples"),
-                // The chat panel's model. A separate library from MLXEmbedders —
-                // one embeds, this one generates — but both stay in this one
-                // target rather than a third, since both are "the MLX seam" and
-                // neither is reachable from UnliRiceCore or unlirice-mcp either
-                // way.
-                .product(name: "MLXLLM", package: "mlx-swift-examples"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-examples")
-            ]
-        ),
+        // The edge: the handful of things that need to ask macOS a question
+        // (IOKit for power, CoreGraphics for idle time, launchd for background
+        // execution). Kept out of the core deliberately — that's the layer
+        // unlirice-mcp and the whole test suite link, and `RoutineScheduler`
+        // stays a pure function over a `MachineState` someone else read.
+        // Shared by the GUI and the background agent so the two can't disagree
+        // about whether this Mac is plugged in.
+        .target(name: "UnliRiceHost", dependencies: ["UnliRiceCore"]),
+
         // Read-only dry-run tool: where the duplicate thresholds come from.
         .executableTarget(
             name: "janitor-calibrate",
-            dependencies: ["UnliRiceCore", "UnliRiceMLX"]
+            dependencies: ["UnliRiceCore"]
         ),
         .executableTarget(
             name: "unlirice-mcp",
             dependencies: ["UnliRiceCore"]
         ),
+        // The routines, with the window closed. launchd runs this; it does one
+        // tick and exits.
+        .executableTarget(
+            name: "unlirice-agent",
+            dependencies: ["UnliRiceCore", "UnliRiceHost"]
+        ),
         .executableTarget(
             name: "UnliRice",
-            dependencies: ["UnliRiceCore", "UnliRiceMLX"]
+            dependencies: ["UnliRiceCore", "UnliRiceHost"]
         ),
         .testTarget(
             name: "UnliRiceCoreTests",
-            dependencies: ["UnliRiceCore"]
+            dependencies: ["UnliRiceCore", "UnliRiceHost"]
         )
     ]
 )

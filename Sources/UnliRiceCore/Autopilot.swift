@@ -23,13 +23,20 @@ public enum Autopilot {
     /// Walks up from `start` looking for the directory containing
     /// `Package.swift`.
     ///
-    /// Resolves for the real app because `Scripts/mlx-run` pins
-    /// `-derivedDataPath .build/xcode` *inside* the repo before building, so the
-    /// product is a descendant of the package root. Verified against the real
-    /// build output, which is a bare executable rather than a `.app` — meaning
-    /// `Bundle.main.bundleURL` is the containing directory; the walk resolves
-    /// either way. `fileExists` is injected so the walk can be tested against a
-    /// made-up tree.
+    /// Resolves for the real app because SwiftPM builds into `.build/` *inside*
+    /// the package, so the product is always a descendant of the package root.
+    /// (This used to depend on `Scripts/mlx-run` pinning `-derivedDataPath
+    /// .build/xcode` for the same reason; that script is gone with MLX, and
+    /// plain `swift build` gives the property for free.) Verified against the
+    /// real build output, which is a bare executable rather than a `.app` —
+    /// meaning `Bundle.main.bundleURL` is the containing directory; the walk
+    /// resolves either way. `fileExists` is injected so the walk can be tested
+    /// against a made-up tree.
+    ///
+    /// Note this would stop holding if the app were ever shipped as a bundle in
+    /// `/Applications` — there is no `Package.swift` above that. The nil return
+    /// is already handled (the UI shows a placeholder path rather than a
+    /// confidently wrong one), but it becomes the normal case, not the edge one.
     public static func packageRoot(
         startingAt start: URL,
         fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }

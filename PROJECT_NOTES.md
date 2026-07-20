@@ -54,6 +54,12 @@ original untouched.
    time-based purge of old archives), it must be a human-triggered action,
    never something an agent or the janitor can invoke autonomously.
 
+   That carve-out has since been used exactly once: `TrashService` (see "The
+   200-note pass" below). It is deliberately *not* part of `NoteService`, which
+   is what keeps it unreachable from the MCP tool catalog — an agent cannot
+   express it. The rest of this decision stands unchanged: nothing an agent or
+   a routine can call deletes anything.
+
 3. **Structural changes (merge, dedupe, "these two notes conflict") are only
    ever proposed, never applied by an agent.** The `flag_for_review` /
    `resolve_review` / `pending_reviews` tools exist specifically so an agent
@@ -93,8 +99,8 @@ Swift Package (`swift build` / `swift test`, macOS 13+, Swift 5.10 tools).
     by default, overridable via `UNLIRICE_DATA_PATH` env var (used for
     tests/smoke runs so they don't touch real data).
 
-- `Tests/UnliRiceCoreTests/NoteServiceTests.swift` — 16 tests, all passing
-  (plus 4 in `ExportServiceTests.swift`, 20 total). Covers: create/get,
+- `Tests/UnliRiceCoreTests/NoteServiceTests.swift` — 17 tests, all passing
+  (**188 in the suite overall** as of this session). Covers: create/get,
   multi-agent append history preservation, tag/untag, archive is
   soft+reversible, archiving never removes underlying history, flag/resolve
   review, search, not-found error, event log survives reopen + reprojects
@@ -112,27 +118,33 @@ config (see Deferred).
 
 ## How to build / run / test
 
+**Everything builds and runs under plain SwiftPM. There are no external
+dependencies.**
+
 ```sh
 swift build
 swift test
-swift run unlirice-mcp   # starts the MCP stdio server, logs to stderr
+swift run unlirice-mcp        # the MCP stdio server, logs to stderr
+swift run UnliRice            # the GUI
+swift run unlirice-agent      # one unattended tick, then exits
+swift run janitor-calibrate   # the dry-run threshold tool, see "Calibration"
+
+./Scripts/make-app.sh         # dist/Unli Rice.app — double-clickable
 ```
 
-**Anything that uses MLX must be built by xcodebuild, not SwiftPM.** `swift
-build` cannot compile Metal shaders — a plain `swift run` builds fine and then
-dies at runtime with "Failed to load the default metallib". This is a
-documented mlx-swift limitation, not a problem with this package. Use the
-wrapper:
+`unlirice-agent --status` reports whether the background job is installed;
+`--install` / `--uninstall` manage it without the GUI.
 
-```sh
-Scripts/mlx-run UnliRice            # the GUI, with the local model available
-Scripts/mlx-run janitor-calibrate   # the dry-run tool, see "Calibration" below
-```
+Two env overrides, both for staying off real data: `UNLIRICE_DATA_PATH` (the
+event log) and `UNLIRICE_AGENT_SETTINGS` (the background agent's settings file,
+so routines can be smoke-run without switching them on for real).
 
-Everything that does *not* touch MLX — `UnliRiceCore`, `unlirice-mcp`, and the
-whole test suite — still builds and runs under plain SwiftPM. Keeping that true
-is exactly why `UnliRiceMLX` is a separate target: the safety-critical code
-stays buildable and testable on a machine with no model at all.
+This used to be far more complicated: MLX forced `xcodebuild` (SwiftPM cannot
+compile Metal shaders, so `swift run` died at runtime with "Failed to load the
+default metallib"), which needed a `Scripts/mlx-run` wrapper, and pushed the
+whole package's floor to macOS 14. All of that is gone with the model — see
+"Removing the on-device model" below. `Scripts/mlx-run` is deleted; if you find
+a reference to it anywhere, it's stale.
 
 To point a real MCP client (Claude Code, Claude Desktop, etc.) at it, add an
 entry to that client's MCP server config pointing at the built binary, e.g.
@@ -288,7 +300,13 @@ that changes what gets noticed and a user reading a list deserves to know.
 Still no scheduler and no idle/on-power trigger — nothing runs unattended, and
 nothing runs at launch. That remains deferred (#5 below).
 
-## The MLX model (rename/MLX session)
+## The MLX model (rename/MLX session) — REMOVED, kept for the reasoning
+
+> **This code no longer exists.** `UnliRiceMLX` was deleted once measured; see
+> "Removing the on-device model" below for the numbers. The section is kept
+> because the *calibration* lessons in it still govern `RemoteSimilarity`, and
+> because the reasoning about why thresholds travel with a provider is still
+> load-bearing.
 
 `Sources/UnliRiceMLX/MLXSimilarity.swift` conforms an on-device MLX embedding
 model (`bge-micro`, ~17M params) to the `SimilarityProvider` seam that was left
@@ -611,7 +629,13 @@ executable rather than a `.app`, so `bundleURL` is the containing directory — 
 resolves either way. Detection failing yields a visible placeholder rather than a
 confidently wrong path.
 
-## The chat panel (rename/MLX session)
+## The chat panel (rename/MLX session) — REMOVED, kept for the reasoning
+
+> **This code no longer exists.** `JanitorChat`, `AppStore+Chat.swift`,
+> `ChatContext` and the Assistant sidebar item were all deleted along with the
+> model. An agent connected over MCP answers the same questions better. The
+> section is kept because the workarounds it documents are the evidence that
+> retired the model — see "Removing the on-device model" below.
 
 A second, independent MLX seam: `Sources/UnliRiceMLX/JanitorChat.swift` wraps
 a small local instruct model (`mlx-community/Qwen3-1.7B-4bit`) behind one
@@ -666,6 +690,639 @@ We overhauled the application aesthetics to support a premium, fixed-dark **"liq
 - **Glossy 3D Note Graph**: Rendered note nodes as glossy 3D spheres using offset radial specular highlights. Edges glow with custom multi-stroke lines (neon glow background + sharp neon core). Labels are centered inside legible semi-transparent capsules. Spaced physics values (repulsion: `-450.0`, spring rest length: `130.0`) prevent overlapping of nodes and text.
 - **Recenter & Zoom**: The graph view supports trackpad zoom, mouse wheel, panning drag on background, and custom node manipulation. Double-clicking any note node navigates directly to its standard detail pane.
 
+## The data lake: /raw, the pipelines, and routines (this session)
+
+Built from a five-step framework for a self-improving knowledge system (base →
+upload → inflow → loop → drive). Most of it landed as new code in
+`Sources/UnliRiceCore/Ingest/` and `Sources/UnliRiceCore/Schedule/`.
+
+**The important thing is what wasn't built, and why.** The framework's step 4 is
+a three-bucket approval strategy — auto-approve the low-risk, get sign-off on
+the high-stakes, escalate the ambiguous. That already exists here, one layer
+down, and has since the janitor shipped:
+
+| Framework | This codebase |
+| --- | --- |
+| Bucket 1: auto-approve | `JanitorRisk.cosmetic` → auto-applied tags |
+| Bucket 2: needs sign-off | `flagForReview` → the review queue |
+| Bucket 3: more context needed | The same queue, clustered |
+| A daily `output/review/<date>.md` of checkboxes | `ReviewQueueView`, backed by the event log |
+
+So ingest deliberately grew **no approval logic of its own**. The split is:
+**the pipelines fill the lake, the janitor works it, the human decides.** An
+importer that also judged its own output would be a second, weaker copy of a
+boundary that's already enforced by type.
+
+Likewise, the framework's `/wiki` folder isn't a folder here — the note corpus
+already is one, with `[[wiki-links]]` and permanent titles. Only `/raw` was
+genuinely missing.
+
+### The pieces
+
+- `RawStore` — content-addressed store at `raw/`, beside `events.jsonl` so that
+  pointing the app at another folder moves the raw files with the corpus that
+  indexes them. **Copies, never moves**, and never overwrites: decision #2
+  applied to files the app doesn't own. It's a derived artifact — delete the
+  whole directory and nothing the user owns is lost.
+- `ResourceImporter` — the pipeline seam. Importers are handed no `NoteService`
+  and no `RawStore`, so one cannot write a note however it's implemented. Same
+  shape, and same reason, as `Janitor.scan` being pure.
+- `ClaudeSessionImporter` — `~/.claude/projects/**/*.jsonl`.
+- `LocalFileImporter` — folders the user nominates.
+- `IngestRunner` — the safety boundary, deliberately shaped like `JanitorRunner`.
+- `RoutineScheduler` — pure decision function; closes the scheduling half of
+  deferred #5.
+
+### `IngestRunner`'s boundary, and the one rule that's stricter than the janitor's
+
+It calls exactly three write methods — `createNote`, `appendToNote`, `tagNote`.
+A test asserts the event kinds it can produce are a subset of
+`{created, appended, tagged}`, the direct counterpart of the janitor's
+`{tagged, flagged}` test. That's the test to keep honest if the rules grow.
+
+The extra rule: **it never writes into a note it did not create.** This matters
+more here than for the janitor because importers *generate* titles — from
+filenames and session titles — so colliding with a title a human already owns is
+a normal occurrence, not an edge case. On collision it skips and says so.
+Appending machine-built index text onto someone's hand-written note is not
+undoable: appends are events, and events don't come off the log.
+
+Authorship is read from the raw event log (`created` events with
+`source: "ingest"`), not from `Note.sources` — that field is the *set* of
+everyone who ever wrote to a note and cannot answer "who created this".
+
+### Two bugs the real corpus caught, exactly like the janitor's dry run
+
+The lesson from the janitor's calibration pass — run the rules over real data
+before trusting them — paid off twice. A read-only dry run over the actual 285
+sessions in `~/.claude/projects`:
+
+1. **279 unique titles from 285 sessions.** A git worktree gets its own
+   `~/.claude/projects` directory but shares the parent's session ids, so the
+   same session is genuinely discovered twice in one pass. `byTitle` was seeded
+   once before the loop, so the second copy wouldn't see the note the first had
+   just created — and would mint a second note with a byte-identical
+   **permanent** title, the one thing a permanent-title corpus can't recover
+   from. Regression test: `testTheSameKeyTwiceInOneRunDoesNotCreateTwoNotes`.
+
+   **That fix was insufficient, and the calibration run below caught the rest.**
+   Matching on title only works if titles are stable, and they are not: a
+   session's `ai-title` is *regenerated as the conversation grows*, and two
+   worktree copies of one session diverge, so their titles differ by a few
+   characters and by where truncation falls. One session id turned up across
+   three notes. Identity is now `DiscoveredResource.key` — the session id, or a
+   document's absolute path — carried in the note body as `[ingest:<key>]` and
+   matched on there. The title is a display name and nothing more.
+   `ClaudeSessionImporter` additionally collapses copies of one session at
+   discovery, keeping whichever saw more messages.
+
+   The scale of it: **285 discovered sessions became 183 after collapsing —
+   36% of them were duplicate worktree copies.** Any title-keyed scheme was
+   always going to produce a corpus a third of which was redundant.
+2. **372 MB across those sessions, 8 files over the 8 MB per-file limit.**
+   Ingesting copies, so a naive first run would have doubled that in one go.
+   `IngestConfig.noteBudget` (40) is what keeps it gradual — the same
+   "don't bury the user" reasoning behind the janitor's per-run budgets, now
+   load-bearing for disk footprint as well as attention.
+
+### Post-ingest calibration: the embedding model stops paying for itself
+
+Re-ran `janitor-calibrate` over the deduplicated post-ingest corpus (233 live
+notes: the real 50 plus 183 ingested sessions, 27,028 pairs). The measurement
+this project has always used to settle threshold questions now says something
+about the model itself.
+
+| | token overlap | MLX (bge-micro) |
+| --- | --- | --- |
+| Balanced, would queue | 21 | 8 |
+| Aggressive, would queue | 73 | 24 |
+| Cosmetic (tagging) | 45 | 45 |
+
+MLX looks quieter — but **the two engines' top pairs are the same pairs**, in
+nearly the same order: the `clearspace-session-log` cluster, the
+`orchestrator-grill` pair, the `lib.js`/`compact.js`/`import.js` cluster. They
+also make the *same false positives*: `lib.js ⟷ compact.js` are different source
+files sharing a path prefix, and both engines flag them.
+
+Two conclusions follow:
+
+1. **Selectivity is a threshold, not a model.** Token overlap at ≥0.85 surfaces
+   3 pairs; MLX at its own 0.985 surfaces 8. Token overlap tuned up is *more*
+   selective than the embedding model, at zero dependency cost. Its default is
+   currently 0.75, which is simply set too low for a corpus this size.
+2. **Tagging never needed the model** — 45 cosmetic proposals from either
+   engine, since that rule is string matching.
+
+Also worth recording because it contradicts the prediction made earlier in this
+section: **ingest did *not* flood the duplicate detector.** No ingested session
+note appears in either engine's top pairs. Including the session id in the title
+makes them distinctive enough, and collapsing worktree copies removed the real
+source of noise. The flags that remain are all from the hand-written corpus.
+
+A third bug was caught by a unit test rather than the corpus: `RawStore`
+deduplicates by digest, but the *filename* also carries the original name for
+readability, so identical bytes arriving as `a.md` and `b.md` computed two
+different destinations and were stored twice. Identity is now looked up through
+a digest→filename index instead of being inferred from the path.
+
+And one avoided by construction: `LocalFileImporter` originally disambiguated
+colliding titles with `hashValue`. Swift seeds `Hasher` randomly **per process**,
+so that suffix would change on every launch and each run would mint a fresh
+permanent title for the same file — a duplicate-forever bug that unit tests
+passing within a single process would never have shown.
+`ImporterText.stableSuffix` uses SHA-256.
+
+### Why there's no default scan root
+
+`LocalFileImporter.roots` is non-optional with no fallback. The framework says
+"scan your computer"; this asks which folders. A scanner starting at `~` would
+copy a decade of unrelated documents into `/raw` and index them, and nobody
+reviewing four thousand notes can tell which ones they meant to add. "Scan
+everything" is not a state the type can be left in by accident.
+
+Prose only (`md`, `txt`, `rst`, `org`) — **source code is deliberately excluded.**
+It's already in version control, an agent can read it directly, and indexing it
+would bury the documents that actually carry decisions.
+
+### Routines, and Eco's promise finally having code behind it
+
+`RoutineScheduler` is a pure function, for the same reason `Janitor.scan` is: a
+scheduler holding a `NoteService` could quietly grow the ability to write, and
+the one thing that must stay true of unattended execution is that *deciding to
+run* and *running* are separate.
+
+Two routines, Tuesday and Friday — ingestion at 09:00, improvements at 13:00, so
+the janitor always works on data that already arrived rather than racing it.
+There is deliberately **no third routine for human review**: a routine is
+something this app makes happen, and it cannot make a person look at a queue.
+
+`lastFiring` looks *backwards* — "has this slot passed unserved", never "is it
+exactly 09:00". That's what lets a slot survive the Mac being asleep at the
+scheduled minute; a forward-only timer would skip it silently, and a pipeline
+that quietly stops is worse than one that never started, because the corpus goes
+stale while still looking maintained. The GUI heartbeat is therefore a coarse
+5-minute tick, not a precise alarm.
+
+`RoutineScheduler.gate` is where Eco's documented "only while plugged in and
+idle" finally became code rather than a sentence in the UI — that gap was called
+out in deferred #5 and #6. Eco needs power **and** 5 minutes idle; Balanced
+takes either power or 2 minutes idle; Aggressive doesn't gate. **No level grants
+any permission the manual button doesn't already have** — aggressive runs
+sooner, never wider.
+
+Desktops report no power sources at all, which is read as on-power. Treating it
+as "on battery" would mean Eco never runs on a Mac mini.
+
+**Routines ship off by default**, and the panel says so. This app reads the
+user's own files; that is not something to start doing because an update
+shipped.
+
+### Running the GUI to check it, and what that caught
+
+Worth writing down because it's non-obvious and cost time. The app is a **bare
+executable, not a `.app` bundle**, so it isn't in the LaunchServices index —
+screenshot tooling that resolves apps by name can't see it at all. What works:
+find the window by owner PID through `CGWindowListCopyWindowInfo` and capture it
+by id with `screencapture -l<id>`. Note that the main window does *not* appear
+under `.optionOnScreenOnly` when the app isn't frontmost; list with no options
+and filter by height.
+
+Run it against a scratch corpus, not the real one —
+`UNLIRICE_DATA_PATH=<scratch>/events.jsonl`, which is exactly what that override
+exists for.
+
+Doing this caught a bug no amount of building would have: **`Toggle` reports its
+label's width as its ideal width**, so the routines toggle's original long label
+("Run on a schedule (Tue & Fri)") pushed `DataPipelinePanel`'s VStack wider than
+the sidebar and clipped *every sibling* — the status line rendered as "Off —
+nothing runs unless you press a butto…". The label is now two words with the
+detail on the line below, plus `.fixedSize(horizontal: false, vertical: true)`
+so it wraps instead of truncating. Any future long label in that sidebar will do
+the same thing.
+
+## Removing the on-device model (this session)
+
+`UnliRiceMLX` is gone. So are `JanitorChat`, `AppStore+Chat.swift`,
+`ChatContext`, the Assistant sidebar item, `Scripts/mlx-run`, the
+`mlx-swift-examples` dependency, and the macOS 14 floor it forced. The package
+now has **no external dependencies** and builds under plain `swift build`.
+
+**This was decided by measurement, not taste** — see "Post-ingest calibration"
+above for the table. The short version: over a 233-note corpus the embedding
+model surfaced the *same top pairs* as token overlap, in nearly the same order,
+and made the *same false positives*. Its apparent advantage was volume, and
+volume is a threshold: token overlap at ≥0.85 is more selective than the model
+was at its own 0.985. So `TokenOverlapSimilarity`'s default moved 0.75 → 0.85
+(and aggressive 0.55 → 0.65), and the model was removed rather than carried.
+
+The chat half had already accumulated its own verdict. This file records, three
+separate times, that a 1–3B local model underperformed here: the similarity
+work, the chat panel needing two independent workarounds, and the Get Started
+interview being cut after a single real run. Deleting it is that conclusion
+applied rather than re-derived.
+
+### What replaced it
+
+**Nothing, in the app.** The intelligence lives in the agent the user already
+has. Anything connected over MCP can call `list_notes`, `tag_note` and
+`flag_for_review` — the janitor's entire permission set — and reads meaning
+instead of comparing title cosines.
+
+Worth knowing for anyone wiring that up: **MCP points the wrong way for
+scheduling.** This app is the *server*; it cannot call out to Claude, so
+"a cloud model does the maintenance" only happens while a session is open. The
+intended shape is for the maintenance routine to live in the *client's*
+scheduler and call these tools — which is also why nothing here stores an API
+key or a credential, and nothing should.
+
+### `RemoteSimilarity`, and the one rule on it
+
+`Sources/UnliRiceCore/Janitor/RemoteSimilarity.swift` is the bring-your-own
+seam for someone already running a local model server (LM Studio, Ollama —
+OpenAI `/v1/embeddings` shape). Off by default, empty fields, no network
+traffic unless configured.
+
+**It refuses any address that isn't loopback, and that is not a preference.**
+`warm(_:)` sends every note title to the endpoint, and note titles are the
+user's own content. Shipping a text field that will POST someone's corpus to
+an arbitrary host because a URL was pasted into it is not a thing to do
+quietly. If remote endpoints are ever wanted, that must be an explicit,
+separately-labelled decision. A test asserts the refusal.
+
+The same seam keeps the lesson the MLX work paid for: thresholds travel with
+the provider, because a cosine scale and a Jaccard scale mean nothing alike.
+Anyone plugging in their own model should re-run `janitor-calibrate` against it
+rather than trusting the inherited numbers — the tool now takes a base URL and
+model name for exactly that.
+
+### What was kept, and why
+
+`janitor-calibrate` survives with only its MLX half removed. It would have been
+easy to delete alongside the model, but it is the tool that produced the
+evidence for deleting the model, and the thresholds it tunes matter *more* once
+there's no model to hide behind. It has now twice settled an argument that
+reasoning alone got wrong.
+
+## Running with the window closed (this session)
+
+Everything this app said about unattended maintenance used to be true only while
+you were looking at it: `tickRoutines` was a SwiftUI `.task` attached to the
+window. For an app whose pitch is "you shouldn't have to visit me", that is the
+difference between the automation working and looking like it works.
+
+- `Sources/unlirice-agent/` — a fourth executable. launchd starts it every five
+  minutes; it does **one tick and exits**. No loop, no resident process: it can't
+  leak, can't wedge, and can't hold a stale view of the settings.
+- `Sources/UnliRiceHost/` — a new target for the handful of things that have to
+  ask macOS a question: IOKit (power), CoreGraphics (idle), launchd
+  (`BackgroundAgent`). The GUI and the agent both depend on it, so there is one
+  answer to "is this Mac plugged in", not two that can disagree. `UnliRiceCore`
+  stays dependency-free — it's what `unlirice-mcp` and the whole test suite link.
+- `RoutineDriver` (in Core) is the shared body of the loop. **Both** the window
+  heartbeat and the daemon call it, so a scheduled run cannot quietly differ from
+  a button press. `Pipelines.standard` exists for the same reason.
+
+**Nothing about the permission boundary changed, and that is the point.**
+`IngestRunner` and `JanitorRunner` still enforce `{created, appended, tagged}`
+and `{tagged, flagged}` by type. Running from a daemon rather than a button
+grants neither of them anything — which is exactly why `RoutineDriver` is as
+short as it is, and why `RoutineDriverTests` asserts Eco still refuses to run on
+battery when headless.
+
+### The three files that make two processes agree
+
+| File | Scope | Written by |
+| --- | --- | --- |
+| `agent.json` (support dir) | app | GUI only — the agent reads, never writes |
+| `routine-state.json` (beside the log) | corpus | whoever serves a slot |
+| `notices.json` (beside the log) | corpus | both |
+
+`AgentSettings` is a file rather than `UserDefaults` because the agent is a
+different binary with a different defaults domain: it would have read an empty
+domain, concluded routines were off forever, and looked exactly like a bug in
+scheduling. Last-run stamps moved out of `UserDefaults` for the sharper version
+of the same problem — two processes each remembering their own "last run" would
+serve the same 09:00 slot twice. `RoutineRunLock` (`flock`) covers the remaining
+race where both tick at the same instant; existing `UserDefaults` stamps are
+migrated across once on launch.
+
+**Smoke-tested for real**, against a copy of the live log: `unlirice-agent`
+ingested 40 sessions, ran the janitor, and posted three notices — which then
+appeared in the GUI's notification centre in a *separate* process. Use
+`UNLIRICE_AGENT_SETTINGS` (alongside `UNLIRICE_DATA_PATH`) to do that again
+without switching routines on for real.
+
+### What the first real press of the toggle taught us
+
+Three things, none of which any test caught, all found by opening the packaged
+app and using it:
+
+1. **The toggle could lie.** `Toggle(isOn:)` with a get/set binding flips
+   *visually* on click, then relies on a republish to correct itself. A failed
+   install left `backgroundAgentInstalled` false → false, nothing published,
+   nothing re-rendered — so the switch sat there reading **on** while no job
+   existed. `setBackgroundAgent` now always calls `objectWillChange.send()`, and
+   the failure is shown next to the toggle rather than only in `errorMessage`,
+   which renders in the note list — not the panel you're looking at when you
+   press it.
+2. **`SMAppService` does not work here.** It's the modern API and the rewrite to
+   it was half-done before being reverted: `register()` returns `Operation not
+   permitted` because it requires a properly signed app, and `make-app.sh` can
+   only sign ad-hoc without a Developer ID. If this ever gets a signing
+   identity, switch — it puts the job in Login Items where a user can find it.
+3. **The diagnosis that sent it down that path was wrong, and measuring settled
+   it.** The symptom (installed job, toggle reading off) looked exactly like
+   macOS protecting `~/Library/LaunchAgents` from a double-clicked app. A
+   throwaway probe run from inside the real bundle showed it listing *and*
+   writing that folder happily — so the direct-plist approach was fine all
+   along. Same habit as the janitor's calibration runs and the ingest dry run:
+   this project has now been wrong three times in a way that only running it
+   against reality could reveal, and right every time it did.
+
+`unlirice-agent --status` / `--install` / `--uninstall` exist because of this.
+The GUI had no way to report *why* the toggle did nothing; a one-line command
+that prints the real error is the difference between a five-minute fix and
+guessing.
+
+**Known sharp edge**: the installed job holds an absolute path to the agent
+binary. Running the app from `dist/` and later moving it to `/Applications`
+leaves the job pointing at the old copy. Re-toggling reinstalls it correctly.
+
+### Double-clickable
+
+`Scripts/make-app.sh` assembles `dist/Unli Rice.app` — GUI, MCP server and agent
+in one `Contents/MacOS`, ad-hoc signed. The bundle isn't cosmetic: it's how
+`BackgroundAgent.locateBinary` finds the agent. A launchd job pointing into
+`.build/debug` would break the next time anyone ran `swift package clean`, and a
+job pointing at a missing binary installs perfectly happily and then does nothing
+forever — so `locateBinary` returns nil rather than a plausible guess, and the
+toggle disables itself with an explanation.
+
+## Performance: the projection stopped being quadratic (this session)
+
+Deferred item #8, closed. It said "measure before assuming; it hasn't been" — so:
+
+| notes (2 writes each) | before | after |
+| --- | --- | --- |
+| 100 | 0.34s | 0.013s |
+| 200 | 1.29s | 0.025s |
+| 400 | 5.21s | 0.043s |
+| 4000 | (~minutes) | 0.47s |
+
+The old numbers grow 4× per doubling; the new ones grow 2×. Three changes:
+
+1. **`EventStore.read(from:)`** — a byte-offset cursor into the append-only log.
+   Sound *only* because nothing before the cursor can ever change; if the log
+   ever gains rewriting, this type is the alarm. Takes a shared `flock` and stops
+   at the last newline, so a partial line from a non-`EventStore` writer is read
+   once it's complete rather than skipped forever.
+2. **`NoteService` keeps the projection** and folds only new bytes onto it.
+   A read with nothing new does no projection work at all — which is the case
+   that matters, since every MCP `list_notes`/`search_notes` is one.
+3. **`LinkIndex`** — incremental wiki-links.
+
+Point 3 is the one worth remembering, because the first attempt was wrong.
+Caching the *body parse* seemed obviously right and moved 400 notes from 1.00s to
+0.84s. The expense was never the bracket-scanning: it was rebuilding n sets and
+re-sorting n titles on **every one of 800 writes**. `LinkIndex` instead tracks
+what can actually change — a changed body affects only that note; a new note
+affects whatever was dangling on its title or its raw UUID, found by index rather
+than by scanning; a tag, archive or flag can't affect links at all, so a whole
+janitor pass now costs nothing here. That took it to 0.043s.
+
+`Projector.resolveLinks` stays the simple whole-corpus version on purpose: it is
+the *definition* of what links mean, and `ProjectionCacheTests` asserts the
+incremental answer equals a cold `Projector.project` of the same log — including
+over a 60-note mixed sequence of creates, appends, tags, archives and links. If
+the two ever disagree, the cold one is right.
+
+## The notification centre and the review screen (this session)
+
+Two things that answer one problem: the app wants to run itself *and* to be worth
+opening a year later, and those clash the moment it needs you to come to it. A
+year of unattended work with no way to mention anything becomes a pile of chores
+waiting at the door.
+
+**`NoticeStore`** is deliberately *not* the event log. Everything in
+`events.jsonl` is permanent by design; notices are read, go stale, and get
+trimmed (capped at 50). Deleting the file loses nothing the user owns — the same
+status `/raw` has. Three rules earned their keep:
+
+- `Notice.key` identifies **the situation**, not the telling of it. Posting over
+  an existing *unread* notice with the same key replaces it, so an agent ticking
+  every five minutes reports one review queue, not 288 a day. Once read, the key
+  is free again, so a situation recurring after you've dealt with it is news.
+- A routine that ran and changed nothing posts nothing. Read from the runners'
+  own counts, not sniffed out of their summary text — "285 scanned, 0 new" is
+  full of digits and describes nothing happening.
+- A **failure** never collapses into the success notice. A pipeline that quietly
+  stops while still looking maintained is the failure this design fears most.
+
+Notices point; they never act. `NoticeDestination` is a closed enum of screens,
+so nothing here can resolve a flag or consolidate a duplicate — decision #3,
+enforced by type again rather than by discipline.
+
+**`Retrospective`** is a pure function over notes, and needs no new data at all:
+every note already carries when it happened, what wrote it, which project
+(`**Project:**`, from the ingest pipelines) and what links to it. Months and
+years only — a week is too short to have forgotten and a quarter is a unit of
+work, not of memory. Periods with nothing in them are never offered.
+
+Highlights rank by how many notes point *back* at something, not by length:
+recognition, not volume. Archived notes are excluded, because archiving is how
+someone says stop showing me this and a year-in-review that resurfaces exactly
+what they filed away is the app arguing with its user — the same mistake
+`JanitorRunner`'s untag check exists to avoid.
+
+**Running it over the real corpus caught two bugs again**, as it has every time:
+the top "most-worked project" came out as the home folder's name, and a note
+whose prose began "**Project:** Architecturally…" was counted as a project called
+"Architecturally". `Retrospective.project(of:)` now requires an absolute path of
+more than two components. Both are pinned by tests.
+
+`DigestAnnouncer` announces the month *just ended*, once — never the month in
+progress, and never twelve of them to someone who ignored the app for a year.
+It is not a third `RoutineKind`: the decision recorded above ("a routine is
+something this app makes happen, and it cannot make a person look at a queue")
+still stands. This is the other half of that thought — if the app can't make you
+look, the least it can do is pick one moment worth mentioning it and then be
+quiet.
+
+## The 200-note pass: scrolling, connectors, trash (this session)
+
+Everything here came out of using the app against a real corpus (190 notes, 144
+of them ingested Claude sessions) rather than the eight-note store the UI was
+designed on. At that size four things broke that weren't visible before.
+
+**All Notes did not scroll.** `NoteList` was a plain `VStack` inside the column's
+`VStack` — no `ScrollView` anywhere in that path. Every row past the window's
+height was rendered off-screen and unreachable, and the `NewNoteRow` composer was
+pushed out with them. Fixed by pinning the header and composer and scrolling only
+the list, with a `LazyVStack` (ingest adds 40 notes a click; the eager stack built
+every row view on every redraw). The list also gained search over
+title/body/tags/source, date group headers, a first-line body preview per row, and
+a hover **Archive** button — archiving used to require opening the note first,
+which is backwards: you judge a note is noise from its title.
+
+The source badge is now hidden when it says `claude`. With every note in the
+corpus stamped `claude`, 190 identical badges carried no information.
+
+**Get Started became Connect.** The three-stage wizard (`SetupStage.start` →
+`.chooseTargets` → `.results`) is gone; `SetupStage` and `connectSelectedTargets`
+remain only because the enum is still referenced, and the screen no longer reads
+them. It's a flat connector table modelled on Claude's own Connectors panel: one
+row per tool, each acting alone via `AppStore.connect(_:)`, each showing live
+state from `MCPConfigWriter.presence` — a **read-only** probe added for this, so
+drawing the screen doesn't attempt writes on five of the user's config files.
+Batching five independent switches into one commit was the whole problem: "is
+Cursor connected?" was unanswerable once you'd left the results page.
+
+**The graph's grouping was fiction.** Colours were hardcoded to four tag names
+(`ai-context`, `guardrails`, `projects`, `system`) picked when the corpus was tiny;
+on the real store almost nothing matches and everything lands in one grey cluster.
+Groups are now derived from the notes present, under a `GraphGrouping` picker —
+**Tag / Author / Year-Month**. Author is `note.creator`, which is finally
+meaningful now that multiple LLMs write here. Cluster centres are evenly spaced on
+a circle (the old four were hand-placed with nowhere to put a fifth), and there's
+a **Fit** that solves for the node bounding box plus a one-shot auto-fit 3s after
+load. "Recenter" only ever reset to 100% at the origin, which fits nothing once
+the layout is bigger than the window.
+
+Two things about the graph are worth knowing before touching it again:
+
+- **Labels are budgeted.** Above 60 nodes they're drawn only for hover, selection,
+  or an active group filter. At 170 they overlap into a solid block of text with
+  the graph somewhere underneath — every node having a label is the same as none
+  having one. `fitToWindow`'s padding allowance follows the same rule, since
+  padding for labels that aren't drawn just zooms out for nothing.
+- **`fitToWindow` takes the size as an argument, from the enclosing
+  `GeometryReader`.** Don't "simplify" it back to reading a `@State var
+  viewportSize`. That was tried: the `onAppear` read captured a zero, `onChange(of:
+  geometry.size)` never fired, and a `PreferenceKey` measurement didn't populate it
+  either — so the function tripped its own `width > 0` guard and returned silently
+  on every call, with the button appearing dead and the zoom readout stuck at 100%.
+  The auto-fit is a `DispatchQueue.main.asyncAfter` in `onAppear` for the same
+  reason (that's where the size is in scope), and it's a fixed delay rather than a
+  watch on `alpha` because hover and drag re-heat the simulation — "has cooled" is
+  a state the user can postpone forever just by moving the mouse.
+
+**Review Queue → Review Notes**, with a **Clean up** menu, and Archived gained
+**Ask an LLM…**. Both copy a prompt from `CleanupPrompts` to the clipboard and do
+nothing else. That's deliberate and follows decision #3: judging which of four
+near-identical ingest notes is the real one needs a model that can read all four,
+and that model is the one the user already has connected. A "Delete all ingest"
+button would make the app the thing that decides. Each prompt restates the house
+rules (append-only, no delete, titles permanent) because it gets pasted into a
+fresh chat that has never seen `AGENTS.md`.
+
+### Trash — the carve-out in decision #2, now real
+
+`TrashService` is the first and only code in this repo that removes note history
+from the log. Decision #2 always allowed for this — *"must be a human-triggered
+action, never something an agent or the janitor can invoke autonomously"* — and
+the carve-out is enforced structurally, not by convention:
+
+- It lives **outside `NoteService`**. `unlirice-mcp` builds its tool catalog from
+  `NoteService` methods, so no MCP tool can be wired to it even by accident. An
+  agent cannot express the operation at all.
+- `RoutineDriver` has no path to it. It never runs unattended.
+- It's reachable from one place: ticking notes in **Archived** and confirming an
+  `NSAlert`. The alert is raised inside `moveSelectedToTrash`, not in the view, so
+  a second caller can't reach the purge without it.
+
+Mechanically it is a backup-then-rewrite, in a fixed order that can't be
+rearranged: copy the whole log to `Backups/events-<stamp>.jsonl`, write each note's
+complete event history to `Trash/<uuid>.json`, then rewrite the log without those
+lines — all under one exclusive `flock`, so a concurrent MCP write can't be
+silently dropped by the rewrite. A crash between any two steps leaves the log
+either untouched or fully rewritten with the recovery data already on disk.
+Surviving lines are written back **byte-for-byte** rather than re-encoded, so a log
+written by another version of this app can't be reformatted or have unknown fields
+dropped. `TrashService.restore` appends a trashed note's events back onto the log —
+still append-only, still projects identically, which is why the purge can afford to
+be the one rewrite in the system.
+
+Seven tests in `TrashTests.swift` cover it (202 in the suite overall now): only the
+targeted note goes, the backup is byte-identical to the pre-purge log, a restore
+reproduces body/tags/sources exactly, and a purge of unknown ids writes no backup
+and changes no bytes on its way to throwing.
+
+### Every switch has to do something
+
+An audit of every `Toggle` and `Slider` in the GUI, against what each one is
+actually wired to:
+
+| Control | Wired to |
+|---|---|
+| Autonomy slider | Real. `JanitorConfig` reads it — eco disables structural rules, aggressive enables orphan detection and drops `minimumTagCorpusUse` 2→1, plus the thresholds. Synced into `AgentSettings` for the background agent. |
+| Run routines on a schedule | Real. Gates `RoutineDriver` and `unlirice-agent`. |
+| Keep working with the window closed | Real. Installs/removes the launchd job, and reads its state back from disk rather than remembering it. |
+| **Autopilot** | **Nothing, by the time you'd have touched it.** Removed. |
+
+Autopilot's entire effect was writing one note whose body is `Autopilot.noteBody`
+— prompt text telling an assistant to read the notes at session start and write
+back at the end. Three things were wrong with expressing that as a switch:
+
+1. **A binary is the wrong control for a prompt.** It offers a choice between our
+   wording and nothing, when the thing a user wants is to change a line — add
+   their own conventions, drop a rule that doesn't fit how they work.
+2. **It didn't persist.** There was no `UserDefaults` key, so "off" silently
+   became "on" at the next launch.
+3. **It was inert in both positions.** The write was guarded on the note not
+   already existing, so after the first connect the switch did nothing either way.
+
+It's now `AppStore.houseRulesText`: the text itself, editable and persisted,
+with an explicit Save. Saving is no longer a side effect of connecting a tool —
+a note appearing in your store is something you should have asked for. Edits
+append rather than rewrite, which is both what the append-only log requires and
+the honest representation: the assistant reads the whole body with the newest
+text last, and the original wording stays in the history.
+
+One related thing this audit found and did *not* change: `monthlyReviewEnabled`
+is persisted and read by `RoutineDriver`, but no control anywhere sets it, so it
+is permanently `true`. That's a setting without a switch rather than a switch
+without an effect — worth either surfacing or hardcoding, but it isn't lying to
+anyone today.
+
+### The right-hand panel is gone
+
+`AutonomyPanel` — the 260pt column of settings and manual triggers pinned to the
+right of every screen — is now `AutomationView`, a sidebar destination like every
+other pane. Nothing was cut except the "Review queue" pointer inside it, which
+duplicated the sidebar's own Review Notes row and its badge.
+
+The reasoning: every control in it is setup or a deliberate manual trigger. You
+touch the autonomy slider, the janitor's Preview/Run, the ingest folders and the
+two schedule switches when configuring the app or when you want something to
+happen *now* — not while reading a note. Pinning them cost the main column a
+fifth of the window on panes where none of it applied (Connect, the graph, the
+retrospective), and a permanent wall of knobs is the opposite of the
+invisible-by-default posture the rest of the app is built around.
+
+It also lifted a constraint the narrow column imposed on the controls themselves.
+A `Toggle` reports its label's width as its ideal width, so long labels used to
+widen that whole VStack and clip its siblings — which is why the switches were
+called "Routines" and "In background" with the explanation exiled to a line
+underneath. They now say "Run routines on a schedule" and "Keep working with the
+window closed", and the janitor/ingest previews scroll instead of truncating at
+eight items.
+
+One bug fixed alongside it: `showLast(_:)` echoed its argument into the status
+line, so "Everything" (which passes `Int.max`) followed by a click on All Notes
+reported *"Showing: last 9223372036854775807 updated notes."* It now describes
+what's on screen rather than the ceiling it was given.
+
+Verified against the real 170-note store, on screen: All Notes scrolls with sticky
+date headers and distinct per-row previews ("170 of 170"), search filters, Connect
+renders the five connectors with live per-row state, Review Notes' Clean up menu
+puts the right prompt on the clipboard (checked with `pbpaste`), Archived shows its
+toolbar with Move to Trash correctly disabled on an empty selection, and the graph
+fits the window under both Tag and Author grouping with Fit reframing to 48% to
+catch the outliers. The only things not directly observed are the 3-second auto-fit
+firing on load (it calls the same `fitToWindow` the button proves works) and the
+Automation pane itself — macOS screen capture stopped working before that build
+could be photographed, though it compiles, launches, and stays up.
+
 ## Deferred / explicitly not done yet, in rough priority order
 
 1. ~~Register the server with an actual MCP client~~ — done, see above.
@@ -688,27 +1345,52 @@ We overhauled the application aesthetics to support a premium, fixed-dark **"liq
    to map directly onto SwiftData records; the append-only design was chosen
    specifically so CloudKit sync conflict resolution stays simple (new
    records only, no in-place record mutation to reconcile).
-5. **Local MLX janitor.** ~~The embedding model~~ — done, see "The MLX model"
-   above. What's left:
-   - **Scheduling/triggering** — the janitor runs from a button and nothing
-     else. An idle + on-power trigger is still unbuilt, and is the remaining
-     half of the Eco level's "only while plugged in and idle" promise.
-   - **Generative TL;DRs** — the one planned cosmetic action still missing.
-     If added, it must stay cosmetic (append-only, one note, no meaning
-     change) or it becomes a `flagForReview` instead.
-6. ~~**Battery/aggressiveness settings**~~ — the three levels exist as
-   `JanitorAutonomy`/`JanitorConfig` and are honoured by the rules. Still
-   missing the *battery* half: Eco is documented as "only while plugged in
-   and idle", which is a scheduling concern and lands with the trigger work
-   in #5.
+5. **The janitor.** ~~The embedding model~~ — built, measured, then **removed**;
+   see "Removing the on-device model". ~~Scheduling/triggering~~ — done, see
+   "Routines": `RoutineScheduler` gates on power and idle time, and the GUI
+   ticks it. What's left:
+   - ~~**Generative TL;DRs**~~ — **dropped, not deferred.** This was the last
+     planned cosmetic action, and it required exactly the on-device generative
+     model that was just deleted for underperforming. If it ever returns it
+     must come from an agent over MCP, and it must still be cosmetic
+     (append-only, one note, no meaning change) or it is a `flagForReview`.
+   - **Verify a routine actually fires unattended.** Half-done. The full path
+     — decide, run, record, notify — has now been exercised end to end by
+     running `unlirice-agent` against a copy of the real log: 40 sessions
+     ingested, janitor run, notices posted and then read by the GUI in a
+     separate process. What still hasn't been observed is **launchd** starting
+     it on a real Tuesday, and the power/idle readers have still never been
+     exercised on battery. Neither pipeline button has been *clicked* in the
+     GUI either.
+6. ~~**Battery/aggressiveness settings**~~ — done. The three levels exist as
+   `JanitorAutonomy`/`JanitorConfig` and are honoured by the rules, and the
+   *battery* half is now `RoutineScheduler.gate` — Eco's "only while plugged in
+   and idle" is enforced rather than merely described.
 7. **Real search.** `search_notes` is currently plain case-insensitive
    substring matching over title/body/tags. No embeddings/vector search yet
    — intentionally deferred until the embedding model (#5) exists.
-8. **Performance**: `NoteService` reprojects the *entire* event log on every
-   read call. Fine at current/expected MVP scale (small file, single user's
-   projects); will need an in-memory cache + incremental projection before
-   this could handle years of heavy multi-agent use. Not a problem yet, flag
-   it if the event log grows large and things get slow.
+8. ~~**Performance**~~ — done, measured, see "Performance: the projection
+   stopped being quadratic". Reads are now O(1) when nothing has been appended,
+   and a 4000-note build takes 0.47s where it used to take minutes. **What's
+   left**: `transactionLog(limit:)` still decodes and sorts the whole log on
+   every call. That's once per janitor run (`humanRemovedTags`) and once per
+   ingest run, so it's linear-per-run rather than quadratic and hasn't been
+   worth an event cache yet — but it is the next thing to look at if runs get
+   slow, and unlike the projection it has no cache behind it at all.
+
+9. **The other two pipelines from the framework.** Built: Claude sessions, local
+   documents. Not built:
+   - **Ecosystem sync** (meeting transcripts, Slack, YouTube) — each needs a
+     network integration and a credential story, neither of which exists here.
+   - **Curated content** (a `+newsletter@` email alias filtered into the wiki).
+   Both fit `ResourceImporter` without changing anything else — that seam is
+   the whole point. The deliberate omission is any pipeline that would make
+   this app hold a third-party credential; nothing here does today.
+
+   Also unbuilt: **periodic voice/rant dumps**. The framework routes these
+   through the same "add a resource" path, which here is just dropping a file
+   into a scanned folder — so this may need no code at all. Try it that way
+   before building anything.
 
 ## Repo/environment notes
 

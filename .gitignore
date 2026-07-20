@@ -1,6 +1,15 @@
 .build/
 .swiftpm/
+dist/
 *.xcodeproj
 .DS_Store
 .data/
 default.profraw
+
+# Runtime data, written when the MCP server, the agent, or a test is run from
+# the repo root rather than against the real support directory. events.jsonl is
+# the note store itself — personal content by definition, and never something
+# that belongs in version control even when it happens to be empty.
+events.jsonl
+routine-state.json
+routine.lock

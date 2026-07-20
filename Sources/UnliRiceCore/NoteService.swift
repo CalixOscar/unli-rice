@@ -20,6 +20,27 @@ public enum NoteServiceError: Error, CustomStringConvertible {
 public final class NoteService {
     private let store: EventStore
 
+    /// The projection, kept between calls and brought up to date incrementally.
+    ///
+    /// Every read used to decode and fold the *entire* event log — O(n) per
+    /// call, and every write does two reads (`requireExists` then `require`), so
+    /// ingesting 40 notes was quadratic over a corpus that had just acquired a
+    /// mechanism for getting large. This was deferred item #8 in
+    /// PROJECT_NOTES.md, and the note there said "measure before assuming"; the
+    /// measurement is in `ProjectionCacheTests`.
+    ///
+    /// It stays correct across processes because the cursor is a byte offset
+    /// into an append-only file: another MCP client's writes appear as bytes
+    /// past the cursor, and `EventStore.read(from:)` reports a shrunken file so
+    /// the cache can be thrown away rather than folded onto.
+    private var cachedNotes: [UUID: Note] = [:]
+    private var cursor: EventStoreCursor = .start
+    private let cacheLock = NSLock()
+
+    /// Keeps wiki-links current without rebuilding them for the whole corpus on
+    /// every write. See `LinkIndex`.
+    private var links = LinkIndex()
+
     public init(store: EventStore) {
         self.store = store
     }
@@ -162,7 +183,27 @@ public final class NoteService {
     // MARK: - Private
 
     private func currentNotes() throws -> [UUID: Note] {
-        Projector.project(try store.readAll())
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+
+        let batch = try store.read(from: cursor)
+        if batch.restarted {
+            cachedNotes = [:]
+            links.reset()
+        }
+        if !batch.events.isEmpty {
+            Projector.apply(batch.events, to: &cachedNotes)
+            // Only these two kinds can change a link. A run of tags and flags —
+            // which is what a whole janitor pass consists of — costs nothing
+            // here at all.
+            links.update(
+                &cachedNotes,
+                created: batch.events.filter { $0.kind == .created }.map(\.noteId),
+                bodiesChanged: batch.events.filter { $0.kind == .appended }.map(\.noteId)
+            )
+        }
+        cursor = batch.cursor
+        return cachedNotes
     }
 
     private func requireExists(_ id: UUID) throws {

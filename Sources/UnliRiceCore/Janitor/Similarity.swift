@@ -2,12 +2,11 @@ import Foundation
 
 /// How the janitor decides two pieces of text are about the same thing.
 ///
-/// This is the seam the local MLX work plugs into. Per PROJECT_NOTES.md #5,
-/// similarity is meant to come from a small *embedding* model, not a 1–3B
-/// generative one — so it lives behind a protocol rather than being wired into
-/// the rules. Everything above this line is deterministic and testable today;
-/// swapping in embeddings later changes which pairs get proposed, never what
-/// the janitor is permitted to do with them.
+/// The seam exists so that *which pairs get noticed* is pluggable while *what
+/// the janitor may do with them* is not. A bundled on-device embedder used to
+/// live behind it and was removed once measured (PROJECT_NOTES.md);
+/// `RemoteSimilarity` is the bring-your-own replacement. Whatever is plugged in,
+/// `JanitorRunner` still calls only `tagNote` and `flagForReview`.
 public protocol SimilarityProvider: Sendable {
     /// 0.0 (unrelated) to 1.0 (identical).
     func similarity(_ a: String, _ b: String) -> Double
@@ -50,10 +49,20 @@ public struct SimilarityCalibration: Sendable {
         self.relatednessThreshold = relatednessThreshold
     }
 
-    /// Token-overlap's numbers, and the historical default.
+    /// Token-overlap's numbers, and the default.
+    ///
+    /// `duplicateThreshold` was 0.75, measured against a 49-note corpus. Over
+    /// the 233-note post-ingest corpus that queued 21 pairs at Balanced, where
+    /// 0.85 queues 3 — and the pairs between the two are the same kind of false
+    /// positive (`lib.js` ⟷ `compact.js`: different files sharing a path
+    /// prefix). 0.85 is also *more* selective than the embedding model this
+    /// replaced was at its own threshold, which is the finding that removed it.
+    ///
+    /// Re-run `janitor-calibrate` as the corpus grows; the right answer moves,
+    /// and it has already moved once.
     public static let tokenOverlap = SimilarityCalibration(
-        duplicateThreshold: 0.75,
-        aggressiveDuplicateThreshold: 0.55,
+        duplicateThreshold: 0.85,
+        aggressiveDuplicateThreshold: 0.65,
         relatednessThreshold: 0.35
     )
 }

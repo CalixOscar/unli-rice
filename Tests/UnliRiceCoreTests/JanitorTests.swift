@@ -88,9 +88,13 @@ final class JanitorTests: XCTestCase {
     }
 
     func testAggressiveProposesMoreEagerlyThanBalanced() throws {
-        // 60% title overlap: above Aggressive's 0.55 bar, below Balanced's 0.75.
+        // Jaccard 3/4 = 0.75: above Aggressive's 0.65 bar, below Balanced's
+        // 0.85. Both numbers moved when the post-ingest calibration retuned
+        // them (PROJECT_NOTES.md), so this fixture moved with them — the
+        // property under test is the *ordering* of the two levels, not the
+        // specific constants.
         try service.createNote(title: "Vector search rollout plan", body: "a", source: "claude")
-        try service.createNote(title: "Vector search plan notes", body: "b", source: "gemini")
+        try service.createNote(title: "Vector search rollout", body: "b", source: "gemini")
 
         let notes = try service.listNotes()
         let balanced = Janitor.scan(notes: notes, config: JanitorConfig(autonomy: .balanced))

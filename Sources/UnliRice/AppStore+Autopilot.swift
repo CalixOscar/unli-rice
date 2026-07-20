@@ -2,17 +2,6 @@ import AppKit
 import Foundation
 import UnliRiceCore
 
-/// Which screen of Get Started is showing.
-enum SetupStage: Equatable {
-    /// Autopilot toggle, and the choice between connecting a tool and pointing
-    /// at an existing folder.
-    case start
-    /// The MCP picker. Cannot be left without at least one usable target.
-    case chooseTargets
-    /// Per-target outcomes: written, already correct, or paste-this.
-    case results
-}
-
 /// What happened when Autopilot tried to connect one tool.
 struct ConnectionResult: Identifiable, Equatable {
     enum Status: Equatable {
@@ -51,30 +40,6 @@ extension AppStore {
         availableTargets.first { $0.id == id }
     }
 
-    // MARK: - Selection
-
-    func toggleTarget(_ target: MCPTarget) {
-        if selectedTargetIDs.contains(target.id) {
-            selectedTargetIDs.remove(target.id)
-        } else {
-            selectedTargetIDs.insert(target.id)
-        }
-    }
-
-    /// A project-scoped target isn't usable until the user says which project.
-    func isTargetReady(_ target: MCPTarget) -> Bool {
-        guard selectedTargetIDs.contains(target.id) else { return false }
-        return !target.requiresProjectFolder || targetProjectFolders[target.id] != nil
-    }
-
-    /// Gates the Connect button. The requirement that at least one tool is
-    /// connected is the point of the screen — Unli Rice with nothing attached
-    /// to it is exactly the state a new user is stuck in.
-    var canConnect: Bool {
-        let selected = availableTargets.filter { selectedTargetIDs.contains($0.id) }
-        return !selected.isEmpty && selected.allSatisfy(isTargetReady)
-    }
-
     func chooseProjectFolder(for target: MCPTarget) {
         let panel = NSOpenPanel()
         panel.title = "Choose the project folder for \(target.displayName)"
@@ -108,22 +73,89 @@ extension AppStore {
 
     // MARK: - Connecting
 
-    /// Writes what can be written, renders what can't, and — if Autopilot is on
-    /// — leaves the house-rules note behind.
-    func connectSelectedTargets() {
+    /// Connects exactly one tool, immediately.
+    ///
+    /// This is what the connector table calls, and it replaces the old
+    /// tick-boxes-then-Connect-then-results wizard. Connecting Cursor and
+    /// connecting Claude Desktop were never one decision that needed batching —
+    /// they're two independent switches, and modelling them as a multi-select
+    /// flow meant a user who wanted one tool still had to walk three screens and
+    /// then find their way back out. Each row now owns its own outcome, kept in
+    /// `connectionResults` and rendered in place under the row that produced it.
+    func connect(_ target: MCPTarget) {
+        // A project-scoped tool with no folder yet has one obvious next step;
+        // asking for the folder *is* the connect action in that case, rather
+        // than a disabled button and a note explaining why it's disabled.
+        if target.requiresProjectFolder, targetProjectFolders[target.id] == nil {
+            chooseProjectFolder(for: target)
+            guard targetProjectFolders[target.id] != nil else { return }
+        }
+
         let entry = MCPServerEntry.forPackage(
             at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
         )
+        let outcome = result(for: target, entry: entry)
+        connectionResults.removeAll { $0.id == target.id }
+        connectionResults.append(outcome)
+        selectedTargetIDs.insert(target.id)
 
-        connectionResults = availableTargets
-            .filter { selectedTargetIDs.contains($0.id) }
-            .map { result(for: $0, entry: entry) }
-
-        if autopilotEnabled {
-            writeHouseRulesNote()
-        }
+        // Connecting no longer writes the house-rules note as a side effect.
+        // That was the Autopilot switch's whole job, and a switch is the wrong
+        // control for a block of prompt text — see `AppStore.houseRulesText`.
+        // The note is now saved by a visible button, next to the text it saves.
         markGetStartedComplete()
-        setupStage = .results
+
+        switch outcome.status {
+        case .written:
+            statusMessage = "Connected \(target.displayName) — restart it to pick this up."
+        case .alreadyCorrect:
+            statusMessage = "\(target.displayName) was already connected."
+        case .pasteRequired:
+            statusMessage = "\(target.displayName) needs the config pasted in by hand."
+        }
+    }
+
+    /// Read-only state for one row of the connector table.
+    func presence(of target: MCPTarget) -> MCPConfigWriter.Presence {
+        guard target.supportsAutomaticWrite else { return .absent }
+        let entry = MCPServerEntry.forPackage(
+            at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
+        )
+        return MCPConfigWriter.presence(
+            of: entry, inJSONAt: target.configURL(projectFolder: targetProjectFolders[target.id])
+        )
+    }
+
+    func result(forTargetID id: String) -> ConnectionResult? {
+        connectionResults.first { $0.id == id }
+    }
+
+    /// The paste block for a target, for the tools we don't write to.
+    func snippet(for target: MCPTarget) -> String {
+        MCPConfigWriter.snippet(
+            for: target.format,
+            entry: MCPServerEntry.forPackage(
+                at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
+            )
+        )
+    }
+
+    /// The house-rules note, if it's been saved. Drives the button's label —
+    /// "Save to notes" and "Update the note" are different promises.
+    var houseRulesNote: Note? {
+        (notes + archivedNotes).first { $0.title.hasPrefix(Autopilot.noteTitleBase) }
+    }
+
+    /// Whether the saved note already says what the editor currently says.
+    /// Guards the button, because on an append-only log "save" with no changes
+    /// isn't a no-op — it's a second copy of the same text inside one note.
+    var houseRulesAreSaved: Bool {
+        guard let note = houseRulesNote else { return false }
+        return note.body.contains(houseRulesText.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    func resetHouseRules() {
+        houseRulesText = Autopilot.noteBody
     }
 
     private func result(for target: MCPTarget, entry: MCPServerEntry) -> ConnectionResult {
@@ -167,27 +199,42 @@ extension AppStore {
     /// The note that teaches a connected assistant the habit — read the notes at
     /// the start of a session, write them at the end. Skipped when Autopilot is
     /// off, for someone who'd rather set their own conventions.
-    private func writeHouseRulesNote() {
+    /// Saves the house rules the user is looking at.
+    ///
+    /// Two paths, because titles are permanent and the log is append-only: a
+    /// note that doesn't exist is created, and one that does is *appended to*
+    /// rather than rewritten. An append is the honest representation of an edit
+    /// here — the assistant reads the whole body and the newest text is last,
+    /// while the original wording stays in the history where a rewrite would
+    /// have destroyed it.
+    func saveHouseRules() {
+        let text = houseRulesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         do {
-            let title = Autopilot.noteTitle(existingTitles: (notes + archivedNotes).map(\.title))
-            // `source: "unlirice"` — this is the app's own voice, the same as
-            // the seeded guides. It isn't something the user wrote, and marking
-            // it "human" would make the transaction log lie.
-            let note = try service.createNote(
-                title: title, body: Autopilot.noteBody, source: Onboarding.source
-            )
-            try service.tagNote(id: note.id, tag: Autopilot.noteTag, source: Onboarding.source)
+            if let existing = houseRulesNote {
+                try service.appendToNote(id: existing.id, text: text, source: Onboarding.source)
+                statusMessage = "Updated “\(existing.title)”."
+            } else {
+                let title = Autopilot.noteTitle(existingTitles: (notes + archivedNotes).map(\.title))
+                // `source: "unlirice"` — the app's own voice, same as the seeded
+                // guides. Marking it "human" would make the transaction log lie,
+                // even though a human may well have edited the wording.
+                let note = try service.createNote(title: title, body: text, source: Onboarding.source)
+                try service.tagNote(id: note.id, tag: Autopilot.noteTag, source: Onboarding.source)
+                statusMessage = "Saved “\(title)” — your assistant will find it on its next session."
+            }
             reload()
         } catch {
-            errorMessage = "Couldn't write the how-to note: \(error)"
+            errorMessage = "Couldn't write the house-rules note: \(error)"
         }
     }
 
     // MARK: - Existing vault
 
-    /// Points the app at a folder that already holds an `events.jsonl`. Still
-    /// goes on to the MCP picker afterwards — an existing corpus that nothing
-    /// is connected to has the same problem as an empty one.
+    /// Points the app at a folder that already holds an `events.jsonl`. The
+    /// connector table is already on screen when this is reachable, and every
+    /// row re-reads its own state when the corpus changes, so there's nowhere
+    /// to navigate to afterwards.
     func chooseExistingVault() {
         let panel = NSOpenPanel()
         panel.title = "Choose the folder holding your notes"
@@ -199,20 +246,7 @@ extension AppStore {
         guard panel.runModal() == .OK, let folder = panel.url else { return }
 
         guard switchDataFolder(to: folder) else { return }
-        setupStage = .chooseTargets
-    }
-
-    // MARK: - Navigation
-
-    func beginTargetSelection() {
         connectionResults = []
-        setupStage = .chooseTargets
-    }
-
-    func restartSetup() {
-        connectionResults = []
-        selectedTargetIDs = []
-        setupStage = .start
     }
 
     func copySnippet(_ snippet: String) {

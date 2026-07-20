@@ -1,20 +1,27 @@
 import Foundation
 import UnliRiceCore
-import UnliRiceMLX
 
-/// Dry-runs the janitor's rules over a real corpus and reports what each
+/// Dry-runs the janitor's rules over a real corpus and reports what the
 /// similarity engine would surface, without writing anything anywhere.
 ///
-/// This exists because the duplicate thresholds are not guessable. Token
-/// overlap and embedding cosine both return 0...1 and the numbers mean entirely
-/// different things — the only way to know where the line goes is to look at
-/// the score distribution over real titles. It's kept in the repo rather than
-/// thrown away because the answer changes as the corpus grows.
+/// This exists because the duplicate thresholds are not guessable, and it has
+/// now twice been the thing that settled an argument: it produced the original
+/// 0.985 embedding threshold, and then — over a 233-note post-ingest corpus —
+/// showed that the embedding model surfaced the same top pairs as token
+/// overlap while making the same false positives. That measurement is why there
+/// is no bundled model any more, and why this tool outlived it.
+///
+/// Re-run it as the corpus grows. The right answer moves; it already has once.
 ///
 /// Read-only by construction: it opens a *copy* of the log and calls only
 /// `preview`, never `run`.
 ///
 ///     swift run janitor-calibrate [path-to-events.jsonl]
+///
+/// To calibrate a bring-your-own embedding server instead (see
+/// `RemoteSimilarity`), pass its base URL and model:
+///
+///     swift run janitor-calibrate <log> http://localhost:1234/v1 text-embedding-model
 
 let arguments = CommandLine.arguments
 let sourcePath = arguments.count > 1
@@ -100,8 +107,15 @@ func report(_ name: String, _ provider: SimilarityProvider) {
 
 report("token overlap (no model)", TokenOverlapSimilarity())
 
-let mlx = try await MLXSimilarity.load { fraction in
-    if fraction >= 1 { print("model ready") }
+// The bring-your-own half, only when asked for. Absent these arguments this
+// tool has no network behaviour at all.
+if arguments.count > 3, let base = URL(string: arguments[2]) {
+    let model = arguments[3]
+    do {
+        let remote = try RemoteSimilarity(baseURL: base, model: model)
+        await remote.warm(titles)
+        report("remote embeddings (\(model) at \(base.absoluteString))", remote)
+    } catch {
+        print("remote provider unavailable: \(error)")
+    }
 }
-await mlx.warm(titles)
-report("MLX embeddings (bge-micro)", mlx)

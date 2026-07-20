@@ -35,13 +35,13 @@ struct ContentView: View {
             }
             
             // Main structure
+            // Two columns, not three. The third was `AutonomyPanel`, 260pt of
+            // settings and manual triggers pinned to every screen — see
+            // `AutomationView`, which is where all of it went.
             HStack(spacing: 0) {
                 sidebar
                 Divider().opacity(0.3)
                 mainColumn
-                Divider().opacity(0.3)
-                AutonomyPanel()
-                    .frame(width: 260)
             }
         }
         .onAppear { store.reload() }
@@ -62,7 +62,7 @@ struct ContentView: View {
             .padding(.bottom, 18)
 
             sidebarRow(
-                "Get Started",
+                "Connect",
                 active: store.selectedNoteID == nil && store.showingGetStarted
             ) {
                 store.selectNote(nil)
@@ -72,6 +72,8 @@ struct ContentView: View {
                 "All Notes",
                 active: store.selectedNoteID == nil && !store.showingArchived
                     && !store.showingGraph && !store.showingGetStarted
+                    && !store.showingReviewQueue && !store.showingRetrospective
+                    && !store.showingNotices && !store.showingAutomation
             ) {
                 store.selectNote(nil)
                 store.showAllNotes()
@@ -84,7 +86,7 @@ struct ContentView: View {
                 store.showGraph()
             }
             sidebarRow(
-                "Review Queue",
+                "Review Notes",
                 active: store.selectedNoteID == nil && store.showingReviewQueue,
                 badge: store.pending.count
             ) {
@@ -99,12 +101,31 @@ struct ContentView: View {
                 store.selectNote(nil)
                 store.showArchived()
             }
+
+            Divider().opacity(0.15).padding(.horizontal, 14).padding(.vertical, 6)
+
+            // The two additions that make this app worth opening rather than
+            // worth maintaining: what happened while you were away, and what
+            // the last month or year actually consisted of.
             sidebarRow(
-                "Assistant",
-                active: store.selectedNoteID == nil && store.showingAssistant
+                "Notifications",
+                active: store.selectedNoteID == nil && store.showingNotices,
+                badge: store.unreadNoticeCount
+            ) {
+                store.showNotices()
+            }
+            sidebarRow(
+                "Your Review",
+                active: store.selectedNoteID == nil && store.showingRetrospective
+            ) {
+                store.showRetrospective()
+            }
+            sidebarRow(
+                "Automation",
+                active: store.selectedNoteID == nil && store.showingAutomation
             ) {
                 store.selectNote(nil)
-                store.showAssistant()
+                store.showAutomation()
             }
             Spacer()
 
@@ -154,15 +175,19 @@ struct ContentView: View {
             // First, not last: this is the launch default on an empty corpus,
             // and it should win over anything a stale selection might point at.
             if store.showingGetStarted {
-                GetStartedWizardView()
+                ConnectView()
             } else if let note = store.selectedNote {
                 NoteDetailView(note: note)
-            } else if store.showingAssistant {
-                AssistantView()
             } else if store.showingReviewQueue {
                 ReviewQueueView()
+            } else if store.showingNotices {
+                NoticeCenterView()
+            } else if store.showingRetrospective {
+                RetrospectiveView()
             } else if store.showingGraph {
                 NoteGraphView()
+            } else if store.showingAutomation {
+                AutomationView()
             } else {
                 noteListColumn
             }
@@ -170,499 +195,227 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    /// Header and composer are pinned; only the list scrolls.
+    ///
+    /// It didn't scroll at all before — `NoteList` was a plain `VStack` inside
+    /// this `VStack`, so on a corpus of 190 notes every row past the window's
+    /// height was rendered off-screen and unreachable, and `NewNoteRow` was
+    /// pushed out of the window with them. Wrapping the whole column in a
+    /// `ScrollView` would have fixed the reachability and taken the composer
+    /// with it; keeping the chrome outside the scroller is what makes a long
+    /// list usable rather than merely present.
     private var noteListColumn: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(store.showingArchived ? "Archived Notes" : "All Notes")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                let total = store.showingArchived ? store.archivedNotes.count : store.notes.count
-                Text("\(total) note\(total == 1 ? "" : "s") total · append-only")
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
-            }
-
-            if !store.showingArchived {
-                PromptRow()
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            noteListHeader
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
 
             if let error = store.errorMessage {
                 Text("Couldn't read the event log: \(error)")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.crit)
+                    .padding(20)
             } else if store.visibleNotes.isEmpty {
-                let emptyMessage = store.showingArchived
-                    ? "Nothing archived."
-                    : "No notes yet — add one below to get started."
-                Text(store.visibleCount == 0 ? " " : emptyMessage)
+                Text(emptyMessage)
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.inkDim)
-                    .padding(.vertical, 12)
+                    .padding(20)
+                Spacer()
             } else {
-                NoteList(notes: store.visibleNotes)
-            }
-
-            Text(store.statusMessage)
-                .font(.system(size: 11.5))
-                .italic()
-                .foregroundStyle(Theme.inkDim)
-
-            Spacer(minLength: 0)
-            if !store.showingArchived {
-                NewNoteRow()
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-}
-
-/// The chat panel. Everything here is read-only with respect to the event
-/// log — the assistant answers questions and drafts suggestions, and nothing
-/// in this view (or `AppStore+Chat.swift` behind it) can tag, archive, merge,
-/// or resolve anything. See `JanitorChat` for why that's structural, not a
-/// promise: the model's output is a `String`, full stop.
-private struct AssistantView: View {
-    @EnvironmentObject var store: AppStore
-    @State private var draft = ""
-    @FocusState private var inputFocused: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Assistant")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                Text(store.chatEngineStatus.label)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
-            }
-
-            Text("""
-            Runs a small model on your own machine — advisory only. It can \
-            describe and suggest, but nothing it says changes a note; every \
-            real change still goes through Accept/Reject or the note editor \
-            yourself.
-            """)
-                .font(.system(size: 11.5))
-                .foregroundStyle(Theme.inkDim)
-
-            ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        if store.chatHistory.isEmpty {
-                            Text("Ask about your notes, or what's pending in the review queue.")
-                                .font(.system(size: 12.5))
-                                .foregroundStyle(Theme.inkDim)
-                                .padding(.top, 20)
+                    // Lazy, not eager: ingest can add 40 notes in one click, and
+                    // the eager VStack built a row view for every note in the
+                    // corpus on every redraw.
+                    LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
+                        ForEach(store.visibleSections) { section in
+                            Section {
+                                ForEach(section.notes) { note in
+                                    NoteRow(note: note)
+                                }
+                            } header: {
+                                sectionHeader(section.title)
+                            }
                         }
-                        ForEach(store.chatHistory) { turn in
-                            ChatTurnView(turn: turn)
-                        }
-                        if store.chatBusy {
-                            Text("thinking…")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim)
-                                .id("bottom")
+
+                        if store.hiddenNoteCount > 0 {
+                            Button("Show \(store.hiddenNoteCount) more") { store.showEverything() }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 11.5, weight: .medium))
+                                .foregroundStyle(Theme.accent)
+                                .padding(.vertical, 12)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .onChange(of: store.chatHistory.count) {
-                    withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
                 }
             }
 
-            HStack(spacing: 8) {
-                TextField("Ask a question…", text: $draft)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12.5))
-                    .padding(9)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
-                    .focused($inputFocused)
-                    .onSubmit(send)
-                Button("Ask", action: send)
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .foregroundStyle(Color.white)
-                    .background(store.chatBusy ? Theme.inkDim : Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .disabled(store.chatBusy || draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(store.statusMessage)
+                    .font(.system(size: 11.5))
+                    .italic()
+                    .foregroundStyle(Theme.inkDim)
+                if !store.showingArchived {
+                    NewNoteRow()
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+            .padding(.top, 10)
         }
-        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { inputFocused = true }
     }
 
-    private func send() {
-        let question = draft
-        draft = ""
-        Task { await store.askAssistant(question) }
-    }
-}
-
-private struct ChatTurnView: View {
-    let turn: ChatTurn
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(turn.question)
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(Theme.ink)
-            Text(turn.answer)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Theme.inkDim)
-                .fixedSize(horizontal: false, vertical: true)
+    private var emptyMessage: String {
+        if !store.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+            return "Nothing matches “\(store.searchText)”."
         }
-        .padding(10)
-        .background(Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
-        .frame(maxWidth: .infinity, alignment: .leading)
+        return store.showingArchived
+            ? "Nothing archived."
+            : "No notes yet — add one below to get started."
     }
-}
 
-/// Get Started — connecting an AI tool to these notes.
-///
-/// This used to interview the user with the local model. It was cut after a
-/// real run ended the interview one answer in and produced a setup prompt with
-/// nothing useful in it. Nothing in this view calls a model; every step is
-/// deterministic and instant.
-///
-/// The flow is three screens: choose Autopilot, pick at least one MCP client,
-/// see what happened. Requiring a client is the point — a note store nothing is
-/// connected to is exactly the state this feature exists to get someone out of.
-private struct GetStartedWizardView: View {
-    @EnvironmentObject var store: AppStore
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    @ViewBuilder
+    private var noteListHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Get Started")
+                Text(store.showingArchived ? "Archived" : "All Notes")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
                     .foregroundStyle(Theme.ink)
                 Spacer()
-                Text(store.dataURL.deletingLastPathComponent().lastPathComponent)
+                let total = store.showingArchived ? store.archivedNotes.count : store.notes.count
+                Text("\(store.visibleNotes.count) of \(total) · append-only")
                     .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(Theme.inkDim)
             }
 
-            switch store.setupStage {
-            case .start: startScreen
-            case .chooseTargets: targetPicker
-            case .results: resultsScreen
-            }
+            SearchField()
 
-            Spacer(minLength: 0)
+            if store.showingArchived {
+                ArchiveToolbar()
+            } else {
+                PromptRow()
+            }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.bottom, 12)
     }
 
-    // MARK: - Start
-
-    private var startScreen: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("""
-            Unli Rice is memory your AI tools share. Connect one and it can read \
-            what you've saved, and write back what's worth keeping next time.
-            """)
-                .font(.system(size: 12.5))
+    private func sectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title.uppercased())
+                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
                 .foregroundStyle(Theme.inkDim)
-                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+        }
+        .padding(.vertical, 6)
+        .padding(.top, 6)
+        .background(Theme.background.opacity(0.92))
+    }
+}
 
-            Toggle(isOn: $store.autopilotEnabled) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Autopilot")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                    Text("""
-                    Also saves a note telling your assistant to read these notes \
-                    at the start of every session and write back at the end. \
-                    Turn it off if you'd rather set your own conventions.
-                    """)
-                        .font(.system(size: 11.5))
+/// Filters the list as you type. Plain, immediate, no submit — with 190 notes
+/// the fastest route to one of them is typing three letters of it, and a
+/// search that needs a return key first isn't that.
+private struct SearchField: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkDim)
+            TextField("Search titles, bodies, tags…", text: $store.searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12.5))
+            if !store.searchText.isEmpty {
+                Button(action: { store.searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
                         .foregroundStyle(Theme.inkDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .toggleStyle(.switch)
-            .tint(Theme.accent)
-            .padding(14)
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
-
-            HStack(spacing: 10) {
-                Button("Connect a tool") { store.beginTargetSelection() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .foregroundStyle(Color.white)
-                    .background(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                Button("I already have notes in a folder…") { store.chooseExistingVault() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
-            }
-
-            if let error = store.errorMessage {
-                Text(error)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.crit)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    // MARK: - Target picker
-
-    private var targetPicker: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Which tools should reach these notes? Pick at least one.")
-                .font(.system(size: 12.5))
-                .foregroundStyle(Theme.inkDim)
-
-            ScrollView {
-                VStack(spacing: 8) {
-                    ForEach(store.availableTargets) { target in
-                        targetRow(target)
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button("Connect") { store.connectSelectedTargets() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .foregroundStyle(Color.white)
-                    .background(store.canConnect ? Theme.accent : Theme.inkDim)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .disabled(!store.canConnect)
-
-                Button("Add another tool…") { store.addCustomTarget() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
-
-                Spacer()
-
-                Button("Back") { store.restartSetup() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
-            }
-        }
-    }
-
-    private func targetRow(_ target: MCPTarget) -> some View {
-        let selected = store.selectedTargetIDs.contains(target.id)
-        let needsFolder = selected && target.requiresProjectFolder
-            && store.targetProjectFolders[target.id] == nil
-
-        return VStack(alignment: .leading, spacing: 8) {
-            Button(action: { store.toggleTarget(target) }) {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: selected ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 13))
-                        .foregroundStyle(selected ? Theme.accent : Theme.inkDim)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(target.displayName)
-                            .font(.system(size: 12.5, weight: .medium))
-                            .foregroundStyle(Theme.ink)
-                        // Says what will be touched before the user agrees to it.
-                        Text(target.detail)
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    if !target.supportsAutomaticWrite {
-                        Text("paste")
-                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .foregroundStyle(Theme.brass)
-                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.brass, lineWidth: 1))
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-
-            if selected, target.requiresProjectFolder {
-                HStack(spacing: 8) {
-                    Button(store.targetProjectFolders[target.id] == nil ? "Choose project folder…" : "Change…") {
-                        store.chooseProjectFolder(for: target)
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(needsFolder ? Theme.brass : Theme.border, lineWidth: 1))
-
-                    if let folder = store.targetProjectFolders[target.id] {
-                        Text(folder.path)
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(Theme.emerald)
-                            .lineLimit(1)
-                            .truncationMode(.head)
-                    } else {
-                        Text("required — this tool keeps MCP servers per project")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(Theme.brass)
-                    }
-                }
-                .padding(.leading, 23)
-            }
-        }
-        .padding(12)
-        .background(Theme.panel)
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(selected ? Theme.accent.opacity(0.5) : Theme.border, lineWidth: 1)
-        )
-    }
-
-    // MARK: - Results
-
-    private var resultsScreen: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if store.autopilotEnabled {
-                Text("Autopilot saved “\(Autopilot.noteTitleBase)” to your notes — your assistant will find it the first time it looks.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.emerald)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(store.connectionResults) { result in
-                        resultCard(result)
-                    }
-                }
-            }
-
-            HStack(spacing: 10) {
-                Button("Go to my notes") {
-                    store.selectNote(nil)
-                    store.showAllNotes()
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .foregroundStyle(Color.white)
-                .background(Theme.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                Button("Connect another tool") { store.beginTargetSelection() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
             }
         }
-    }
-
-    private func resultCard(_ result: ConnectionResult) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text(result.target.displayName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                statusBadge(result.status)
-            }
-
-            Text(result.configPath)
-                .font(.system(size: 10.5, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
-                .fixedSize(horizontal: false, vertical: true)
-
-            switch result.status {
-            case .written(let backup):
-                if let backup {
-                    // Named explicitly: this app edited a file it didn't create,
-                    // and the user is entitled to know exactly how to undo it.
-                    Text("Your previous config was backed up to \(backup.lastPathComponent)")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Theme.inkDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Text("Restart \(result.target.displayName) for it to pick this up.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.inkDim)
-            case .alreadyCorrect:
-                Text("Already pointed here — nothing changed.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.inkDim)
-            case .pasteRequired(let reason):
-                Text(reason)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.brass)
-                    .fixedSize(horizontal: false, vertical: true)
-                snippetBlock(result.snippet)
-            }
-        }
-        .padding(14)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
         .background(Theme.panel)
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
     }
+}
 
-    private func statusBadge(_ status: ConnectionResult.Status) -> some View {
-        let (label, color): (String, Color) = {
-            switch status {
-            case .written: return ("connected", Theme.emerald)
-            case .alreadyCorrect: return ("already set", Theme.inkDim)
-            case .pasteRequired: return ("paste needed", Theme.brass)
-            }
-        }()
-        return Text(label)
-            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .foregroundStyle(color)
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(color, lineWidth: 1))
-    }
+/// The Archived pane's own controls: the two things you can only do to
+/// something already set aside.
+private struct ArchiveToolbar: View {
+    @EnvironmentObject var store: AppStore
 
-    private func snippetBlock(_ snippet: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ScrollView {
-                Text(snippet)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Theme.ink)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-            }
-            .frame(maxHeight: 200)
-            .background(Color.black.opacity(0.25))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(store.archiveSelection.isEmpty
+                 ? "Archiving never deleted anything. Tick notes to trash them for good."
+                 : "\(store.archiveSelection.count) selected")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.inkDim)
 
-            Button("Copy to Clipboard") { store.copySnippet(snippet) }
+            Spacer()
+
+            CleanupMenu(prompts: CleanupPrompts.archive, label: "Ask an LLM…")
+
+            Button("Reveal Trash") { store.revealTrashFolder() }
                 .buttonStyle(.plain)
-                .font(.system(size: 11.5, weight: .medium))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .foregroundStyle(Color.white)
-                .background(Theme.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .font(.system(size: 11))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .foregroundStyle(Theme.ink)
+                .background(Theme.panel)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+
+            // Destructive, so it is styled as such and stays disabled until
+            // something is actually ticked — the only irreversible control in
+            // the app should never be reachable by a stray click.
+            Button("Move to Trash") { store.moveSelectedToTrash() }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .foregroundStyle(store.archiveSelection.isEmpty ? Theme.inkDim : Theme.crit)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(store.archiveSelection.isEmpty ? Theme.border : Theme.crit, lineWidth: 1)
+                )
+                .disabled(store.archiveSelection.isEmpty)
         }
+    }
+}
+
+/// The clipboard-prompt menu, shared by Review Notes and Archived.
+///
+/// Every item copies a sentence and nothing else. That's the design: the work
+/// these describe — judging which of four near-identical notes is the real one
+/// — needs a model that can read all of them, and the model that can do that is
+/// the one the user already has connected. See `CleanupPrompts`.
+struct CleanupMenu: View {
+    @EnvironmentObject var store: AppStore
+    let prompts: [CleanupPrompt]
+    var label: String = "Clean up…"
+
+    var body: some View {
+        Menu {
+            ForEach(prompts) { prompt in
+                Button {
+                    store.copyPrompt(prompt)
+                } label: {
+                    Text(prompt.title)
+                    Text(prompt.blurb)
+                }
+            }
+            Divider()
+            Text("Each copies a prompt to paste into your assistant.")
+        } label: {
+            Text(label)
+                .font(.system(size: 11))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 }
 
@@ -675,14 +428,23 @@ private struct ReviewQueueView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Review Queue")
+            HStack(spacing: 10) {
+                Text("Review Notes")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
                     .foregroundStyle(Theme.ink)
                 Spacer()
                 Text("\(store.pending.count) item\(store.pending.count == 1 ? "" : "s")")
                     .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(Theme.inkDim)
+                // Sits here rather than in the empty state because "nothing is
+                // flagged" is exactly when bulk tidying is worth offering: the
+                // janitor found nothing *it* can judge, which says nothing about
+                // whether 144 ingested session logs are worth keeping.
+                CleanupMenu(prompts: CleanupPrompts.review)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Theme.panel)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
             }
 
             // Answers "why am I seeing this at all" before the cards do — a
@@ -726,6 +488,7 @@ private struct PromptRow: View {
             chip("Last 5 updated") { store.showLast(5) }
             chip("Last 10 updated") { store.showLast(10) }
             chip("Last 15 updated") { store.showLast(15) }
+            chip("Everything") { store.showEverything() }
             chip("What's waiting on me?") {
                 store.selectNote(nil)
                 store.showReviewQueue()
@@ -749,48 +512,134 @@ private struct PromptRow: View {
     }
 }
 
-/// One row per note. Tapping a row opens `NoteDetailView` — the only place a
-/// note's body, tags, links, and review flags are visible; the list itself
-/// stays a title-only index, same as before.
-private struct NoteList: View {
+/// One row per note. Tapping the row opens `NoteDetailView` — the list itself
+/// stays a title-first index.
+///
+/// The row carries two things it didn't before. **Archive**, because archiving
+/// used to require opening the note first, which is backwards: you decide a
+/// note is noise by glancing at its title, not by reading it. And in the
+/// Archived pane, a **tick box**, because the only destructive action in the
+/// app operates on a set and needs a way to express one.
+private struct NoteRow: View {
     @EnvironmentObject var store: AppStore
-    let notes: [Note]
+    let note: Note
+
+    @State private var hovering = false
 
     var body: some View {
-        VStack(spacing: 1) {
-            ForEach(notes) { note in
-                Button(action: { store.selectNote(note.id) }) {
-                    HStack {
-                        HStack(spacing: 8) {
-                            Text((note.sources.sorted().first ?? "—"))
-                                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .foregroundStyle(Theme.brass)
-                                .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.brass, lineWidth: 1))
-                            Text(note.title)
-                                .font(.system(size: 13))
-                                .foregroundStyle(Theme.ink)
-                                .lineLimit(1)
-                        }
-                        Spacer()
-                        if note.flags.contains(where: { !$0.resolved }) {
-                            Image(systemName: "flag.fill")
-                                .font(.system(size: 9))
-                                .foregroundStyle(Theme.brass)
-                        }
-                        Text(note.updatedAt.formatted(.relative(presentation: .named)))
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(Theme.panel)
+        HStack(spacing: 8) {
+            if store.showingArchived {
+                Button(action: { store.toggleArchiveSelection(note) }) {
+                    Image(systemName: store.archiveSelection.contains(note.id)
+                          ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 12))
+                        .foregroundStyle(store.archiveSelection.contains(note.id) ? Theme.accent : Theme.inkDim)
                 }
                 .buttonStyle(.plain)
             }
+
+            Button(action: { store.selectNote(note.id) }) {
+                HStack(spacing: 8) {
+                    // Only shown when it isn't the overwhelming default. With
+                    // every note in the corpus stamped "claude", the badge was
+                    // pure noise repeated 190 times; it earns its place only
+                    // where it distinguishes something.
+                    if let source = note.sources.sorted().first, source != "claude" {
+                        Text(source)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .foregroundStyle(Theme.brass)
+                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.brass.opacity(0.6), lineWidth: 1))
+                    }
+
+                    Text(note.title)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+
+                    // The first line of the body, dimmed. This is what makes
+                    // 144 rows that all begin "Session:" tellable apart at a
+                    // glance rather than only after opening each one.
+                    if let preview = bodyPreview {
+                        Text(preview)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.inkDim.opacity(0.75))
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    if note.flags.contains(where: { !$0.resolved }) {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Theme.brass)
+                    }
+                    Text(note.updatedAt.formatted(.relative(presentation: .named)))
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.inkDim)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            // Reserves its slot whether or not it's visible, so titles don't
+            // reflow under the pointer as it moves down the list.
+            Group {
+                if hovering {
+                    Button(action: { rowAction() }) {
+                        Image(systemName: store.showingArchived ? "tray.and.arrow.up" : "archivebox")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.inkDim)
+                    }
+                    .buttonStyle(.plain)
+                    .help(store.showingArchived ? "Restore to All Notes" : "Archive (reversible)")
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: 16)
         }
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(hovering ? Theme.panel.opacity(0.9) : Theme.panel.opacity(0.55))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border.opacity(0.5), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .onHover { hovering = $0 }
+    }
+
+    /// The first line worth reading, which is rarely the first line.
+    ///
+    /// Ingested sessions all open with the same four `**Project:** …`
+    /// `**When:** …` metadata lines, so taking line one gave all 144 of them an
+    /// identical preview — reproducing the exact problem the preview exists to
+    /// solve. Metadata lines are skipped in favour of prose; the quoted line
+    /// after `**Opened with:**` is the user's own first message, which is the
+    /// single most identifying thing in the note.
+    private var bodyPreview: String? {
+        let lines = note.body
+            .split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        let isMetadata: (String) -> Bool = { $0.hasPrefix("**") && $0.contains(":**") }
+        let chosen = lines.first { $0.hasPrefix("> ") }
+            ?? lines.first { !isMetadata($0) }
+            ?? lines.first
+
+        guard let chosen else { return nil }
+        let cleaned = chosen
+            .replacingOccurrences(of: "> ", with: "")
+            .replacingOccurrences(of: "**", with: "")
+        return "— " + cleaned.prefix(110)
+    }
+
+    private func rowAction() {
+        if store.showingArchived {
+            store.unarchive(note)
+        } else {
+            store.archiveFromList(note)
+        }
     }
 }
 
@@ -883,7 +732,7 @@ private struct NewNoteRow: View {
                     .font(.system(size: 12, weight: .medium))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Theme.onAccent)
                     .background(Theme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -911,7 +760,7 @@ private struct NewNoteRow: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .foregroundStyle(selected ? Color.white : Theme.ink)
+        .foregroundStyle(selected ? Theme.onAccent : Theme.ink)
         .background(selected ? Theme.accent : Theme.panel)
         .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.border, lineWidth: selected ? 0 : 1))
         .clipShape(RoundedRectangle(cornerRadius: 999))
@@ -1163,7 +1012,7 @@ private struct NoteDetailView: View {
                     .font(.system(size: 12, weight: .medium))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Theme.onAccent)
                     .background(Theme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .disabled(draftAppend.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1183,151 +1032,6 @@ private struct NoteDetailView: View {
     }
 }
 
-private struct AutonomyPanel: View {
-    @EnvironmentObject var store: AppStore
-
-    private let labels = ["Eco", "Balanced", "Aggressive"]
-    private let descriptions = [
-        "Only cosmetic, reversible actions run, and only while plugged in and idle. No merge/split proposals.",
-        "Cosmetic actions run automatically. The janitor also scans for possible merges/splits and queues proposals — nothing structural applies without your tap.",
-        "Janitor looks more often and proposes more eagerly. Still queues every structural change — this setting never grants auto-apply."
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                header("Agent autonomy")
-                Slider(value: Binding(
-                    get: { Double(store.autonomyLevel) },
-                    set: { store.autonomyLevel = Int($0.rounded()) }
-                ), in: 0...2, step: 1)
-                .tint(Theme.accent)
-
-                HStack {
-                    ForEach(labels, id: \.self) { label in
-                        Text(label.uppercased())
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
-                        if label != labels.last { Spacer() }
-                    }
-                }
-
-                Text(descriptions[store.autonomyLevel])
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
-                    .overlay(alignment: .leading) {
-                        Rectangle().fill(Theme.accent).frame(width: 2)
-                    }
-                    .padding(.leading, 8)
-
-                JanitorControls()
-            }
-
-            // The review cards themselves live full-width in the main column
-            // now (ReviewQueueView) — this narrow panel doesn't have room for
-            // a note's full title next to a "Keep this one" button without
-            // truncating one of them. This is just the pointer to it.
-            Button(action: { store.selectNote(nil); store.showReviewQueue() }) {
-                HStack {
-                    header("Review queue")
-                    Spacer()
-                    if !store.pending.isEmpty {
-                        Text("\(store.pending.count) pending →")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(Theme.brass)
-                    } else {
-                        Text("nothing waiting")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            Text("Every structural action requires your approval. No delete method exists.")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
-        }
-        .padding(18)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.black.opacity(0.18))
-        .background(.ultraThinMaterial)
-    }
-
-    private func header(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-            .foregroundStyle(Theme.inkDim)
-    }
-}
-
-/// The janitor's only trigger. There is no scheduler behind this — if you don't
-/// press one of these, the janitor does not run.
-///
-/// "Preview" comes first and is styled as the primary action on purpose. The
-/// janitor's contract is that you can always see what it would do before it does
-/// anything, and a UI where "Run" is the obvious button quietly weakens that.
-private struct JanitorControls: View {
-    @EnvironmentObject var store: AppStore
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                button("Preview", color: Theme.accent) {
-                    Task { await store.previewJanitor() }
-                }
-                button("Run now", color: Theme.brass) {
-                    Task { await store.runJanitorNow() }
-                }
-                if store.janitorBusy {
-                    ProgressView().controlSize(.small).scaleEffect(0.7)
-                }
-            }
-            .disabled(store.janitorBusy)
-
-            Text("Similarity: \(store.similarityEngine.label)")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Theme.inkDim.opacity(0.8))
-
-            if let summary = store.janitorSummary {
-                Text(summary)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.inkDim)
-            }
-
-            // A preview is a claim about what would happen, so it has to be
-            // specific enough to disagree with — hence each proposal's own
-            // rationale rather than a count.
-            ForEach(store.janitorPreview, id: \.fingerprint) { proposal in
-                HStack(alignment: .top, spacing: 6) {
-                    Text(proposal.risk == .cosmetic ? "AUTO" : "QUEUE")
-                        .font(.system(size: 8.5, weight: .medium, design: .monospaced))
-                        .foregroundStyle(proposal.risk == .cosmetic ? Theme.accent : Theme.brass)
-                        .frame(width: 38, alignment: .leading)
-                    Text(proposal.rationale)
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
-                }
-            }
-        }
-    }
-
-    private func button(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .buttonStyle(.plain)
-            .font(.system(size: 10, weight: .medium, design: .monospaced))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .foregroundStyle(color)
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.border, lineWidth: 1))
-    }
-}
-
-/// One flag, on the note whose detail view is already open. The main global
-/// queue uses `ReviewClusterCard` instead — see there for why duplicates get
-/// grouped and this doesn't.
 private struct ReviewQueueRow: View {
     @EnvironmentObject var store: AppStore
     let note: Note
@@ -1405,25 +1109,13 @@ private struct ReviewClusterCard: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if cluster.isDuplicateGroup {
-                // Advisory only — see AssistantView. A mistyped link or an
-                // orphan doesn't need judgement about which of two bodies is
-                // "the real one," so there's nothing useful to ask about those.
-                if let recommendation = store.clusterRecommendations[cluster.id] {
-                    Text(recommendation == "…" ? "asking the assistant…" : recommendation)
-                        .font(.system(size: 12, design: recommendation == "…" ? .monospaced : .default))
-                        .foregroundStyle(Theme.inkDim)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(10)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
-                } else {
-                    Button("Not sure which to keep? Ask the assistant") {
-                        Task { await store.draftRecommendation(for: cluster) }
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Theme.accent)
-                }
+                // There used to be an "ask the assistant which to keep" button
+                // here, backed by the bundled local model. Both are gone: the
+                // model was removed once measured (PROJECT_NOTES.md), and a
+                // 1.7B model's opinion on which of two notes is "the real one"
+                // was never worth the weight it carried in a UI that otherwise
+                // hands every judgement to the human. An agent connected over
+                // MCP can be asked the same question, with a better answer.
 
                 // One row per note: a preview of what it actually says, plus
                 // its own "Keep this one." This is the honest version of what
