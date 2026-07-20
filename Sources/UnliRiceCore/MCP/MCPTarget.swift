@@ -6,7 +6,7 @@ import Foundation
 /// flow is a table of targets rather than one copy-paste block. Verified against
 /// real files on a working machine, not from memory: `~/.codex/config.toml` uses
 /// TOML tables, everything else here uses a JSON `mcpServers` object.
-public enum MCPConfigFormat: String, Equatable, Sendable {
+public enum MCPConfigFormat: Equatable, Sendable {
     /// `{"mcpServers": {"unlirice": {"command": …, "args": […]}}}`
     case mcpServersJSON
 
@@ -14,69 +14,48 @@ public enum MCPConfigFormat: String, Equatable, Sendable {
     /// `[mcp_servers.unlirice.env]` table for environment variables.
     case codexTOML
 
-    /// Whether Autopilot may edit this format in place.
-    ///
-    /// JSON round-trips losslessly through `JSONSerialization`, so merging one
-    /// key into someone's config is safe and reversible. TOML does not: writing
-    /// it correctly means either a dependency or a hand-rolled parser, and the
-    /// file it would be editing (a real `config.toml`) carries plugin tables and
-    /// several other servers. Getting that wrong breaks tooling the user relies
-    /// on to fix it. Paste is the honest option there.
-    public var supportsAutomaticWrite: Bool { self == .mcpServersJSON }
 }
 
 /// One MCP client the user can connect Unli Rice to.
 public struct MCPTarget: Identifiable, Equatable, Sendable {
-    /// Where the config lives, and therefore whether we need the user to tell
-    /// us which project they mean.
-    public enum Location: Equatable, Sendable {
-        /// Relative to the user's home directory — one config for the whole tool.
-        case userFile(String)
-        /// Relative to a project folder the user picks. Claude Code and
-        /// Antigravity both scope MCP servers per project, so there is no
-        /// correct path to guess here; the user has to say which project.
-        case projectFile(String)
-    }
-
     public let id: String
     public let displayName: String
-    /// Shown under the name in the picker, so the user knows what will be
-    /// touched before they agree to it.
+    /// Shown under the name so the user knows where to paste the copied block.
     public let detail: String
     public let format: MCPConfigFormat
-    public let location: Location
 
     public init(
-        id: String, displayName: String, detail: String,
-        format: MCPConfigFormat, location: Location
+        id: String,
+        displayName: String,
+        detail: String,
+        format: MCPConfigFormat
     ) {
         self.id = id
         self.displayName = displayName
         self.detail = detail
         self.format = format
-        self.location = location
     }
 
-    public var requiresProjectFolder: Bool {
-        if case .projectFile = location { return true }
-        return false
-    }
-
-    /// True only when the format is writable *and* we know the destination.
-    public var supportsAutomaticWrite: Bool { format.supportsAutomaticWrite }
-
-    /// Resolves the config file, given a project folder for project-scoped
-    /// targets. Returns nil when a project-scoped target has no folder yet —
-    /// the picker uses that to block "Connect" until one is chosen.
-    public func configURL(
-        projectFolder: URL?,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
-    ) -> URL? {
-        switch location {
-        case .userFile(let relative):
-            return homeDirectory.appendingPathComponent(relative)
-        case .projectFile(let relative):
-            return projectFolder?.appendingPathComponent(relative)
+    /// The lowercase source identifier used by the agent (e.g. "claude", "cursor").
+    public var agentSource: String {
+        switch id {
+        case "claude-code", "claude-desktop":
+            return "claude"
+        case "cursor":
+            return "cursor"
+        case "antigravity":
+            return "antigravity"
+        case "codex":
+            return "codex"
+        default:
+            if id.hasPrefix("custom:") {
+                let sanitized = displayName.lowercased()
+                    .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "-")
+                return sanitized.isEmpty ? "assistant" : sanitized
+            }
+            return "assistant"
         }
     }
 
@@ -92,36 +71,31 @@ public struct MCPTarget: Identifiable, Equatable, Sendable {
             id: "claude-code",
             displayName: "Claude Code",
             detail: ".mcp.json in a project folder you choose",
-            format: .mcpServersJSON,
-            location: .projectFile(".mcp.json")
+            format: .mcpServersJSON
         ),
         MCPTarget(
             id: "claude-desktop",
             displayName: "Claude Desktop",
             detail: "~/Library/Application Support/Claude/claude_desktop_config.json",
-            format: .mcpServersJSON,
-            location: .userFile("Library/Application Support/Claude/claude_desktop_config.json")
+            format: .mcpServersJSON
         ),
         MCPTarget(
             id: "cursor",
             displayName: "Cursor",
             detail: "~/.cursor/mcp.json",
-            format: .mcpServersJSON,
-            location: .userFile(".cursor/mcp.json")
+            format: .mcpServersJSON
         ),
         MCPTarget(
             id: "antigravity",
             displayName: "Antigravity",
             detail: ".agents/mcp_config.json in a project folder you choose",
-            format: .mcpServersJSON,
-            location: .projectFile(".agents/mcp_config.json")
+            format: .mcpServersJSON
         ),
         MCPTarget(
             id: "codex",
             displayName: "Codex / ChatGPT",
             detail: "~/.codex/config.toml — copy & paste, not edited for you",
-            format: .codexTOML,
-            location: .userFile(".codex/config.toml")
+            format: .codexTOML
         )
     ]
 
@@ -133,8 +107,7 @@ public struct MCPTarget: Identifiable, Equatable, Sendable {
             id: "custom:\(fileURL.path)",
             displayName: name,
             detail: fileURL.path,
-            format: isTOML ? .codexTOML : .mcpServersJSON,
-            location: .userFile(fileURL.path)
+            format: isTOML ? .codexTOML : .mcpServersJSON
         )
     }
 }
@@ -169,6 +142,22 @@ public struct MCPServerEntry: Equatable, Sendable {
                 "--quiet", "unlirice-mcp"
             ],
             env: dataPathOverride.map { ["UNLIRICE_DATA_PATH": $0.path] } ?? [:]
+        )
+    }
+
+    /// The entry shipped by the installed app.
+    ///
+    /// App Store customers do not have this source package (and should not
+    /// need Swift installed), so a production config must point at the MCP
+    /// helper embedded in the app bundle. The helper reads the shared app-group
+    /// settings to find the selected corpus; no external filesystem path is
+    /// smuggled through an environment variable.
+    public static func forInstalledApp(at appBundleURL: URL) -> MCPServerEntry {
+        MCPServerEntry(
+            command: appBundleURL
+                .appendingPathComponent("Contents/MacOS/unlirice-mcp")
+                .path,
+            args: []
         )
     }
 

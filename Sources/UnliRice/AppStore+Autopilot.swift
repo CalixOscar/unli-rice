@@ -2,26 +2,6 @@ import AppKit
 import Foundation
 import UnliRiceCore
 
-/// What happened when Autopilot tried to connect one tool.
-struct ConnectionResult: Identifiable, Equatable {
-    enum Status: Equatable {
-        case written(backup: URL?)
-        case alreadyCorrect
-        /// Either the format isn't edited automatically (Codex TOML), or the
-        /// write was refused. `reason` is shown verbatim next to the block.
-        case pasteRequired(reason: String)
-    }
-
-    let target: MCPTarget
-    let status: Status
-    /// Always present, including on success — someone may want to check what
-    /// landed, or repeat it on another machine.
-    let snippet: String
-    let configPath: String
-
-    var id: String { target.id }
-}
-
 /// Get Started, rebuilt around connecting an MCP client.
 ///
 /// The previous design interviewed the user with the local model and handed
@@ -30,27 +10,12 @@ struct ConnectionResult: Identifiable, Equatable {
 /// and no conventions in it. Nothing in this file calls a model. Every step is
 /// deterministic, which is also why all of it is testable.
 ///
-/// The one genuinely delicate thing here is writing config files this app didn't
-/// create — see `MCPConfigWriter` for the three rules that make that acceptable.
+/// App Store builds never write another app's configuration. Every target uses
+/// the same explicit copy-and-paste flow, leaving the final edit under the
+/// user's control and keeping the app inside its sandbox.
 extension AppStore {
     /// Catalog plus anything the user added by hand.
     var availableTargets: [MCPTarget] { MCPTarget.builtIn + customTargets }
-
-    func target(id: String) -> MCPTarget? {
-        availableTargets.first { $0.id == id }
-    }
-
-    func chooseProjectFolder(for target: MCPTarget) {
-        let panel = NSOpenPanel()
-        panel.title = "Choose the project folder for \(target.displayName)"
-        panel.message = "\(target.displayName) keeps MCP servers per project. Pick the project you want these notes available in."
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.canCreateDirectories = true
-        panel.prompt = "Use This Folder"
-        guard panel.runModal() == .OK, let folder = panel.url else { return }
-        targetProjectFolders[target.id] = folder
-    }
 
     /// Adds a tool that isn't in the catalog. The user picks the config file
     /// itself — guessing a path for a tool whose format we haven't verified is
@@ -68,75 +33,33 @@ extension AppStore {
         let target = MCPTarget.custom(name: file.lastPathComponent, fileURL: file)
         guard !availableTargets.contains(where: { $0.id == target.id }) else { return }
         customTargets.append(target)
-        selectedTargetIDs.insert(target.id)
     }
 
     // MARK: - Connecting
 
-    /// Connects exactly one tool, immediately.
-    ///
-    /// This is what the connector table calls, and it replaces the old
-    /// tick-boxes-then-Connect-then-results wizard. Connecting Cursor and
-    /// connecting Claude Desktop were never one decision that needed batching —
-    /// they're two independent switches, and modelling them as a multi-select
-    /// flow meant a user who wanted one tool still had to walk three screens and
-    /// then find their way back out. Each row now owns its own outcome, kept in
-    /// `connectionResults` and rendered in place under the row that produced it.
-    func connect(_ target: MCPTarget) {
-        // A project-scoped tool with no folder yet has one obvious next step;
-        // asking for the folder *is* the connect action in that case, rather
-        // than a disabled button and a note explaining why it's disabled.
-        if target.requiresProjectFolder, targetProjectFolders[target.id] == nil {
-            chooseProjectFolder(for: target)
-            guard targetProjectFolders[target.id] != nil else { return }
-        }
-
-        let entry = MCPServerEntry.forPackage(
-            at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
-        )
-        let outcome = result(for: target, entry: entry)
-        connectionResults.removeAll { $0.id == target.id }
-        connectionResults.append(outcome)
-        selectedTargetIDs.insert(target.id)
-
-        // Connecting no longer writes the house-rules note as a side effect.
-        // That was the Autopilot switch's whole job, and a switch is the wrong
-        // control for a block of prompt text — see `AppStore.houseRulesText`.
-        // The note is now saved by a visible button, next to the text it saves.
+    /// Copies one complete configuration block without reading or modifying the
+    /// destination file. This is the only connection action exposed by the App
+    /// Store build.
+    func copyConfiguration(for target: MCPTarget) {
+        copySnippet(snippet(for: target))
         markGetStartedComplete()
-
-        switch outcome.status {
-        case .written:
-            statusMessage = "Connected \(target.displayName) — restart it to pick this up."
-        case .alreadyCorrect:
-            statusMessage = "\(target.displayName) was already connected."
-        case .pasteRequired:
-            statusMessage = "\(target.displayName) needs the config pasted in by hand."
-        }
-    }
-
-    /// Read-only state for one row of the connector table.
-    func presence(of target: MCPTarget) -> MCPConfigWriter.Presence {
-        guard target.supportsAutomaticWrite else { return .absent }
-        let entry = MCPServerEntry.forPackage(
-            at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
-        )
-        return MCPConfigWriter.presence(
-            of: entry, inJSONAt: target.configURL(projectFolder: targetProjectFolders[target.id])
-        )
-    }
-
-    func result(forTargetID id: String) -> ConnectionResult? {
-        connectionResults.first { $0.id == id }
+        statusMessage = "Configuration copied for \(target.displayName). Paste it into the file shown, then restart \(target.displayName)."
     }
 
     /// The paste block for a target, for the tools we don't write to.
     func snippet(for target: MCPTarget) -> String {
-        MCPConfigWriter.snippet(
+        MCPConfigRenderer.snippet(
             for: target.format,
-            entry: MCPServerEntry.forPackage(
-                at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
-            )
+            entry: mcpServerEntry
+        )
+    }
+
+    private var mcpServerEntry: MCPServerEntry {
+        if Bundle.main.bundleURL.pathExtension.lowercased() == "app" {
+            return .forInstalledApp(at: Bundle.main.bundleURL)
+        }
+        return .forPackage(
+            at: Autopilot.detectedPackageRoot(), dataPathOverride: mcpDataPathOverride
         )
     }
 
@@ -156,44 +79,6 @@ extension AppStore {
 
     func resetHouseRules() {
         houseRulesText = Autopilot.noteBody
-    }
-
-    private func result(for target: MCPTarget, entry: MCPServerEntry) -> ConnectionResult {
-        let url = target.configURL(projectFolder: targetProjectFolders[target.id])
-        let snippet = MCPConfigWriter.snippet(for: target.format, entry: entry)
-        let path = url?.path ?? target.detail
-
-        guard target.supportsAutomaticWrite, let url else {
-            return ConnectionResult(
-                target: target,
-                status: .pasteRequired(
-                    reason: MCPConfigWriter.WriteError.unsupportedFormat(target.format).description
-                ),
-                snippet: snippet,
-                configPath: path
-            )
-        }
-
-        do {
-            switch try MCPConfigWriter.merge(entry: entry, intoJSONAt: url) {
-            case .created:
-                return ConnectionResult(target: target, status: .written(backup: nil), snippet: snippet, configPath: path)
-            case .updated(_, let backup):
-                return ConnectionResult(target: target, status: .written(backup: backup), snippet: snippet, configPath: path)
-            case .unchanged:
-                return ConnectionResult(target: target, status: .alreadyCorrect, snippet: snippet, configPath: path)
-            }
-        } catch {
-            // A refused or failed write is a normal outcome, not an error
-            // banner: the user still gets the exact block to paste, which is
-            // what they'd have got from the old flow anyway.
-            return ConnectionResult(
-                target: target,
-                status: .pasteRequired(reason: "\(error)"),
-                snippet: snippet,
-                configPath: path
-            )
-        }
     }
 
     /// The note that teaches a connected assistant the habit — read the notes at
@@ -284,7 +169,6 @@ extension AppStore {
         }
 
         guard switchDataFolder(to: folder) else { return }
-        connectionResults = []
     }
 
     func copySnippet(_ snippet: String) {

@@ -49,9 +49,8 @@ public enum ExportService {
         case .zip:
             let events = try service.transactionLog(limit: .max)
             // Two-level temp path: a UUID'd parent avoids collisions, but the
-            // actual bundle folder keeps a clean name — that's the folder name
-            // `ditto --keepParent` bakes into the zip, and "Unli Rice Export"
-            // reads a lot better than a raw UUID once someone unzips it.
+            // actual bundle folder keeps a clean name, so the archive expands
+            // into "Unli Rice Export" rather than a raw UUID.
             let tempParent = FileManager.default.temporaryDirectory
                 .appendingPathComponent("unlirice-export-\(UUID().uuidString)")
             let bundleDir = tempParent.appendingPathComponent("Unli Rice Export")

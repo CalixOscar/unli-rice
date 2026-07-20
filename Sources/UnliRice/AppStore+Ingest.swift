@@ -21,7 +21,7 @@ extension AppStore {
     /// Assembling it here as well would mean the scheduled run could quietly
     /// differ from the button.
     var importers: [ResourceImporter] {
-        Pipelines.standard(scanRoots: scanRoots)
+        Pipelines.standard(scanRoots: scanRoots, claudeProjectsDirectory: claudeProjectsURL)
     }
 
     private var rawStore: RawStore {
@@ -33,6 +33,13 @@ extension AppStore {
         guard !ingestBusy else { return }
         ingestBusy = true
         defer { ingestBusy = false }
+
+        let activeRoots = scanRoots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        let activeClaude = claudeProjectsURL.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        defer {
+            for (url, started) in activeRoots { if started { url.stopAccessingSecurityScopedResource() } }
+            if let (url, started) = activeClaude, started { url.stopAccessingSecurityScopedResource() }
+        }
 
         do {
             let runner = IngestRunner(service: service, rawStore: rawStore)
@@ -60,6 +67,13 @@ extension AppStore {
         guard !ingestBusy else { return false }
         ingestBusy = true
         defer { ingestBusy = false }
+
+        let activeRoots = scanRoots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        let activeClaude = claudeProjectsURL.map { ($0, $0.startAccessingSecurityScopedResource()) }
+        defer {
+            for (url, started) in activeRoots { if started { url.stopAccessingSecurityScopedResource() } }
+            if let (url, started) = activeClaude, started { url.stopAccessingSecurityScopedResource() }
+        }
 
         do {
             let runner = IngestRunner(service: service, rawStore: rawStore)
@@ -172,6 +186,33 @@ extension AppStore {
 
     func removeScanRoot(_ folder: URL) {
         scanRoots.removeAll { $0 == folder }
+    }
+
+    func chooseClaudeProjectsFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Claude projects folder"
+        panel.message = "Under App Sandbox, Unli Rice needs permission to read your Claude Code projects directory. Pick ~/.claude/projects."
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = false
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".claude/projects")
+        panel.prompt = "Grant Access"
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        do {
+            let bookmarkData = try folder.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+            UserDefaults.standard.set(bookmarkData, forKey: "unliRice.claudeProjectsBookmark")
+            claudeProjectsURL = folder
+            statusMessage = "Access granted to Claude projects folder."
+        } catch {
+            errorMessage = "Failed to create bookmark for Claude projects folder: \(error)"
+        }
+    }
+
+    func removeClaudeProjectsFolder() {
+        UserDefaults.standard.removeObject(forKey: "unliRice.claudeProjectsBookmark")
+        claudeProjectsURL = nil
+        statusMessage = "Claude Code session access removed."
     }
 
     // MARK: - The routine loop

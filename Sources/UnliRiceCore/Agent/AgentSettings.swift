@@ -38,22 +38,88 @@ public struct AgentSettings: Codable, Equatable, Sendable {
     /// work to the corpus, this only leaves a message.
     public var monthlyReviewEnabled: Bool
 
+    /// Security-scoped bookmarks for scan roots. Key is absolute path.
+    public var scanRootBookmarks: [String: Data]
+
+    /// Security-scoped bookmark for custom data folder path.
+    public var dataFolderBookmark: Data?
+
+    /// Security-scoped bookmark for Claude projects folder path.
+    public var claudeProjectsBookmark: Data?
+
     public init(
         routinesEnabled: Bool = false,
         autonomyLevel: Int = 1,
         dataFolderPath: String? = nil,
         scanRootPaths: [String] = [],
-        monthlyReviewEnabled: Bool = true
+        monthlyReviewEnabled: Bool = true,
+        scanRootBookmarks: [String: Data] = [:],
+        dataFolderBookmark: Data? = nil,
+        claudeProjectsBookmark: Data? = nil
     ) {
         self.routinesEnabled = routinesEnabled
         self.autonomyLevel = autonomyLevel
         self.dataFolderPath = dataFolderPath
         self.scanRootPaths = scanRootPaths
         self.monthlyReviewEnabled = monthlyReviewEnabled
+        self.scanRootBookmarks = scanRootBookmarks
+        self.dataFolderBookmark = dataFolderBookmark
+        self.claudeProjectsBookmark = claudeProjectsBookmark
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case routinesEnabled, autonomyLevel, dataFolderPath, scanRootPaths
+        case monthlyReviewEnabled, scanRootBookmarks, dataFolderBookmark
+        case claudeProjectsBookmark
+    }
+
+    /// Bookmark fields were added after the background settings format shipped.
+    /// Decode them as optional so an existing install keeps its switches and
+    /// schedule instead of falling back to the all-off safety defaults.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        routinesEnabled = try container.decodeIfPresent(Bool.self, forKey: .routinesEnabled) ?? false
+        autonomyLevel = try container.decodeIfPresent(Int.self, forKey: .autonomyLevel) ?? 1
+        dataFolderPath = try container.decodeIfPresent(String.self, forKey: .dataFolderPath)
+        scanRootPaths = try container.decodeIfPresent([String].self, forKey: .scanRootPaths) ?? []
+        monthlyReviewEnabled = try container.decodeIfPresent(Bool.self, forKey: .monthlyReviewEnabled) ?? true
+        scanRootBookmarks = try container.decodeIfPresent([String: Data].self, forKey: .scanRootBookmarks) ?? [:]
+        dataFolderBookmark = try container.decodeIfPresent(Data.self, forKey: .dataFolderBookmark)
+        claudeProjectsBookmark = try container.decodeIfPresent(Data.self, forKey: .claudeProjectsBookmark)
     }
 
     public var scanRoots: [URL] {
-        scanRootPaths.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        var urls: [URL] = []
+        for (_, data) in scanRootBookmarks {
+            var isStale = false
+            if let url = try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+                urls.append(url)
+            }
+        }
+        if urls.isEmpty && !DataLocation.isSandboxed {
+            return scanRootPaths.map { URL(fileURLWithPath: $0, isDirectory: true) }
+        }
+        return urls
+    }
+
+    public var claudeProjectsURL: URL? {
+        guard let data = claudeProjectsBookmark else { return nil }
+        var isStale = false
+        return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+    }
+
+    /// Resolves the user-selected corpus folder. Callers must keep a successful
+    /// `startAccessingSecurityScopedResource()` active for as long as they use
+    /// the returned URL.
+    public var dataFolderURL: URL? {
+        guard let data = dataFolderBookmark else { return nil }
+        var isStale = false
+        return try? URL(
+            resolvingBookmarkData: data,
+            options: .withSecurityScope,
+            relativeTo: nil,
+            bookmarkDataIsStale: &isStale
+        )
     }
 
     public var autonomy: JanitorAutonomy {

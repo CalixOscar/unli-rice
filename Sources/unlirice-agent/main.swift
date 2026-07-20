@@ -80,6 +80,20 @@ default:
 switch CommandLine.arguments.dropFirst().first {
 case "--ingest", "--janitor", "--preview-ingest":
     let manualSettings = AgentSettings.load()
+
+    var activeDataFolder: URL? = nil
+    if let dataBookmark = manualSettings.dataFolderBookmark {
+        var isStale = false
+        if let resolvedURL = try? URL(resolvingBookmarkData: dataBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+            if resolvedURL.startAccessingSecurityScopedResource() {
+                activeDataFolder = resolvedURL
+            }
+        }
+    }
+    defer {
+        activeDataFolder?.stopAccessingSecurityScopedResource()
+    }
+
     let logURL = DataLocation.eventLogURL(persistedFolderPath: manualSettings.dataFolderPath)
     guard let manualStore = try? EventStore(fileURL: logURL) else {
         log("could not open event log at \(logURL.path)")
@@ -99,7 +113,15 @@ case "--ingest", "--janitor", "--preview-ingest":
             let previewOnly = CommandLine.arguments.dropFirst().first == "--preview-ingest"
             let rawStore = RawStore(directoryURL: RawStore.directoryURL(besideEventLog: logURL))
             let runner = IngestRunner(service: manualService, rawStore: rawStore)
-            for importer in Pipelines.standard(scanRoots: manualSettings.scanRoots) {
+
+            let activeRoots = manualSettings.scanRoots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+            let activeClaude = manualSettings.claudeProjectsURL.map { ($0, $0.startAccessingSecurityScopedResource()) }
+            defer {
+                for (url, started) in activeRoots { if started { url.stopAccessingSecurityScopedResource() } }
+                if let (url, started) = activeClaude, started { url.stopAccessingSecurityScopedResource() }
+            }
+
+            for importer in Pipelines.standard(scanRoots: manualSettings.scanRoots, claudeProjectsDirectory: manualSettings.claudeProjectsURL) {
                 if previewOnly {
                     let found = try runner.preview(importer: importer)
                     log("\(importer.identifier): would take \(found.count)")
@@ -114,7 +136,6 @@ case "--ingest", "--janitor", "--preview-ingest":
         exit(1)
     }
     exit(0)
-
 default:
     break
 }
@@ -138,6 +159,20 @@ default:
 if CommandLine.arguments.dropFirst().first == "--purge" {
     let confirmed = CommandLine.arguments.contains("--yes")
     let purgeSettings = AgentSettings.load()
+
+    var activeDataFolder: URL? = nil
+    if let dataBookmark = purgeSettings.dataFolderBookmark {
+        var isStale = false
+        if let resolvedURL = try? URL(resolvingBookmarkData: dataBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+            if resolvedURL.startAccessingSecurityScopedResource() {
+                activeDataFolder = resolvedURL
+            }
+        }
+    }
+    defer {
+        activeDataFolder?.stopAccessingSecurityScopedResource()
+    }
+
     let logURL = DataLocation.eventLogURL(persistedFolderPath: purgeSettings.dataFolderPath)
     guard let purgeStore = try? EventStore(fileURL: logURL) else {
         log("could not open event log at \(logURL.path)")
@@ -182,6 +217,39 @@ if CommandLine.arguments.dropFirst().first == "--purge" {
 }
 
 let settings = AgentSettings.load()
+
+// Redirect stdout and stderr to the agent.log file inside supportDirectory()
+let logDirectory = DataLocation.supportDirectory().appendingPathComponent("logs", isDirectory: true)
+let logURL = logDirectory.appendingPathComponent("agent.log")
+try? FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+if !FileManager.default.fileExists(atPath: logURL.path) {
+    FileManager.default.createFile(atPath: logURL.path, contents: nil)
+}
+if let fileHandle = try? FileHandle(forWritingTo: logURL) {
+    fileHandle.seekToEndOfFile()
+    dup2(fileHandle.fileDescriptor, STDOUT_FILENO)
+    dup2(fileHandle.fileDescriptor, STDERR_FILENO)
+}
+
+// Resolve and start accessing all security-scoped directories
+var activeDataFolder: URL? = nil
+if let dataBookmark = settings.dataFolderBookmark {
+    var isStale = false
+    if let resolvedURL = try? URL(resolvingBookmarkData: dataBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+        if resolvedURL.startAccessingSecurityScopedResource() {
+            activeDataFolder = resolvedURL
+        }
+    }
+}
+
+let activeRoots = settings.scanRoots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+let activeClaude = settings.claudeProjectsURL.map { ($0, $0.startAccessingSecurityScopedResource()) }
+
+defer {
+    activeDataFolder?.stopAccessingSecurityScopedResource()
+    for (url, started) in activeRoots { if started { url.stopAccessingSecurityScopedResource() } }
+    if let (url, started) = activeClaude, started { url.stopAccessingSecurityScopedResource() }
+}
 
 // The settings file names the corpus; `DataLocation` resolves it exactly as the
 // GUI does, so the two can never end up working on different files while

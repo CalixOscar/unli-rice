@@ -397,9 +397,36 @@ private struct IngestCard: View {
                 // the UI used to render that as silence, so a vault full of
                 // notes simply never appeared and nothing on screen said why.
                 VStack(alignment: .leading, spacing: 3) {
-                    Label("Claude Code sessions", systemImage: "checkmark.circle")
-                        .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.emerald)
+                    if store.claudeProjectsURL == nil {
+                        HStack(spacing: 6) {
+                            Label(
+                                "Claude Code sessions — off. Sandbox access to ~/.claude/projects not granted.",
+                                systemImage: "exclamationmark.circle"
+                            )
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundStyle(Theme.brass)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                            Button("Grant Access") { store.chooseClaudeProjectsFolder() }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(Theme.accent)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Theme.accent.opacity(0.15))
+                                .cornerRadius(3)
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            Label("Claude Code sessions — access granted", systemImage: "checkmark.circle")
+                                .font(.system(size: 10.5, design: .monospaced))
+                                .foregroundStyle(Theme.emerald)
+                            Button("Remove Access") { store.removeClaudeProjectsFolder() }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(Theme.inkDim)
+                        }
+                    }
 
                     if store.scanRoots.isEmpty {
                         Label(

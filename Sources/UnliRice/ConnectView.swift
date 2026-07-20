@@ -66,7 +66,7 @@ struct ConnectView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
             }
 
-            Text("Unli Rice is memory your AI tools share. Connect one and it can read what you've saved, and write back what's worth keeping next time.")
+            Text("Unli Rice is memory your AI tools share. Copy a configuration block, paste it into your tool yourself, and restart that tool to connect.")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Theme.inkDim)
                 .fixedSize(horizontal: false, vertical: true)
@@ -220,10 +220,7 @@ private struct ConnectorRow: View {
     @EnvironmentObject var store: AppStore
     let target: MCPTarget
 
-    @State private var presence: MCPConfigWriter.Presence = .noFile
     @State private var showingSnippet = false
-
-    private var result: ConnectionResult? { store.result(forTargetID: target.id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -239,7 +236,7 @@ private struct ConnectorRow: View {
                     Text(target.displayName)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.ink)
-                    Text(folderQualifiedDetail)
+                    Text(target.detail)
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundStyle(Theme.inkDim)
                         .lineLimit(1)
@@ -247,72 +244,9 @@ private struct ConnectorRow: View {
                 }
 
                 Spacer(minLength: 12)
-                statusView
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-
-            if showingSnippet {
-                snippetBlock
-            }
-
-            if let result, case .written(let backup) = result.status, let backup {
-                Text("Your previous config was backed up to \(backup.lastPathComponent)")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.inkDim)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10)
-            }
-        }
-        .onAppear { refresh() }
-        .onChange(of: store.connectionResults) { _ in refresh() }
-        .onChange(of: store.targetProjectFolders) { _ in refresh() }
-    }
-
-    private var folderQualifiedDetail: String {
-        guard target.requiresProjectFolder, let folder = store.targetProjectFolders[target.id] else {
-            return target.detail
-        }
-        return folder.path
-    }
-
-    @ViewBuilder
-    private var statusView: some View {
-        switch presence {
-        case .current:
-            HStack(spacing: 8) {
-                Label("Connected", systemImage: "checkmark")
-                    .labelStyle(.titleAndIcon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.emerald)
-                Button("Reconnect") { store.connect(target) }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
-            }
-        case .stale:
-            HStack(spacing: 8) {
-                Text("Out of date")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.brass)
-                actionButton("Update")
-            }
-        case .unreadable:
-            Text("Can't read file")
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.crit)
-        case .noFile, .absent:
-            if target.supportsAutomaticWrite {
-                actionButton(target.requiresProjectFolder
-                    && store.targetProjectFolders[target.id] == nil ? "Choose folder…" : "Connect")
-            } else {
-                Button(showingSnippet ? "Hide Config" : "Copy Config") {
-                    if showingSnippet {
-                        showingSnippet = false
-                    } else {
-                        showingSnippet = true
-                        store.copySnippet(store.snippet(for: target))
-                    }
+                Button(showingSnippet ? "Copy Again" : "Copy Configuration") {
+                    store.copyConfiguration(for: target)
+                    showingSnippet = true
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11.5, weight: .semibold))
@@ -322,26 +256,30 @@ private struct ConnectorRow: View {
                 .background(Theme.panel)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
             }
-        }
-    }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
 
-    private func actionButton(_ label: String) -> some View {
-        Button(label) {
-            store.connect(target)
-            refresh()
+            if showingSnippet {
+                snippetBlock
+            }
+
+            Text("Unli Rice never opens or edits this file. Merge the copied block manually, keeping any servers already there.")
+                .font(.system(size: 10.5))
+                .foregroundStyle(Theme.inkDim)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
         }
-        .buttonStyle(.plain)
-        .font(.system(size: 11.5, weight: .bold))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .foregroundStyle(Theme.onAccent)
-        .background(Theme.accent)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var snippetBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Paste this into \(target.detail.components(separatedBy: " — ").first ?? target.detail)")
+            HStack {
+                Text("Paste into \(target.detail)")
+                Spacer()
+                Button("Hide") { showingSnippet = false }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.inkDim)
+            }
                 .font(.system(size: 10.5))
                 .foregroundStyle(Theme.brass)
             ScrollView {
@@ -361,9 +299,6 @@ private struct ConnectorRow: View {
         .padding(.bottom, 12)
     }
 
-    private func refresh() {
-        presence = store.presence(of: target)
-    }
 }
 
 private struct Card<Content: View>: View {

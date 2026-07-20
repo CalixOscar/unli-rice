@@ -33,5 +33,6 @@ Notes remain in the store controlled by the user until the user archives and
 permanently removes them from Trash. Removing the app does not delete a store
 the user placed in another folder. Notes can be exported at any time.
 
-For privacy or deletion questions, use the support contact listed on the Unli
-Rice App Store page.
+For app support, privacy questions, or deletion help, use the public support
+tracker at <https://github.com/CalixOscar/unli-rice/issues>. Do not include
+private note content in a public issue.

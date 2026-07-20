@@ -1323,6 +1323,60 @@ firing on load (it calls the same `fitToWindow` the button proves works) and the
 Automation pane itself — macOS screen capture stopped working before that build
 could be photographed, though it compiles, launches, and stays up.
 
+## App Store dead-code sweep (2026-07-21)
+
+The App Store connection design is now enforced by the core API, not just by
+which button the UI happens to call. `MCPConfigWriter` and its automatic JSON
+merge, backup, presence-probe, and config-path machinery were removed. The only
+remaining surface is `MCPConfigRenderer`, which turns an `MCPServerEntry` into a
+JSON or TOML block for the clipboard. This supersedes the older Connect section
+above: there is no live per-row config state and no code in the product that can
+modify another app's configuration.
+
+The same sweep removed connector state that only meant "copied during this
+process" but was labelled connected, plus a target lookup, trash count, and
+default-data resolver with no callers. Review-prompt menus now list the available
+tools without pretending the app inspected their configuration. The hidden
+`monthlyReviewEnabled` GUI preference was also removed and its existing product
+behaviour made explicit (`true`) when generating `AgentSettings`; its persisted
+key had no control anywhere in the app.
+
+The target model now contains only what the copy flow consumes: display name,
+paste destination text, and config format. Project-folder resolution,
+user-config resolution, and "supports automatic write" flags were deleted with
+the feature they served. The Xcode project was regenerated, the Release app
+bundle built successfully, and the resulting suite is 205 passing tests. Ten
+tests disappeared because they exclusively specified the removed writer and
+destination-resolution behaviour; all renderer-format coverage remains.
+
+## App Store release packaging verification (2026-07-21)
+
+`project.yml` is now the committed source of truth for the Xcode project and
+persists development team `22SNGN5JYD`, automatic signing, sandbox entitlements,
+version 1.0 (build 1), app category, and the encryption declaration. The app
+icon moved from a loose resource into a complete macOS `AppIcon.appiconset`, so
+`actool` writes both `CFBundleIconFile` and `CFBundleIconName` into the archive.
+The public privacy and support URLs are recorded in `APP_STORE_SUBMISSION.md`
+and exposed from the in-app privacy screen.
+
+The two embedded executables are independent sandboxed tools because launchd
+and MCP clients start them directly rather than as children of the GUI. Both
+now receive stable bundle identifiers, embedded Info.plists, the same Team ID,
+the App Group entitlement, and hardened-runtime signatures. A signed Release
+archive was inspected rather than assuming the build settings worked: the GUI,
+agent, and MCP server are universal `x86_64 arm64` binaries; deep strict
+signature verification passes; the privacy manifest and generated Info.plist
+lint cleanly; and the archive contains the launch-agent plist, asset catalog,
+compiled icon, and privacy manifest.
+
+The source-side release work is complete, but the locally available development
+profile is still the team's wildcard profile and does not grant the App Group.
+Before Organizer can validate an App Store distribution, the owner must register
+`com.calmdownoscar.unlirice`, register and attach
+`group.com.calmdownoscar.unlirice`, and let Xcode create the distribution
+profile. Those account-side steps are deliberately not hidden behind code or a
+temporary entitlement exception.
+
 ## Deferred / explicitly not done yet, in rough priority order
 
 1. ~~Register the server with an actual MCP client~~ — done, see above.

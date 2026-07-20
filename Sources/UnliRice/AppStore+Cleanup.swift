@@ -93,10 +93,6 @@ extension AppStore {
         NSWorkspace.shared.activateFileViewerSelecting([dir])
     }
 
-    var trashedNoteCount: Int {
-        TrashService.listTrashed(forLog: dataURL).count
-    }
-
     // MARK: - Grouping
 
     /// `visibleNotes`, cut into dated runs.
@@ -142,6 +138,75 @@ extension AppStore {
     func archiveFromList(_ note: Note) {
         archive(note, reason: "archived from the note list")
         if selectedNoteID == note.id { selectedNoteID = nil }
+    }
+
+    // MARK: - AI Review
+
+    /// Constructs a structured Markdown prompt containing all pending `ReviewCluster`s
+    /// and copies it to the clipboard, specifically tailored to the selected target LLM.
+    func copyReviewPrompt(for target: MCPTarget) {
+        let source = target.agentSource
+
+        var promptBody = """
+You have the `unlirice` MCP server connected. Ground rules for this store:
+- It is append-only. There is no delete tool. `archive_note` is the strongest thing you have, and it is reversible with `unarchive_note`.
+- Note titles are permanent — there is no rename. If two notes are the same idea, append the newer one's content onto the older one and archive the newer.
+- Never merge or archive anything you are unsure about. Use `flag_for_review` to raise it for me instead, and say so in your summary.
+- Identify yourself consistently: Use "\(source)" as the `source` parameter on every write tool (create_note, append_to_note, tag_note, untag_note, archive_note, unarchive_note, resolve_review, flag_for_review).
+- Tell me what you changed at the end: counts, and the titles of anything archived.
+
+Task: Review the following pending issues in my review queue, inspect the notes using `get_note`, and resolve them.
+
+"""
+
+        for (index, cluster) in pendingClusters.enumerated() {
+            promptBody += "\n---\nIssue \(index + 1) "
+            if cluster.isDuplicateGroup {
+                promptBody += "(Duplicate Group):\nNotes:\n"
+                for note in cluster.notes {
+                    promptBody += "- Title: \"\(note.title)\"\n"
+                    promptBody += "  ID: \(note.id.uuidString)\n"
+                    let associatedFlags = cluster.items.filter { $0.note.id == note.id }
+                    if !associatedFlags.isEmpty {
+                        promptBody += "  Flags to resolve:\n"
+                        for item in associatedFlags {
+                            promptBody += "    - Flag ID: \(item.flag.id.uuidString) (Reason: \"\(item.flag.reason.withoutJanitorMarker)\")\n"
+                        }
+                    } else {
+                        promptBody += "  Flags to resolve:\n    - (None)\n"
+                    }
+                }
+                promptBody += """
+
+Resolution instructions:
+1. Call `get_note` for each note ID to read their contents.
+2. Compare them and pick one note as the keeper.
+3. If the other notes contain unique information, use `append_to_note` to append their content to the keeper.
+4. Archive the other notes using `archive_note` with the reason "consolidated into [Keeper Title]".
+5. Call `resolve_review` for all the flag IDs listed above with outcome "consolidated".
+"""
+            } else if let item = cluster.items.first {
+                promptBody += "(Flagged Note):\n"
+                promptBody += "- Note Title: \"\(item.note.title)\"\n"
+                promptBody += "  ID: \(item.note.id.uuidString)\n"
+                promptBody += "  Flag to resolve:\n"
+                promptBody += "    - Flag ID: \(item.flag.id.uuidString) (Reason: \"\(item.flag.reason.withoutJanitorMarker)\")\n"
+                promptBody += """
+
+Resolution instructions:
+1. Call `get_note` for the note ID.
+2. Inspect the note and the flag reason.
+3. If you can address the concern (e.g. updating references or adding context via `append_to_note`), do so.
+4. Call `resolve_review` for the flag ID with an appropriate outcome (e.g. "resolved" or "acknowledged").
+"""
+            }
+            promptBody += "\n"
+        }
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(promptBody, forType: .string)
+        statusMessage = "Copied review prompt for \(target.displayName) — paste it into your assistant."
     }
 }
 
