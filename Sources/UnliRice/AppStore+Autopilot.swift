@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import UnliRiceCore
+import UniformTypeIdentifiers
 
 /// What happened when Autopilot tried to connect one tool.
 struct ConnectionResult: Identifiable, Equatable {
@@ -143,7 +144,23 @@ extension AppStore {
     /// The house-rules note, if it's been saved. Drives the button's label —
     /// "Save to notes" and "Update the note" are different promises.
     var houseRulesNote: Note? {
-        (notes + archivedNotes).first { $0.title.hasPrefix(Autopilot.noteTitleBase) }
+        let all = notes + archivedNotes
+        if let houseRulesNoteID,
+           let identified = all.first(where: { $0.id == houseRulesNoteID }) {
+            return identified
+        }
+
+        let ordered = all.sorted {
+            ($0.createdAt, $0.id.uuidString) < ($1.createdAt, $1.id.uuidString)
+        }
+        if let exact = ordered.first(where: {
+            $0.title.caseInsensitiveCompare(Autopilot.noteTitleBase) == .orderedSame
+        }) {
+            return exact
+        }
+        return ordered.first { note in
+            note.title.lowercased().hasPrefix(Autopilot.noteTitleBase.lowercased() + " ")
+        }
     }
 
     /// Whether the saved note already says what the editor currently says.
@@ -151,7 +168,10 @@ extension AppStore {
     /// isn't a no-op — it's a second copy of the same text inside one note.
     var houseRulesAreSaved: Bool {
         guard let note = houseRulesNote else { return false }
-        return note.body.contains(houseRulesText.trimmingCharacters(in: .whitespacesAndNewlines))
+        return HouseRulesRevision.noteContainsCurrentRevision(
+            noteBody: note.body,
+            draftBody: houseRulesText
+        )
     }
 
     func resetHouseRules() {
@@ -196,6 +216,125 @@ extension AppStore {
         }
     }
 
+    // MARK: - Per-vault drafts and templates
+
+    func scheduleHouseRulesStateSave() {
+        guard !loadingHouseRulesState else { return }
+        houseRulesStateSaveWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.persistHouseRulesState()
+        }
+        houseRulesStateSaveWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+    }
+
+    func flushHouseRulesState() {
+        houseRulesStateSaveWorkItem?.cancel()
+        houseRulesStateSaveWorkItem = nil
+        persistHouseRulesState()
+    }
+
+    func persistHouseRulesState() {
+        guard !loadingHouseRulesState else { return }
+        do {
+            try houseRulesStateStore.save(
+                HouseRulesLocalState(
+                    draftText: HouseRulesRevision.normalized(houseRulesText),
+                    customPresets: customHouseRulesPresets,
+                    houseRulesNoteID: houseRulesNoteID
+                )
+            )
+            houseRulesStateError = nil
+        } catch {
+            houseRulesStateError = error.localizedDescription
+        }
+    }
+
+    /// Imports a reusable draft into the current vault. It deliberately does
+    /// not activate or save the text; the gallery previews it first.
+    @discardableResult
+    func importHouseRulesPreset() -> HouseRulesPreset? {
+        let panel = NSOpenPanel()
+        panel.title = "Import House Rules"
+        panel.message = "Choose a Markdown or plain-text rules file. Importing adds a draft template; it does not change your active House Rules."
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        var contentTypes = [UTType.plainText]
+        if let markdown = UTType(filenameExtension: "md") {
+            contentTypes.append(markdown)
+        }
+        panel.allowedContentTypes = contentTypes
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let file = panel.url else { return nil }
+
+        let scoped = file.startAccessingSecurityScopedResource()
+        defer {
+            if scoped { file.stopAccessingSecurityScopedResource() }
+        }
+
+        do {
+            let preset = try HouseRulesPresetImporter.makePreset(
+                data: Data(contentsOf: file),
+                filename: file.lastPathComponent,
+                existingTitles: customHouseRulesPresets.map(\.title)
+            )
+            customHouseRulesPresets.append(preset)
+            persistHouseRulesState()
+            return preset
+        } catch {
+            houseRulesStateError = "Couldn't import House Rules: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func useHouseRulesPresetAsDraft(_ preset: HouseRulesPreset) {
+        houseRulesText = preset.body
+        statusMessage = "“\(preset.title)” is ready as a draft. Review it, then save when you're ready."
+    }
+
+    func removeCustomHouseRulesPreset(_ preset: HouseRulesPreset) {
+        guard preset.origin == .imported else { return }
+        customHouseRulesPresets.removeAll { $0.id == preset.id }
+        persistHouseRulesState()
+    }
+
+    @discardableResult
+    func duplicateCustomHouseRulesPreset(_ preset: HouseRulesPreset) -> HouseRulesPreset {
+        let copy = HouseRulesPreset(
+            id: UUID().uuidString.lowercased(),
+            title: HouseRulesPresetImporter.uniqueTitle(
+                base: preset.title + " Copy",
+                existingTitles: customHouseRulesPresets.map(\.title)
+            ),
+            summary: "Copy of \(preset.title).",
+            body: preset.body,
+            origin: .imported,
+            sourceFilename: preset.sourceFilename,
+            importedAt: Date()
+        )
+        customHouseRulesPresets.append(copy)
+        persistHouseRulesState()
+        return copy
+    }
+
+    func renameCustomHouseRulesPreset(_ preset: HouseRulesPreset, to proposedTitle: String) {
+        guard preset.origin == .imported,
+              let index = customHouseRulesPresets.firstIndex(where: { $0.id == preset.id })
+        else { return }
+
+        let trimmed = proposedTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            houseRulesStateError = "A custom template needs a title."
+            return
+        }
+        let others = customHouseRulesPresets.filter { $0.id != preset.id }.map(\.title)
+        customHouseRulesPresets[index].title = HouseRulesPresetImporter.uniqueTitle(
+            base: trimmed, existingTitles: others
+        )
+        persistHouseRulesState()
+    }
+
     /// The note that teaches a connected assistant the habit — read the notes at
     /// the start of a session, write them at the end. Skipped when Autopilot is
     /// off, for someone who'd rather set their own conventions.
@@ -208,21 +347,31 @@ extension AppStore {
     /// while the original wording stays in the history where a rewrite would
     /// have destroyed it.
     func saveHouseRules() {
-        let text = houseRulesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = HouseRulesRevision.normalized(houseRulesText)
         guard !text.isEmpty else { return }
+        let revision = HouseRulesRevision.wrapped(text)
         do {
             if let existing = houseRulesNote {
-                try service.appendToNote(id: existing.id, text: text, source: Onboarding.source)
-                statusMessage = "Updated “\(existing.title)”."
+                let restored = existing.archived
+                if restored {
+                    try service.unarchiveNote(id: existing.id, source: Onboarding.source)
+                }
+                try service.appendToNote(id: existing.id, text: revision, source: Onboarding.source)
+                houseRulesNoteID = existing.id
+                statusMessage = restored
+                    ? "Restored and updated “\(existing.title)”."
+                    : "Updated “\(existing.title)”."
             } else {
                 let title = Autopilot.noteTitle(existingTitles: (notes + archivedNotes).map(\.title))
                 // `source: "unlirice"` — the app's own voice, same as the seeded
                 // guides. Marking it "human" would make the transaction log lie,
                 // even though a human may well have edited the wording.
-                let note = try service.createNote(title: title, body: text, source: Onboarding.source)
+                let note = try service.createNote(title: title, body: revision, source: Onboarding.source)
                 try service.tagNote(id: note.id, tag: Autopilot.noteTag, source: Onboarding.source)
+                houseRulesNoteID = note.id
                 statusMessage = "Saved “\(title)” — your assistant will find it on its next session."
             }
+            persistHouseRulesState()
             reload()
         } catch {
             errorMessage = "Couldn't write the house-rules note: \(error)"

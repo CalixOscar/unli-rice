@@ -93,9 +93,9 @@ final class AppStore: ObservableObject {
     /// nothing persisted it, so "off" silently became "on" at the next launch,
     /// and once the note existed the switch had no effect in either position.
     ///
-    /// Editable, persisted, and seeded from `Autopilot.noteBody`.
+    /// Editable, persisted per vault, and seeded from `Autopilot.noteBody`.
     @Published var houseRulesText: String {
-        didSet { UserDefaults.standard.set(houseRulesText, forKey: Self.houseRulesKey) }
+        didSet { scheduleHouseRulesStateSave() }
     }
 
     /// Targets the user has ticked, by `MCPTarget.id`.
@@ -105,6 +105,16 @@ final class AppStore: ObservableObject {
     /// keyed by target id. There is no correct folder to guess here — both
     /// tools scope MCP servers per project.
     @Published var targetProjectFolders: [String: URL] = [:]
+
+    @Published var customHouseRulesPresets: [HouseRulesPreset]
+    @Published var houseRulesStateError: String?
+
+    /// Rebuilt alongside `service` whenever the active vault changes. Drafts
+    /// and imported rules must follow the corpus they describe.
+    var houseRulesStateStore: HouseRulesStateStore
+    var houseRulesNoteID: UUID?
+    var houseRulesStateSaveWorkItem: DispatchWorkItem?
+    var loadingHouseRulesState = false
 
     /// Extra targets the user added by hand, for tools not in the catalog.
     @Published var customTargets: [MCPTarget] = []
@@ -195,7 +205,9 @@ final class AppStore: ObservableObject {
     static let embeddingModelKey = "unliRice.embeddingModel"
     static let routinesEnabledKey = "unliRice.routinesEnabled"
     static let monthlyReviewKey = "unliRice.monthlyReviewEnabled"
-    static let houseRulesKey = "unliRice.houseRulesText"
+    /// Pre-gallery global draft key. Read once to migrate an existing user's
+    /// text into the first per-vault state file, then removed after a safe save.
+    static let legacyHouseRulesKey = "unliRice.houseRulesText"
     static let advancedModeKey = "unliRice.advancedModeEnabled"
     /// Where last-run stamps *used* to live. They're in `RoutineState` beside
     /// the event log now, because `unlirice-agent` runs the same routines and a
@@ -235,6 +247,34 @@ final class AppStore: ObservableObject {
     init() {
         let url = AppStore.defaultDataFileURL()
         dataURL = url
+
+        let rulesStore = HouseRulesStateStore(besideEventLog: url)
+        var rulesState = HouseRulesLocalState()
+        var rulesLoadError: String?
+        do {
+            rulesState = try rulesStore.load()
+        } catch {
+            rulesLoadError = error.localizedDescription
+        }
+
+        // Preserve the pre-gallery global draft on upgrade. It is claimed by
+        // the vault active at first launch; later vaults start independently.
+        if !rulesStore.exists,
+           let legacyDraft = UserDefaults.standard.string(forKey: AppStore.legacyHouseRulesKey) {
+            rulesState.draftText = legacyDraft
+            do {
+                try rulesStore.save(rulesState)
+                UserDefaults.standard.removeObject(forKey: AppStore.legacyHouseRulesKey)
+            } catch {
+                rulesLoadError = "Couldn't migrate the existing House Rules draft: \(error.localizedDescription)"
+            }
+        }
+        houseRulesStateStore = rulesStore
+        houseRulesText = rulesState.draftText ?? Autopilot.noteBody
+        customHouseRulesPresets = rulesState.customPresets
+        houseRulesNoteID = rulesState.houseRulesNoteID
+        houseRulesStateError = rulesLoadError
+
         autonomyLevel = UserDefaults.standard.object(forKey: AppStore.autonomyKey) as? Int ?? 1
         scanRoots = (UserDefaults.standard.stringArray(forKey: AppStore.scanRootsKey) ?? [])
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -243,7 +283,6 @@ final class AppStore: ObservableObject {
         advancedModeEnabled = UserDefaults.standard.bool(forKey: AppStore.advancedModeKey)
         embeddingServerPath = UserDefaults.standard.string(forKey: AppStore.embeddingServerKey) ?? ""
         embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
-        houseRulesText = UserDefaults.standard.string(forKey: AppStore.houseRulesKey) ?? Autopilot.noteBody
         do {
             let store = try EventStore(fileURL: url)
             service = NoteService(store: store)
@@ -349,14 +388,33 @@ final class AppStore: ObservableObject {
     ///   *absent* rather than set to the default path.
     @discardableResult
     func switchDataFolder(to folder: URL, persist: Bool = true) -> Bool {
+        flushHouseRulesState()
         let url = DataLocation.eventLogURL(inFolder: folder)
         do {
+            let nextRulesStore = HouseRulesStateStore(besideEventLog: url)
+            let nextRulesState: HouseRulesLocalState
+            var nextRulesError: String?
+            do {
+                nextRulesState = try nextRulesStore.load()
+            } catch {
+                nextRulesState = HouseRulesLocalState()
+                nextRulesError = error.localizedDescription
+            }
+
             let store = try EventStore(fileURL: url)
             service = NoteService(store: store)
             dataURL = url
             let driver = RoutineDriver(service: service, eventLogURL: url)
             routineDriver = driver
             noticeStore = driver.noticeStore
+
+            loadingHouseRulesState = true
+            houseRulesStateStore = nextRulesStore
+            houseRulesText = nextRulesState.draftText ?? Autopilot.noteBody
+            customHouseRulesPresets = nextRulesState.customPresets
+            houseRulesNoteID = nextRulesState.houseRulesNoteID
+            houseRulesStateError = nextRulesError
+            loadingHouseRulesState = false
             if persist {
                 UserDefaults.standard.set(folder.path, forKey: Self.dataFolderKey)
             }

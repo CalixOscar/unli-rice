@@ -1392,6 +1392,45 @@ could be photographed, though it compiles, launches, and stays up.
    into a scanned folder — so this may need no code at all. Try it that way
    before building anything.
 
+## House Rules template gallery and per-vault drafts (2026-07-21)
+
+House Rules on Connect is now a template workflow rather than only one large
+free-text field. `HouseRulesPreset` supplies three built-ins — Standard Memory,
+Codebase Memory, and Minimalist / Low Token — and the new two-pane gallery shows
+the exact monospaced text plus approximate token and character counts. Imported
+UTF-8 `.md`/`.txt` files are validated (empty, binary, and files over 200 KB are
+refused), previewed, and added as custom templates. Import and selection never
+write a note: **Use as Draft** returns to the existing editor, and the existing
+explicit Save/Update action remains the only activation path. Custom templates
+can be renamed, duplicated, and deleted without touching note history.
+
+Draft text, custom presets, and the canonical House Rules note UUID now live in
+a versioned `house-rules.json` beside each vault's `events.jsonl`. Writes are
+atomic under a stable sidecar lock; malformed or newer-version files are never
+silently replaced. Editor persistence is debounced, flushed on vault switches
+and app termination, and the old global UserDefaults draft migrates once into
+the vault active on upgrade. This closes the old cross-vault leak where a draft
+from one corpus remained visible after switching to another.
+
+Every save still uses `NoteService`: creation/tagging for the first save,
+`appendToNote` thereafter, and `unarchiveNote` before an update when the
+canonical note was archived. A saved revision carries an ISO timestamp,
+explicitly says it supersedes earlier revisions, and embeds a SHA-256 fingerprint
+in the note itself. Saved-state comparison reads the latest fingerprint from the
+event-log projection (with a suffix fallback for legacy notes), so selecting an
+older preset cannot be mistaken for the current policy and a sidecar cache cannot
+drift from writes made by another process. Canonical note lookup uses the stored
+UUID, then deterministic exact-title/legacy fallbacks rather than whichever
+prefix match happened to be most recently updated.
+
+The Standard body was updated to search for `Wiki: index` when present, search
+the task directly otherwise, maintain an existing wiki layer, reserve both
+`janitor` and `ingest`, and flag conflicts for human review. The Xcode debug app
+bundle builds and the Connect card was checked on screen against a throwaway
+vault/preferences home; no real notes were used for verification. The full Swift
+suite covers presets, validation, fingerprints (including marker-like imported
+text), corrupt-state preservation, round trips, and two-vault isolation.
+
 ## Repo/environment notes
 
 - Git repo is scoped to this project folder only (`Documents/Projects/Second

@@ -140,6 +140,7 @@ struct ConnectView: View {
 private struct HouseRulesEditor: View {
     @EnvironmentObject var store: AppStore
     @State private var expanded = false
+    @State private var showingTemplates = false
 
     var body: some View {
         Card(
@@ -156,6 +157,15 @@ private struct HouseRulesEditor: View {
 
                     Spacer()
 
+                    Button("Choose Template…") { showingTemplates = true }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 5)
+                        .foregroundStyle(Theme.brass)
+                        .background(Theme.panel)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+
                     Button(expanded ? "Hide" : "Edit") { expanded.toggle() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11))
@@ -165,21 +175,21 @@ private struct HouseRulesEditor: View {
                         .background(Theme.panel)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
 
-                    Button(store.houseRulesNote == nil ? "Save to notes" : "Update note") {
+                    Button(saveButtonTitle) {
                         store.saveHouseRules()
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 11.5, weight: .medium))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
-                    .foregroundStyle(store.houseRulesAreSaved ? Theme.inkDim : Theme.onAccent)
-                    .background(store.houseRulesAreSaved ? Color.clear : Theme.accent)
+                    .foregroundStyle(saveDisabled ? Theme.inkDim : Theme.onAccent)
+                    .background(saveDisabled ? Color.clear : Theme.accent)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(store.houseRulesAreSaved ? Theme.border : Color.clear, lineWidth: 1)
+                            .stroke(saveDisabled ? Theme.border : Color.clear, lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .disabled(store.houseRulesAreSaved)
+                    .disabled(saveDisabled)
                 }
 
                 if expanded {
@@ -201,13 +211,38 @@ private struct HouseRulesEditor: View {
                             .foregroundStyle(Theme.inkDim)
                     }
                 }
+
+                if let error = store.houseRulesStateError {
+                    Text(error)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Theme.crit)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+        .sheet(isPresented: $showingTemplates) {
+            HouseRulesPresetGalleryView {
+                expanded = true
+            }
+            .environmentObject(store)
+        }
+    }
+
+    private var saveDisabled: Bool {
+        store.houseRulesAreSaved && store.houseRulesNote?.archived != true
+    }
+
+    private var saveButtonTitle: String {
+        guard let note = store.houseRulesNote else { return "Save to notes" }
+        return note.archived ? "Restore and update" : "Update note"
     }
 
     private var statusLine: String {
         guard let note = store.houseRulesNote else {
             return "Not saved yet — your assistant won't know these conventions."
+        }
+        if note.archived {
+            return "“\(note.title)” is archived — restore it so assistants can find it."
         }
         return store.houseRulesAreSaved
             ? "Saved as “\(note.title)”."

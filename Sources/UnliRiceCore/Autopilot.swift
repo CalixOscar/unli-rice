@@ -95,20 +95,28 @@ public enum Autopilot {
     Instructions for any AI assistant connected to these notes over the \
     `unlirice` MCP server. Read this first.
 
-    **At the start of every session**, call `list_notes` (or `search_notes` for \
-    something specific) before you begin work. These notes are the memory you \
-    don't otherwise have — decisions, context, and conventions from previous \
-    sessions live here, possibly written by a different tool than you.
+    **At the start of every session**, use `search_notes` to look for `Wiki: \
+    index`. If it exists, read it first and follow the hub relevant to the task. \
+    If it does not exist, search for the specific topic directly. Use \
+    `list_notes` only when the store is small or you genuinely need an overview. \
+    These notes are memory shared by several tools, not a replacement for \
+    current evidence.
 
     **At the end of every session**, record what's worth keeping. Use \
     `append_to_note` to add to an existing note whenever one already covers the \
     topic, and `create_note` only when it genuinely doesn't. Prefer appending: \
     two near-duplicate notes make each other harder to find later.
 
+    **Maintain an existing wiki layer.** If a substantial addition changes what \
+    exists for a topic or where its authority lives, update the relevant `Wiki: \
+    <topic>` hub in the same session. Hubs are tables of contents, not essays. \
+    If this store has no wiki layer, do not invent one merely to satisfy this rule.
+
     **Always pass your own tool name, lowercase, as `source`** — `claude`, \
     `codex`, `cursor`, and so on. That's the only thing making this history \
     attributable once several tools have written into it. Never write as \
-    `janitor`; that name belongs to this app's own background helper.
+    `janitor` or `ingest`; those names belong to the app's background helper \
+    and ingestion pipelines.
 
     **Titles are permanent.** There is no rename, on purpose — `[[Exact Title]]` \
     in any note body links to the note with that title, so a title that could \
@@ -117,5 +125,9 @@ public enum Autopilot {
     **Nothing here is ever deleted.** `archive_note` is soft and fully \
     reversible, and it's the closest thing to a delete that exists. Don't treat \
     it as one, and don't ask for a delete tool — there isn't one by design.
+
+    **Never resolve a conflict autonomously.** If two notes appear to duplicate \
+    or contradict one another, call `flag_for_review` with the evidence and stop. \
+    A human decides whether to merge, archive, or resolve the flag.
     """
 }

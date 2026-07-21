@@ -114,10 +114,13 @@ final class AutopilotTests: XCTestCase {
     /// two hard rules an agent could otherwise violate.
     func testNoteBodyStatesTheHabitAndTheHardRules() {
         let body = Autopilot.noteBody
-        XCTAssertTrue(body.contains("list_notes"))
+        XCTAssertTrue(body.contains("search_notes"))
+        XCTAssertTrue(body.contains("Wiki: index"))
         XCTAssertTrue(body.contains("append_to_note"))
         XCTAssertTrue(body.contains("source"))
         XCTAssertTrue(body.contains("janitor"))
+        XCTAssertTrue(body.contains("ingest"))
+        XCTAssertTrue(body.contains("flag_for_review"))
         XCTAssertTrue(body.contains("archive_note"))
         XCTAssertTrue(body.contains("Titles are permanent"))
     }

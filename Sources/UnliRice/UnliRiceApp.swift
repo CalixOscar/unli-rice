@@ -31,6 +31,11 @@ struct UnliRiceApp: App {
                         try? await Task.sleep(for: .seconds(300))
                     }
                 }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+                ) { _ in
+                    store.flushHouseRulesState()
+                }
         }
         .windowResizability(.contentSize)
         .commands {
