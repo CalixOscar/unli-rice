@@ -67,6 +67,7 @@ struct ContentView: View {
                     && !store.showingGraph && !store.showingGetStarted
                     && !store.showingReviewQueue && !store.showingRetrospective
                     && !store.showingNotices && !store.showingAutomation
+                    && !store.showingTrustCenter
             ) {
                 store.selectNote(nil)
                 store.showAllNotes()
@@ -97,6 +98,13 @@ struct ContentView: View {
             ) {
                 store.selectNote(nil)
                 store.showGetStarted()
+            }
+            sidebarRow(
+                "Trust Center",
+                active: store.selectedNoteID == nil && store.showingTrustCenter
+            ) {
+                store.selectNote(nil)
+                store.showTrustCenter()
             }
 
             if store.advancedModeEnabled {
@@ -187,6 +195,8 @@ struct ContentView: View {
                 NoteGraphView()
             } else if store.showingAutomation {
                 AutomationView()
+            } else if store.showingTrustCenter {
+                TrustCenterView()
             } else {
                 noteListColumn
             }
@@ -851,20 +861,25 @@ private struct NoteDetailView: View {
     let note: Note
     @State private var draftAppend = ""
     @State private var draftTag = ""
+    @State private var history: [Event] = []
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 backRow
                 header
+                provenanceSection
                 bodyText
                 tagsSection
                 linksSection
                 flagsSection
+                historySection
                 appendSection
             }
             .padding(20)
         }
+        .onAppear { history = store.noteHistory(note) }
+        .onChange(of: note.updatedAt) { _ in history = store.noteHistory(note) }
     }
 
     private var backRow: some View {
@@ -912,6 +927,64 @@ private struct NoteDetailView: View {
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(12)
             .background(Theme.panel)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var provenanceSection: some View {
+        let provenance = store.provenance(note)
+        if provenance.rawFilename != nil || provenance.sourceFilePath != nil
+            || provenance.projectPath != nil || provenance.sessionID != nil {
+            VStack(alignment: .leading, spacing: 7) {
+                sectionHeader("Provenance")
+                if let path = provenance.sourceFilePath {
+                    provenanceRow("Original file", value: path)
+                }
+                if let project = provenance.projectPath {
+                    provenanceRow("Project", value: project)
+                }
+                if let session = provenance.sessionID {
+                    provenanceRow("Session", value: session)
+                }
+                if let raw = provenance.rawFilename {
+                    provenanceRow("Preserved raw copy", value: raw)
+                }
+                HStack(spacing: 8) {
+                    if provenance.sourceFilePath != nil {
+                        provenanceButton("Reveal original") { store.revealOriginalSource(for: note) }
+                    }
+                    if provenance.rawFilename != nil {
+                        provenanceButton("Reveal raw copy") { store.revealRawSource(for: note) }
+                    }
+                }
+            }
+            .padding(12)
+            .background(Theme.panel)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+        }
+    }
+
+    private func provenanceRow(_ label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label.uppercased())
+                .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(Theme.inkDim)
+                .frame(width: 120, alignment: .leading)
+            Text(value)
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(Theme.ink)
+                .textSelection(.enabled)
+            Spacer()
+        }
+    }
+
+    private func provenanceButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .foregroundStyle(Theme.accent)
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
     }
 
@@ -1054,6 +1127,21 @@ private struct NoteDetailView: View {
         }
     }
 
+    private var historySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                sectionHeader("History")
+                Spacer()
+                Text("\(history.count) immutable event\(history.count == 1 ? "" : "s")")
+                    .font(.system(size: 9.5, design: .monospaced))
+                    .foregroundStyle(Theme.inkDim)
+            }
+            ForEach(Array(history.reversed())) { event in
+                EventHistoryRow(event: event)
+            }
+        }
+    }
+
     private func appendText() {
         store.append(to: note, text: draftAppend)
         draftAppend = ""
@@ -1063,6 +1151,91 @@ private struct NoteDetailView: View {
         Text(title.uppercased())
             .font(.system(size: 10.5, weight: .medium, design: .monospaced))
             .foregroundStyle(Theme.inkDim)
+    }
+}
+
+private struct EventHistoryRow: View {
+    let event: Event
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 15, height: 18)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(label)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(Theme.ink)
+                    Text("by \(event.source)")
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.brass)
+                    Spacer()
+                    Text(event.timestamp.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 9.5, design: .monospaced))
+                        .foregroundStyle(Theme.inkDim)
+                }
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.inkDim)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(9)
+        .background(Theme.panel.opacity(0.65))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border.opacity(0.7), lineWidth: 1))
+    }
+
+    private var label: String {
+        switch event.kind {
+        case .created: return "Created"
+        case .appended: return "Appended"
+        case .tagged: return "Added tag"
+        case .untagged: return "Removed tag"
+        case .archived: return "Archived"
+        case .unarchived: return "Restored from archive"
+        case .flagged: return "Flagged for review"
+        case .reviewResolved: return "Review resolved"
+        }
+    }
+
+    private var detail: String? {
+        switch event.kind {
+        case .created, .appended:
+            return event.text
+        case .tagged, .untagged:
+            return event.tag.map { "#\($0)" }
+        case .archived, .flagged, .reviewResolved:
+            return event.reason
+        case .unarchived:
+            return nil
+        }
+    }
+
+    private var symbol: String {
+        switch event.kind {
+        case .created: return "plus.circle.fill"
+        case .appended: return "text.badge.plus"
+        case .tagged: return "tag.fill"
+        case .untagged: return "tag.slash"
+        case .archived: return "archivebox.fill"
+        case .unarchived: return "tray.and.arrow.up.fill"
+        case .flagged: return "flag.fill"
+        case .reviewResolved: return "checkmark.circle.fill"
+        }
+    }
+
+    private var color: Color {
+        switch event.kind {
+        case .archived, .untagged: return Theme.crit
+        case .flagged: return Theme.brass
+        case .unarchived, .reviewResolved: return Theme.emerald
+        default: return Theme.accent
+        }
     }
 }
 

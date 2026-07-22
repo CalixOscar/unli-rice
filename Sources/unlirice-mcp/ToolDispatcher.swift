@@ -107,6 +107,11 @@ struct ToolDispatcher {
                     try service.searchNotes(query: try string(arguments, "query"), includeArchived: includeArchived)
                 )
 
+            case "note_history":
+                payload = try JSONRPC.plain(
+                    try service.noteHistory(id: try uuid(arguments, "id"))
+                )
+
             case "pending_reviews":
                 let reviews = try service.pendingReviews()
                 payload = reviews.map { entry -> [String: Any] in

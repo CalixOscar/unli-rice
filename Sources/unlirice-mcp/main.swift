@@ -17,6 +17,9 @@ do {
 }
 let service = NoteService(store: store)
 let dispatcher = ToolDispatcher(service: service)
+let connectionActivity = MCPConnectionActivityStore(besideEventLog: dataURL)
+var currentClientName = "Unknown MCP client"
+var currentClientVersion: String?
 
 logToStderr("unlirice-mcp: ready, event log at \(dataURL.path)")
 
@@ -36,6 +39,14 @@ while let line = readLine(strippingNewline: true) {
 
     switch method {
     case "initialize":
+        if let clientInfo = params["clientInfo"] as? [String: Any] {
+            currentClientName = (clientInfo["name"] as? String) ?? currentClientName
+            currentClientVersion = clientInfo["version"] as? String
+        }
+        _ = try? connectionActivity.recordConnection(
+            clientName: currentClientName,
+            clientVersion: currentClientVersion
+        )
         JSONRPC.writeLine(JSONRPC.result(id: id, [
             "protocolVersion": "2024-11-05",
             "capabilities": ["tools": [:]],
@@ -55,6 +66,12 @@ while let line = readLine(strippingNewline: true) {
         }
         let arguments = params["arguments"] as? [String: Any] ?? [:]
         let result = dispatcher.dispatch(name: toolName, arguments: arguments)
+        _ = try? connectionActivity.recordToolCall(
+            clientName: currentClientName,
+            clientVersion: currentClientVersion,
+            toolName: toolName,
+            succeeded: (result["isError"] as? Bool) != true
+        )
         JSONRPC.writeLine(JSONRPC.result(id: id, result))
 
     case "ping":
