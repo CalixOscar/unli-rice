@@ -197,6 +197,19 @@ final class NoteServiceTests: XCTestCase {
         XCTAssertEqual(try service.getNote(id: target.id)!.backlinks, [note.id])
     }
 
+    func testNoteHistoryReturnsOnlyThatNotesEventsOldestFirst() throws {
+        let note = try service.createNote(title: "History", body: "first", source: "human")
+        _ = try service.createNote(title: "Other", body: "unrelated", source: "claude")
+        try service.appendToNote(id: note.id, text: "second", source: "codex")
+        try service.tagNote(id: note.id, tag: "audit", source: "human")
+
+        let history = try service.noteHistory(id: note.id)
+
+        XCTAssertEqual(history.map(\.kind), [.created, .appended, .tagged])
+        XCTAssertEqual(history.map(\.source), ["human", "codex", "human"])
+        XCTAssertEqual(history.compactMap(\.text), ["first", "second"])
+    }
+
     // MARK: - Cross-process write safety
 
     func testConcurrentAppendsFromMultipleStoresDoNotCorruptTheLog() throws {

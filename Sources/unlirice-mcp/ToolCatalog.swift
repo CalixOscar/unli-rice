@@ -115,6 +115,11 @@ enum ToolCatalog {
             ], required: ["query"])
         ],
         [
+            "name": "note_history",
+            "description": "Fetch the immutable event history for one note, oldest first, including attribution and timestamps.",
+            "inputSchema": schema(["id": string("Note id (UUID)")], required: ["id"])
+        ],
+        [
             "name": "pending_reviews",
             "description": "List all unresolved review flags across all notes, oldest first.",
             "inputSchema": schema([:])

@@ -170,6 +170,18 @@ public final class NoteService {
         }
     }
 
+    /// The immutable history for one note, oldest first.
+    ///
+    /// This intentionally returns events rather than a synthetic diff. The
+    /// event log already records exactly what was added, by whom, and when;
+    /// presenting that evidence directly keeps provenance auditable in the GUI
+    /// and over MCP.
+    public func noteHistory(id: UUID) throws -> [Event] {
+        try store.readAll()
+            .filter { $0.noteId == id }
+            .sorted { $0.timestamp < $1.timestamp }
+    }
+
     public func pendingReviews() throws -> [(note: Note, flag: ReviewFlag)] {
         try currentNotes().values
             .flatMap { note in note.flags.filter { !$0.resolved }.map { (note, $0) } }

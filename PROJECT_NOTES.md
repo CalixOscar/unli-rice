@@ -92,7 +92,7 @@ Swift Package (`swift build` / `swift test`, macOS 13+, Swift 5.10 tools).
     directions) — **not** using the official Swift MCP SDK yet, see Deferred.
   - Implements `initialize`, `notifications/initialized`, `tools/list`,
     `tools/call`, `ping`.
-  - `ToolCatalog.swift` — the 13 tools exposed, 1:1 with `NoteService`
+  - `ToolCatalog.swift` — the 14 tools exposed, 1:1 with `NoteService`
     methods. If you add a `NoteService` method, add a matching tool here and
     in `ToolDispatcher.swift` or it won't be reachable by agents.
   - Data file location: `~/Library/Application Support/Unli Rice/events.jsonl`
@@ -1322,6 +1322,32 @@ catch the outliers. The only things not directly observed are the 3-second auto-
 firing on load (it calls the same `fitToWindow` the button proves works) and the
 Automation pane itself — macOS screen capture stopped working before that build
 could be photographed, though it compiles, launches, and stays up.
+
+## Trust Center: connection evidence, recovery, and note history (2026-07-22)
+
+The new **Trust Center** closes three trust gaps without putting a model or a
+cloud service inside the app:
+
+- `MCPConnectionActivityStore` records local, content-free evidence that a
+  client initialized the server or called a tool: client name/version, time,
+  tool name, and success only. Arguments and note contents never enter the
+  diagnostic sidecar. The Trust Center combines this with event-log
+  readability, vault writability, snapshot availability, and launch-agent
+  state so “configured” is no longer presented as proof that memory works.
+- `VaultSnapshotService` captures `events.jsonl`, `/raw`, House Rules, routine
+  state, and notices into a corpus-scoped recovery point with a SHA-256 manifest.
+  Creation verifies every copied file. Restore verifies again, appends only
+  event IDs missing from the live log, and copies only absent raw files; it never
+  replaces current history or settings. The same screen finally exposes
+  `TrashService.restore` in the GUI.
+- `NoteService.noteHistory` and the matching `note_history` MCP tool return one
+  note's immutable events oldest-first. Note detail renders that attribution
+  timeline and parses ingest-owned provenance markers to reveal the original
+  file and preserved raw copy when available.
+
+Recovery, trash restore, and provenance actions remain GUI-only and
+human-triggered. Connection activity and snapshots are derived sidecars, not
+events: losing either cannot lose or change a note.
 
 ## Deferred / explicitly not done yet, in rough priority order
 

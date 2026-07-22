@@ -60,6 +60,17 @@ final class AppStore: ObservableObject {
     @Published var showingRetrospective: Bool = false
     @Published var showingNotices: Bool = false
 
+    /// Operational trust and recovery: connection evidence, verified snapshots,
+    /// and in-app trash restore. Unlike notes, everything here is derived from
+    /// sidecars or recovery files beside the active corpus.
+    @Published var showingTrustCenter: Bool = false
+    @Published var connectionActivities: [MCPConnectionActivity] = []
+    @Published var vaultSnapshots: [VaultSnapshot] = []
+    @Published var trashedNotes: [TrashService.TrashedNote] = []
+    @Published var trustChecks: [TrustCheck] = []
+    @Published var trustMessage: String?
+    @Published var trustBusy: Bool = false
+
     /// The settings/triggers pane. Was a permanently-visible right-hand column
     /// until it became a destination like every other pane — see `AutomationView`.
     @Published var showingAutomation: Bool = false
@@ -445,9 +456,15 @@ final class AppStore: ObservableObject {
         // News about the corpus we just stopped looking at, and a review screen
         // describing a period of it.
         notices = []
+        connectionActivities = []
+        vaultSnapshots = []
+        trashedNotes = []
+        trustChecks = []
+        trustMessage = nil
         retrospectivePeriodID = nil
         showingRetrospective = false
         showingNotices = false
+        showingTrustCenter = false
     }
 
     /// Everything the background agent needs, as the GUI currently has it.
@@ -566,6 +583,7 @@ final class AppStore: ObservableObject {
         showingGetStarted = false
         showingRetrospective = false
         showingNotices = false
+        showingTrustCenter = false
         showingAutomation = false
     }
 
@@ -623,6 +641,13 @@ final class AppStore: ObservableObject {
         statusMessage = "Automation — what runs on its own, and what only runs when you ask."
     }
 
+    func showTrustCenter() {
+        closeAllPanes()
+        showingTrustCenter = true
+        refreshTrustCenter()
+        statusMessage = "Trust Center — connection evidence, recovery points, and note history."
+    }
+
     func showGraph() {
         closeAllPanes()
         showingGraph = true
@@ -640,6 +665,7 @@ final class AppStore: ObservableObject {
             showingGetStarted = false
             showingRetrospective = false
             showingNotices = false
+            showingTrustCenter = false
             showingAutomation = false
         }
     }
