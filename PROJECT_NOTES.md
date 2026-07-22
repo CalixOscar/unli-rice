@@ -1418,6 +1418,18 @@ events: losing either cannot lose or change a note.
    into a scanned folder — so this may need no code at all. Try it that way
    before building anything.
 
+## Mac App Store submission (this session)
+
+Submitted 2026-07-21: Content Rights Information (no third-party content),
+App Privacy (Data Not Collected), and Pricing (Free) were the three blockers
+App Store Connect required before "Add for Review" would unlock — all three
+resolved, matching the declarations already recorded in
+`APP_STORE_SUBMISSION.md`. The build is now **Waiting for Review** with
+**automatic release** on, so it goes live the moment Apple approves it with
+no further action needed. `Screenshots/AppStore/` (4 screenshots, 2880x1800)
+and `Screenshots/unli-rice-promo.png` (marketing hero) were generated this
+session too, built from real window captures rather than mockups.
+
 ## House Rules template gallery and per-vault drafts (2026-07-21)
 
 House Rules on Connect is now a template workflow rather than only one large
