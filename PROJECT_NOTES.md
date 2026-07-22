@@ -1340,11 +1340,31 @@ could be photographed, though it compiles, launches, and stays up.
    stale in the doc after commit 65228c5 shipped it — a reminder to keep this
    file honest as work lands, not just when a session starts.
 4. **CloudKit + SwiftData sync layer.** Needs Xcode + an Apple Developer
-   account + iCloud container entitlement — can't be scaffolded headlessly.
-   When picked up, the event log format here (`Event`, JSON-Lines) is meant
-   to map directly onto SwiftData records; the append-only design was chosen
-   specifically so CloudKit sync conflict resolution stays simple (new
-   records only, no in-place record mutation to reconcile).
+   account + iCloud container entitlement — can't be *finished* headlessly.
+   The event log format here (`Event`, JSON-Lines) is meant to map directly
+   onto SwiftData records; the append-only design was chosen specifically so
+   CloudKit sync conflict resolution stays simple (new records only, no
+   in-place record mutation to reconcile).
+
+   **A draft now exists** (this session) — `UnliRiceSync/`, a separate SPM
+   package rather than a target in the root manifest, because SwiftData's
+   CloudKit backing needs macOS 14 and the root package was deliberately
+   dropped back to macOS 13 after MLX's removal (see "Removing the on-device
+   model" below); nothing in the core/MCP/agent/test targets should have to
+   pay that floor again for a feature they don't use. It has a `SyncEvent`
+   `@Model` mirroring `Event`, and a `SyncCoordinator` actor that pulls remote
+   events into the local log via `EventStore.append` and pushes local ones
+   into the CloudKit-backed `ModelContainer`, deduped both ways on `Event.id`.
+   **None of it has been built, run, or tested against real CloudKit** — this
+   was written in a Linux container with no Xcode, no macOS SDK, and no
+   Developer account, which is exactly the constraint this item already
+   named. `UnliRiceSync/README.md` has the ordered list of Mac-only steps
+   left: confirm the package builds, get the GUI into an actual Xcode project
+   (there still isn't one — `UnliRice` only runs via `swift run`/
+   `Scripts/make-app.sh`), add the iCloud capability under a paid Developer
+   account, wire `SyncCoordinator` into `AppStore`, and — the step nothing
+   short of which actually confirms the feature — verify a note created on
+   one device appears on a second device signed into the same iCloud account.
 5. **The janitor.** ~~The embedding model~~ — built, measured, then **removed**;
    see "Removing the on-device model". ~~Scheduling/triggering~~ — done, see
    "Routines": `RoutineScheduler` gates on power and idle time, and the GUI

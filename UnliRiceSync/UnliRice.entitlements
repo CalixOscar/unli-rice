@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Deliberately not inside Sources/UnliRice/ — SwiftPM would treat a loose
+  non-source file dropped into a target's source directory as an unhandled
+  resource. This file has no effect until Xcode's Signing & Capabilities adds
+  it as the GUI app target's CODE_SIGN_ENTITLEMENTS and an Apple Developer
+  account signs the build with the matching iCloud container capability. See
+  README.md in this directory for the exact steps. Nothing here has been
+  applied to a real target yet.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.$(CFBundleIdentifier)</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+</dict>
+</plist>
