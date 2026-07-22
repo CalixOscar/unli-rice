@@ -5,9 +5,23 @@ func logToStderr(_ message: String) {
     FileHandle.standardError.write((message + "\n").data(using: .utf8)!)
 }
 
-// Shared with the GUI via DataLocation so both read and write the same log —
-// override with UNLIRICE_DATA_PATH for tests and smoke runs.
-let dataURL = DataLocation.eventLogURL()
+// Installed helpers share the app-group container with the GUI. If the user
+// chose an external corpus, the GUI also saved its security-scoped bookmark in
+// AgentSettings; keep that scope open for this stdio server's lifetime.
+// UNLIRICE_DATA_PATH still wins for development smoke tests.
+let settings = AgentSettings.load()
+var activeDataFolder: URL?
+let dataURL: URL
+if let override = ProcessInfo.processInfo.environment["UNLIRICE_DATA_PATH"], !override.isEmpty {
+    dataURL = URL(fileURLWithPath: override)
+} else if let folder = settings.dataFolderURL,
+          folder.startAccessingSecurityScopedResource() {
+    activeDataFolder = folder
+    dataURL = DataLocation.eventLogURL(inFolder: folder)
+} else {
+    dataURL = DataLocation.eventLogURL(persistedFolderPath: settings.dataFolderPath)
+}
+defer { activeDataFolder?.stopAccessingSecurityScopedResource() }
 let store: EventStore
 do {
     store = try EventStore(fileURL: dataURL)

@@ -12,47 +12,14 @@ final class AutopilotTests: XCTestCase {
         XCTAssertEqual(ids, ["claude-code", "claude-desktop", "cursor", "antigravity", "codex"])
     }
 
-    func testCodexIsTheOnlyTargetWeRefuseToWrite() {
-        let pasteOnly = MCPTarget.builtIn.filter { !$0.supportsAutomaticWrite }.map(\.id)
-        XCTAssertEqual(pasteOnly, ["codex"])
-    }
-
-    func testUserScopedTargetResolvesAgainstHome() {
-        let cursor = try! XCTUnwrap(MCPTarget.builtIn.first { $0.id == "cursor" })
-        let url = cursor.configURL(
-            projectFolder: nil, homeDirectory: URL(fileURLWithPath: "/Users/x")
-        )
-        XCTAssertEqual(url?.path, "/Users/x/.cursor/mcp.json")
-    }
-
-    /// Claude Code and Antigravity both scope MCP servers per project, so there
-    /// is no correct path to guess. Returning nil is what blocks "Connect" until
-    /// the user says which project they mean.
-    func testProjectScopedTargetHasNoPathUntilAFolderIsChosen() throws {
-        let claudeCode = try XCTUnwrap(MCPTarget.builtIn.first { $0.id == "claude-code" })
-        XCTAssertTrue(claudeCode.requiresProjectFolder)
-        XCTAssertNil(claudeCode.configURL(projectFolder: nil))
-
-        let resolved = claudeCode.configURL(projectFolder: URL(fileURLWithPath: "/Users/x/Proj"))
-        XCTAssertEqual(resolved?.path, "/Users/x/Proj/.mcp.json")
-    }
-
-    func testAntigravityUsesTheAgentsPathThisRepoAlreadyUses() throws {
-        let antigravity = try XCTUnwrap(MCPTarget.builtIn.first { $0.id == "antigravity" })
-        let url = antigravity.configURL(projectFolder: URL(fileURLWithPath: "/p"))
-        XCTAssertEqual(url?.path, "/p/.agents/mcp_config.json")
-    }
-
     /// Format is inferred from the extension because it's the only signal
     /// available for a tool we haven't verified.
     func testCustomTargetInfersFormatFromExtension() {
         let toml = MCPTarget.custom(name: "Grok", fileURL: URL(fileURLWithPath: "/x/config.toml"))
         XCTAssertEqual(toml.format, .codexTOML)
-        XCTAssertFalse(toml.supportsAutomaticWrite)
 
         let json = MCPTarget.custom(name: "OpenCode", fileURL: URL(fileURLWithPath: "/x/opencode.json"))
         XCTAssertEqual(json.format, .mcpServersJSON)
-        XCTAssertTrue(json.supportsAutomaticWrite)
     }
 
     // MARK: - The server entry
@@ -69,6 +36,18 @@ final class AutopilotTests: XCTestCase {
     func testEntryFallsBackToAVisiblePlaceholderPath() {
         let entry = MCPServerEntry.forPackage(at: nil)
         XCTAssertTrue(entry.args.contains(Autopilot.packagePathPlaceholder))
+    }
+
+    func testInstalledEntryRunsTheBundledHelperWithoutSwift() {
+        let entry = MCPServerEntry.forInstalledApp(
+            at: URL(fileURLWithPath: "/Applications/Unli Rice.app")
+        )
+        XCTAssertEqual(
+            entry.command,
+            "/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp"
+        )
+        XCTAssertTrue(entry.args.isEmpty)
+        XCTAssertTrue(entry.env.isEmpty)
     }
 
     // MARK: - Package path detection
@@ -123,5 +102,25 @@ final class AutopilotTests: XCTestCase {
         XCTAssertTrue(body.contains("flag_for_review"))
         XCTAssertTrue(body.contains("archive_note"))
         XCTAssertTrue(body.contains("Titles are permanent"))
+    }
+
+    func testAgentSourceForTargets() throws {
+        let claudeCode = try XCTUnwrap(MCPTarget.builtIn.first { $0.id == "claude-code" })
+        XCTAssertEqual(claudeCode.agentSource, "claude")
+
+        let cursor = try XCTUnwrap(MCPTarget.builtIn.first { $0.id == "cursor" })
+        XCTAssertEqual(cursor.agentSource, "cursor")
+
+        let antigravity = try XCTUnwrap(MCPTarget.builtIn.first { $0.id == "antigravity" })
+        XCTAssertEqual(antigravity.agentSource, "antigravity")
+
+        let codex = try XCTUnwrap(MCPTarget.builtIn.first { $0.id == "codex" })
+        XCTAssertEqual(codex.agentSource, "codex")
+
+        let customTarget = MCPTarget.custom(name: "Super-Agent AI 123!", fileURL: URL(fileURLWithPath: "/x/config.json"))
+        XCTAssertEqual(customTarget.agentSource, "super-agent-ai-123")
+
+        let emptyTarget = MCPTarget.custom(name: "!!!", fileURL: URL(fileURLWithPath: "/x/config.json"))
+        XCTAssertEqual(emptyTarget.agentSource, "assistant")
     }
 }

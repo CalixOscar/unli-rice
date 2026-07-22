@@ -2,18 +2,6 @@
 #
 # Builds "Unli Rice.app" — a double-clickable app bundle.
 #
-# Why this exists: `swift build` produces a bare executable, which means the
-# only way to start this app was a terminal command from inside the repo. That
-# is a bad fit for something whose whole promise is that you can ignore it for
-# months and still be glad it's there — "open it once a year" doesn't work if
-# opening it means remembering a command.
-#
-# A bundle also buys two things the bare binary couldn't have:
-#   * LaunchServices knows about it, so it appears in Spotlight and the Dock.
-#   * `unlirice-agent` sits next to the GUI inside the bundle, which is how
-#     BackgroundAgent.locateBinary finds it — a launchd job pointing into
-#     .build/debug would break the next time someone ran `swift package clean`.
-#
 # Usage:  ./Scripts/make-app.sh [--debug]
 # Output: dist/Unli Rice.app
 
@@ -29,6 +17,7 @@ fi
 APP="dist/Unli Rice.app"
 MACOS="$APP/Contents/MacOS"
 RESOURCES="$APP/Contents/Resources"
+LAUNCHAGENTS="$APP/Contents/Library/LaunchAgents"
 
 echo "==> Building ($CONFIGURATION)"
 swift build -c "$CONFIGURATION"
@@ -36,7 +25,7 @@ BIN="$(swift build -c "$CONFIGURATION" --show-bin-path)"
 
 echo "==> Assembling $APP"
 rm -rf "$APP"
-mkdir -p "$MACOS" "$RESOURCES"
+mkdir -p "$MACOS" "$RESOURCES" "$LAUNCHAGENTS"
 
 # The GUI, plus the two executables it needs to be able to point at: the MCP
 # server (Get Started writes its path into other tools' configs) and the
@@ -44,6 +33,18 @@ mkdir -p "$MACOS" "$RESOURCES"
 for binary in UnliRice unlirice-mcp unlirice-agent; do
     cp "$BIN/$binary" "$MACOS/$binary"
 done
+
+# Copy AppIcon if it exists
+if [ -f "dist/AppIcon.icns" ]; then
+    echo "==> Embedding AppIcon.icns"
+    cp "dist/AppIcon.icns" "$RESOURCES/AppIcon.icns"
+else
+    echo "WARNING: dist/AppIcon.icns not found! Run Scripts/make-icons.sh first."
+fi
+
+# SMAppService only registers launch agents declared inside the app bundle.
+cp "Config/LaunchAgents/com.calmdownoscar.unlirice.agent.plist" "$LAUNCHAGENTS/"
+cp "Sources/UnliRice/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -55,7 +56,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDisplayName</key>
     <string>Unli Rice</string>
     <key>CFBundleIdentifier</key>
-    <string>com.unlirice.app</string>
+    <string>com.calmdownoscar.unlirice</string>
     <key>CFBundleExecutable</key>
     <string>UnliRice</string>
     <key>CFBundlePackageType</key>
@@ -68,32 +69,35 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <!-- Not an agent: this has a real window and belongs in the Dock while it's
-         open. The part that runs without a window is a separate executable
-         (unlirice-agent) started by launchd, precisely so the GUI doesn't have
-         to be resident to keep working. -->
     <key>LSUIElement</key>
     <false/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 calmdownoscar. All rights reserved.</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon.icns</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
 </dict>
+</plist>
 PLIST
-echo "</plist>" >> "$APP/Contents/Info.plist"
 
-# Ad-hoc signature. Not a distribution signature and not pretending to be one —
-# it's what stops macOS treating a freshly assembled bundle as damaged when it's
-# moved out of the build directory. Anyone shipping this to another machine
-# needs a real Developer ID and notarisation.
-echo "==> Signing (ad-hoc)"
-codesign --force --deep --sign - "$APP" 2>/dev/null || {
+# Code signing with entitlements for sandbox compliance
+echo "==> Signing targets with entitlements (ad-hoc)"
+ENTITLEMENTS="UnliRice.entitlements"
+HELPER_ENTITLEMENTS="UnliRiceHelper.entitlements"
+
+# Sign each executable inside the bundle
+codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign - "$MACOS/UnliRice"
+codesign --force --options runtime --identifier com.calmdownoscar.unlirice.agent --entitlements "$HELPER_ENTITLEMENTS" --sign - "$MACOS/unlirice-agent"
+codesign --force --options runtime --identifier com.calmdownoscar.unlirice.mcp --entitlements "$HELPER_ENTITLEMENTS" --sign - "$MACOS/unlirice-mcp"
+
+# Sign the entire bundle
+codesign --force --deep --options runtime --entitlements "$ENTITLEMENTS" --sign - "$APP" 2>/dev/null || {
     echo "    codesign failed — the app will still run locally."
 }
 
 echo
 echo "Built: $APP"
 echo
-echo "Next:"
-echo "  open \"$APP\"                      # run it"
-echo "  cp -R \"$APP\" /Applications/       # keep it"
-echo
-echo "The 'In background' toggle in the app installs the launchd job that keeps"
-echo "routines running with the window closed. It only works from the bundle —"
-echo "that's where unlirice-agent lives."

@@ -14,6 +14,13 @@ public enum DataLocation {
     /// `migrateLegacyStoreIfNeeded`.
     static let legacyDirectoryName = "SecondBrain"
 
+    /// Runtime check shared by the GUI and helper executables. Plain persisted
+    /// paths remain useful to source builds, but a sandboxed process must never
+    /// treat one as authority without a security-scoped bookmark.
+    public static var isSandboxed: Bool {
+        ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+    }
+
     /// Resolves the event-log path, migrating a pre-rename log into place the
     /// first time if one exists.
     public static func eventLogURL() -> URL {
@@ -23,10 +30,9 @@ public enum DataLocation {
     /// As above, honouring a folder the user has pointed the app at.
     ///
     /// `persistedFolderPath` is passed in rather than read here so this stays
-    /// free of `UserDefaults` — `unlirice-mcp` links this same file and has no
-    /// business reading the GUI's preferences. The GUI supplies it; the server
-    /// gets its equivalent through `UNLIRICE_DATA_PATH`, which the Get Started
-    /// wizard writes into the MCP config block it generates.
+    /// free of `UserDefaults`. The GUI and helpers resolve their shared
+    /// security-scoped bookmark through `AgentSettings`; tests and source-only
+    /// workflows can still use `UNLIRICE_DATA_PATH` explicitly.
     public static func eventLogURL(persistedFolderPath: String?) -> URL {
         let url = resolvedEventLogURL(
             environment: ProcessInfo.processInfo.environment,
@@ -75,15 +81,19 @@ public enum DataLocation {
         supportDirectory().appendingPathComponent("events.jsonl")
     }
 
-    /// `~/Library/Application Support/Unli Rice`. The app's own directory, as
-    /// opposed to whichever folder the corpus currently lives in — the two are
-    /// the same by default but need not be.
+    /// The App Group container's `Unli Rice` directory (falling back to
+    /// Application Support for unsigned source builds). This is the app's own
+    /// directory, as opposed to whichever folder the corpus currently lives
+    /// in — the two are the same by default but need not be.
     ///
     /// Anything here must be app-scoped rather than corpus-scoped, because it
     /// stays put when the user points the app at a different vault.
     /// `AgentSettings` qualifies (it *names* the corpus, so it can't live inside
     /// one); routine state and notices do not, and live beside the event log.
     public static func supportDirectory() -> URL {
+        if let sharedURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.calmdownoscar.unlirice") {
+            return sharedURL.appendingPathComponent(directoryName, isDirectory: true)
+        }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return support.appendingPathComponent(directoryName, isDirectory: true)
     }

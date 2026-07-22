@@ -11,8 +11,8 @@ import Foundation
 /// is better for it: every step is deterministic, instant, and testable.
 ///
 /// What replaces it is the thing the user actually needed — getting an MCP
-/// client connected. See `MCPTarget` for the catalog and `MCPConfigWriter` for
-/// the rules around editing a config this app didn't create.
+/// client connected. See `MCPTarget` for the catalog and
+/// `MCPConfigRenderer` for the paste-ready config renderer.
 public enum Autopilot {
     // MARK: - Finding the package
 

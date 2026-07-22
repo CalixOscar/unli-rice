@@ -48,7 +48,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "UnliRice",
-            dependencies: ["UnliRiceCore", "UnliRiceHost"]
+            dependencies: ["UnliRiceCore", "UnliRiceHost"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "UnliRiceCoreTests",

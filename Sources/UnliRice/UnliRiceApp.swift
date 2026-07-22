@@ -49,5 +49,9 @@ struct UnliRiceApp: App {
                 }
             }
         }
+
+        Settings {
+            PrivacyPolicyView()
+        }
     }
 }

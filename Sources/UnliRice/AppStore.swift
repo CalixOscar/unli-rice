@@ -109,14 +109,6 @@ final class AppStore: ObservableObject {
         didSet { scheduleHouseRulesStateSave() }
     }
 
-    /// Targets the user has ticked, by `MCPTarget.id`.
-    @Published var selectedTargetIDs: Set<String> = []
-
-    /// Project folders for project-scoped targets (Claude Code, Antigravity),
-    /// keyed by target id. There is no correct folder to guess here — both
-    /// tools scope MCP servers per project.
-    @Published var targetProjectFolders: [String: URL] = [:]
-
     @Published var customHouseRulesPresets: [HouseRulesPreset]
     @Published var houseRulesStateError: String?
 
@@ -126,12 +118,8 @@ final class AppStore: ObservableObject {
     var houseRulesNoteID: UUID?
     var houseRulesStateSaveWorkItem: DispatchWorkItem?
     var loadingHouseRulesState = false
-
     /// Extra targets the user added by hand, for tools not in the catalog.
     @Published var customTargets: [MCPTarget] = []
-
-    /// What happened for each target, once Connect has run.
-    @Published var connectionResults: [ConnectionResult] = []
 
     // MARK: - Janitor (see AppStore+Janitor.swift)
 
@@ -166,15 +154,34 @@ final class AppStore: ObservableObject {
 
     /// Folders the user has nominated for the local-document pipeline.
     ///
-    /// Persisted as plain paths, and empty by default — `LocalFileImporter` has
-    /// no fallback root, so an empty list means that pipeline finds nothing
-    /// rather than scanning everything.
+    /// Persisted as security-scoped bookmarks (plus display-only paths for
+    /// compatibility with direct builds), and empty by default.
     @Published var scanRoots: [URL] = [] {
         didSet {
+            var bookmarks = UserDefaults.standard.dictionary(forKey: "unliRice.scanRootBookmarks") as? [String: Data] ?? [:]
+            let paths = Set(scanRoots.map(\.path))
+            bookmarks = bookmarks.filter { paths.contains($0.key) }
+            for url in scanRoots {
+                if bookmarks[url.path] == nil {
+                    if let bookmarkData = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+                        bookmarks[url.path] = bookmarkData
+                    }
+                }
+            }
+            UserDefaults.standard.set(bookmarks, forKey: "unliRice.scanRootBookmarks")
             UserDefaults.standard.set(scanRoots.map(\.path), forKey: Self.scanRootsKey)
             syncAgentSettings()
         }
     }
+
+    @Published var claudeProjectsURL: URL? = nil {
+        didSet {
+            syncAgentSettings()
+        }
+    }
+
+    private var dataFolderAccessStarted: Bool = false
+    private var activeDataFolderURL: URL? = nil
 
     /// Whether the two routines may fire on their schedule. Off by default: this
     /// app reads the user's own files, and that is not something to start doing
@@ -195,14 +202,6 @@ final class AppStore: ObservableObject {
     /// Why the last install/uninstall failed, shown next to the toggle itself.
     @Published var backgroundAgentFailure: String?
 
-    /// Whether the app may leave a "your month is ready" notice.
-    @Published var monthlyReviewEnabled: Bool = true {
-        didSet {
-            UserDefaults.standard.set(monthlyReviewEnabled, forKey: Self.monthlyReviewKey)
-            syncAgentSettings()
-        }
-    }
-
     /// Whether advanced settings and panes are shown in the GUI.
     @Published var advancedModeEnabled: Bool = false {
         didSet {
@@ -215,7 +214,6 @@ final class AppStore: ObservableObject {
     static let embeddingServerKey = "unliRice.embeddingServer"
     static let embeddingModelKey = "unliRice.embeddingModel"
     static let routinesEnabledKey = "unliRice.routinesEnabled"
-    static let monthlyReviewKey = "unliRice.monthlyReviewEnabled"
     /// Pre-gallery global draft key. Read once to migrate an existing user's
     /// text into the first per-vault state file, then removed after a safe save.
     static let legacyHouseRulesKey = "unliRice.houseRulesText"
@@ -227,9 +225,9 @@ final class AppStore: ObservableObject {
     static let routineLastRunKey = "unliRice.routineLastRun"
     private static let onboardingSeededKey = "unliRice.didSeedOnboardingNotes"
 
-    /// The folder the user pointed the app at, if they ever did. A plain path
-    /// is enough — this target ships no sandbox entitlement, so there's no
-    /// security-scoped bookmark to keep alive across launches.
+    /// The folder the user pointed the app at, if they ever did. In an App
+    /// Store build this is display/fallback metadata only; the bookmark is the
+    /// authority that grants access.
     static let dataFolderKey = "unliRice.dataFolderPath"
 
     /// Set once the user has finished, skipped, or otherwise dealt with Get
@@ -256,7 +254,29 @@ final class AppStore: ObservableObject {
     private var noteIndex: [UUID: Note] = [:]
 
     init() {
-        let url = AppStore.defaultDataFileURL()
+        var url = DataLocation.eventLogURL(
+            persistedFolderPath: DataLocation.isSandboxed
+                ? nil
+                : UserDefaults.standard.string(forKey: Self.dataFolderKey)
+        )
+        if let bookmarkData = UserDefaults.standard.data(forKey: "unliRice.dataFolderBookmark") {
+            var isStale = false
+            if let resolvedURL = try? URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+                if resolvedURL.startAccessingSecurityScopedResource() {
+                    dataFolderAccessStarted = true
+                    activeDataFolderURL = resolvedURL
+                    url = DataLocation.eventLogURL(inFolder: resolvedURL)
+                    if isStale,
+                       let refreshed = try? resolvedURL.bookmarkData(
+                        options: .withSecurityScope,
+                        includingResourceValuesForKeys: nil,
+                        relativeTo: nil
+                       ) {
+                        UserDefaults.standard.set(refreshed, forKey: "unliRice.dataFolderBookmark")
+                    }
+                }
+            }
+        }
         dataURL = url
 
         let rulesStore = HouseRulesStateStore(besideEventLog: url)
@@ -287,10 +307,28 @@ final class AppStore: ObservableObject {
         houseRulesStateError = rulesLoadError
 
         autonomyLevel = UserDefaults.standard.object(forKey: AppStore.autonomyKey) as? Int ?? 1
-        scanRoots = (UserDefaults.standard.stringArray(forKey: AppStore.scanRootsKey) ?? [])
-            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+
+        let scanRootBookmarks = UserDefaults.standard.dictionary(forKey: "unliRice.scanRootBookmarks") as? [String: Data] ?? [:]
+        var resolvedRoots: [URL] = []
+        for (_, bookmarkData) in scanRootBookmarks {
+            var isStale = false
+            if let resolvedURL = try? URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+                resolvedRoots.append(resolvedURL)
+            }
+        }
+        if resolvedRoots.isEmpty && !DataLocation.isSandboxed {
+            scanRoots = (UserDefaults.standard.stringArray(forKey: AppStore.scanRootsKey) ?? [])
+                .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        } else {
+            scanRoots = resolvedRoots
+        }
+
+        if let claudeBookmark = UserDefaults.standard.data(forKey: "unliRice.claudeProjectsBookmark") {
+            var isStale = false
+            claudeProjectsURL = try? URL(resolvingBookmarkData: claudeBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+        }
+
         routinesEnabled = UserDefaults.standard.bool(forKey: AppStore.routinesEnabledKey)
-        monthlyReviewEnabled = UserDefaults.standard.object(forKey: AppStore.monthlyReviewKey) as? Bool ?? true
         advancedModeEnabled = UserDefaults.standard.bool(forKey: AppStore.advancedModeKey)
         embeddingServerPath = UserDefaults.standard.string(forKey: AppStore.embeddingServerKey) ?? ""
         embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
@@ -353,29 +391,6 @@ final class AppStore: ObservableObject {
         (notes + archivedNotes).contains { !$0.sources.isSubset(of: [Onboarding.source]) }
     }
 
-    /// Same resolution as unlirice-mcp — both go through `DataLocation`, so the
-    /// GUI and any connected agent are always reading and writing the same file.
-    /// A folder the user chose is honoured here; `UNLIRICE_DATA_PATH` still
-    /// outranks it, so tests and smoke runs can't be redirected into a real
-    /// vault by a stale preference.
-    static func defaultDataFileURL() -> URL {
-        DataLocation.eventLogURL(
-            persistedFolderPath: UserDefaults.standard.string(forKey: dataFolderKey)
-        )
-    }
-
-    /// Points the app at a different folder's `events.jsonl` — the superuser
-    /// half of Get Started, for someone who already keeps a corpus somewhere.
-    ///
-    /// Opening a different corpus invalidates everything derived from the old
-    /// one, which is why the reset below is not optional: `mlxSimilarity` holds
-    /// a title-embedding cache, `chatHistory` and `clusterRecommendations` are
-    /// answers about notes that are no longer loaded, and a `selectedNoteID`
-    /// from the old corpus resolves to nothing. Leaving any of them in place
-    /// would have the window confidently describing a corpus it isn't showing.
-    /// Returns whether the switch happened. Callers need that as a return value
-    /// rather than inferring it from `errorMessage`, which may already be
-    /// carrying something unrelated from an earlier failure.
     /// Whether the app is reading its default location rather than a folder the
     /// user nominated. Drives the "Use the default location" affordance, which
     /// exists because this preference used to be one-way: it could be set from
@@ -385,9 +400,10 @@ final class AppStore: ObservableObject {
         (UserDefaults.standard.string(forKey: Self.dataFolderKey) ?? "").isEmpty
     }
 
-    /// Points the app back at `~/Library/Application Support/Unli Rice`.
+    /// Points the app back at its shared App Group container.
     func useDefaultDataFolder() {
         UserDefaults.standard.removeObject(forKey: Self.dataFolderKey)
+        UserDefaults.standard.removeObject(forKey: "unliRice.dataFolderBookmark")
         _ = switchDataFolder(
             to: DataLocation.defaultEventLogURL().deletingLastPathComponent(),
             persist: false
@@ -400,6 +416,13 @@ final class AppStore: ObservableObject {
     @discardableResult
     func switchDataFolder(to folder: URL, persist: Bool = true) -> Bool {
         flushHouseRulesState()
+        if dataFolderAccessStarted {
+            activeDataFolderURL?.stopAccessingSecurityScopedResource()
+            dataFolderAccessStarted = false
+            activeDataFolderURL = nil
+        }
+
+        let isScoped = folder.startAccessingSecurityScopedResource()
         let url = DataLocation.eventLogURL(inFolder: folder)
         do {
             let nextRulesStore = HouseRulesStateStore(besideEventLog: url)
@@ -415,6 +438,8 @@ final class AppStore: ObservableObject {
             let store = try EventStore(fileURL: url)
             service = NoteService(store: store)
             dataURL = url
+            dataFolderAccessStarted = isScoped
+            activeDataFolderURL = isScoped ? folder : nil
             let driver = RoutineDriver(service: service, eventLogURL: url)
             routineDriver = driver
             noticeStore = driver.noticeStore
@@ -428,6 +453,13 @@ final class AppStore: ObservableObject {
             loadingHouseRulesState = false
             if persist {
                 UserDefaults.standard.set(folder.path, forKey: Self.dataFolderKey)
+                if let bookmarkData = try? folder.bookmarkData(
+                    options: .withSecurityScope,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                ) {
+                    UserDefaults.standard.set(bookmarkData, forKey: "unliRice.dataFolderBookmark")
+                }
             }
             syncAgentSettings()
             resetCorpusScopedState()
@@ -443,6 +475,9 @@ final class AppStore: ObservableObject {
             return true
         } catch {
             errorMessage = "Couldn't open a note log in \(folder.path): \(error)"
+            if isScoped {
+                folder.stopAccessingSecurityScopedResource()
+            }
             return false
         }
     }
@@ -469,12 +504,21 @@ final class AppStore: ObservableObject {
 
     /// Everything the background agent needs, as the GUI currently has it.
     var agentSettings: AgentSettings {
-        AgentSettings(
+        let scanBookmarks = UserDefaults.standard.dictionary(forKey: "unliRice.scanRootBookmarks") as? [String: Data] ?? [:]
+        let dataBookmark = UserDefaults.standard.data(forKey: "unliRice.dataFolderBookmark")
+        let claudeBookmark = UserDefaults.standard.data(forKey: "unliRice.claudeProjectsBookmark")
+
+        return AgentSettings(
             routinesEnabled: routinesEnabled,
             autonomyLevel: autonomyLevel,
             dataFolderPath: UserDefaults.standard.string(forKey: Self.dataFolderKey),
             scanRootPaths: scanRoots.map(\.path),
-            monthlyReviewEnabled: monthlyReviewEnabled
+            // Monthly retrospectives are part of the product rather than a
+            // hidden preference: the old key had no UI and was always true.
+            monthlyReviewEnabled: true,
+            scanRootBookmarks: scanBookmarks,
+            dataFolderBookmark: dataBookmark,
+            claudeProjectsBookmark: claudeBookmark
         )
     }
 
@@ -846,6 +890,12 @@ final class AppStore: ObservableObject {
         case .pdf: return .pdf
         case .zip: return .zip
         case .okfBundle: return .folder
+        }
+    }
+
+    deinit {
+        if dataFolderAccessStarted {
+            activeDataFolderURL?.stopAccessingSecurityScopedResource()
         }
     }
 }

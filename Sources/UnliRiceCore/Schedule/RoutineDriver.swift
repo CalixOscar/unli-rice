@@ -8,12 +8,22 @@ import Foundation
 /// drifted apart would mean the scheduled run did something different from the
 /// button, which is the sort of difference nobody notices until it matters.
 public enum Pipelines {
+    private static func isSandboxed() -> Bool {
+        ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+    }
+
     /// `LocalFileImporter` is omitted entirely when no folder has been
     /// nominated, rather than included and returning nothing: there is no
     /// default root by design, and a pipeline listed as active while scanning
     /// nowhere is a lie the UI would be telling.
-    public static func standard(scanRoots: [URL]) -> [ResourceImporter] {
-        var pipelines: [ResourceImporter] = [ClaudeSessionImporter()]
+    public static func standard(scanRoots: [URL], claudeProjectsDirectory: URL? = nil) -> [ResourceImporter] {
+        var pipelines: [ResourceImporter] = []
+
+        let claudeDir = claudeProjectsDirectory ?? (isSandboxed() ? nil : ClaudeSessionImporter.defaultProjectsDirectory())
+        if let claudeDir = claudeDir {
+            pipelines.append(ClaudeSessionImporter(projectsDirectory: claudeDir))
+        }
+
         if !scanRoots.isEmpty {
             pipelines.append(LocalFileImporter(
                 roots: scanRoots,
@@ -65,7 +75,7 @@ public final class RoutineDriver {
     private let notices: NoticeStore
     private let stateURL: URL
     private let eventLogURL: URL
-    private let pipelines: ([URL]) -> [ResourceImporter]
+    private let pipelines: (AgentSettings) -> [ResourceImporter]
 
     /// `pipelines` is injectable for one reason: the default one scans
     /// `~/.claude/projects`, so a test that used it would ingest the machine's
@@ -74,7 +84,7 @@ public final class RoutineDriver {
     public init(
         service: NoteService,
         eventLogURL: URL,
-        pipelines: @escaping ([URL]) -> [ResourceImporter] = Pipelines.standard
+        pipelines: @escaping (AgentSettings) -> [ResourceImporter] = { Pipelines.standard(scanRoots: $0.scanRoots, claudeProjectsDirectory: $0.claudeProjectsURL) }
     ) {
         self.service = service
         self.eventLogURL = eventLogURL
@@ -231,7 +241,7 @@ public final class RoutineDriver {
             let runner = IngestRunner(service: service, rawStore: rawStore)
             var summaries: [String] = []
             var changed = 0
-            for importer in pipelines(settings.scanRoots) {
+            for importer in pipelines(settings) {
                 let report = try runner.run(importer: importer)
                 summaries.append(report.summary)
                 changed += report.indexed.count + report.revised.count

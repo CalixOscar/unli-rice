@@ -9,7 +9,7 @@ struct ContentView: View {
             // Dark space background
             Theme.background
                 .ignoresSafeArea()
-            
+
             // Glowing neon background blobs
             GeometryReader { geo in
                 ZStack {
@@ -18,13 +18,13 @@ struct ContentView: View {
                         .frame(width: 450, height: 450)
                         .blur(radius: 90)
                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                    
+
                     Circle()
                         .fill(Theme.accent.opacity(0.14))
                         .frame(width: 350, height: 350)
                         .blur(radius: 80)
                         .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
-                    
+
                     Circle()
                         .fill(Theme.brass.opacity(0.12))
                         .frame(width: 380, height: 380)
@@ -33,7 +33,7 @@ struct ContentView: View {
                 }
                 .ignoresSafeArea()
             }
-            
+
             // Main structure
             // Two columns, not three. The third was `AutonomyPanel`, 260pt of
             // settings and manual triggers pinned to every screen — see
@@ -419,12 +419,44 @@ struct CleanupMenu: View {
             }
             Divider()
             Text("Each copies a prompt to paste into your assistant.")
+                .foregroundColor(Theme.ink)
         } label: {
             Text(label)
                 .font(.system(size: 11))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+}
+
+/// Copies the review prompt for whichever configured tool the user intends to
+/// use. The app deliberately does not inspect another tool's config to claim a
+/// live connection state.
+struct AIReviewMenu: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        Menu {
+            ForEach(store.availableTargets) { target in
+                Button {
+                    store.copyReviewPrompt(for: target)
+                } label: {
+                    Text(target.displayName)
+                }
+            }
+            Divider()
+            Text("Copies a prompt listing all pending reviews to paste into the LLM.")
+                .foregroundColor(Theme.ink)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu")
+                Text("Resolve with AI…")
+            }
+            .font(.system(size: 11))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(store.pending.isEmpty)
     }
 }
 
@@ -445,6 +477,13 @@ private struct ReviewQueueView: View {
                 Text("\(store.pending.count) item\(store.pending.count == 1 ? "" : "s")")
                     .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(Theme.inkDim)
+
+                AIReviewMenu()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Theme.panel)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+
                 // Sits here rather than in the empty state because "nothing is
                 // flagged" is exactly when bulk tidying is worth offering: the
                 // janitor found nothing *it* can judge, which says nothing about

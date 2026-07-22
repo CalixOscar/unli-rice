@@ -4,9 +4,7 @@ import XCTest
 
 /// The pieces that let the routines run with the window closed.
 ///
-/// Nothing here installs anything on the machine running the test —
-/// `BackgroundAgent.plist` is a pure function precisely so this can assert what
-/// launchd would be told without telling it.
+/// Nothing here registers anything on the machine running the test.
 final class BackgroundAgentTests: XCTestCase {
     var directory: URL!
 
@@ -77,12 +75,10 @@ final class BackgroundAgentTests: XCTestCase {
 
     // MARK: - The launchd job
 
-    func testPlistNamesTheAgentBinaryAndRunsOnAnInterval() {
-        let binary = URL(fileURLWithPath: "/Applications/Unli Rice.app/Contents/MacOS/unlirice-agent")
-        let plist = BackgroundAgent.plist(binary: binary, logDirectory: directory)
-        XCTAssertEqual(plist["ProgramArguments"] as? [String], [binary.path])
-
-        XCTAssertEqual(plist["Label"] as? String, "com.unlirice.agent")
+    func testPlistNamesTheAgentBinaryAndRunsOnAnInterval() throws {
+        let plist = try launchAgentPlist()
+        XCTAssertEqual(plist["BundleProgram"] as? String, "Contents/MacOS/unlirice-agent")
+        XCTAssertEqual(plist["Label"] as? String, "com.calmdownoscar.unlirice.agent")
         XCTAssertEqual(plist["StartInterval"] as? Int, 300)
         // Catches up a slot missed while the Mac was off, rather than waiting
         // out a full interval first.
@@ -90,12 +86,10 @@ final class BackgroundAgentTests: XCTestCase {
     }
 
     func testPlistIsAValidPropertyList() throws {
-        let plist = BackgroundAgent.plist(
-            binary: URL(fileURLWithPath: "/bin/echo"), logDirectory: directory
-        )
+        let plist = try launchAgentPlist()
         let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
         let parsed = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-        XCTAssertEqual(parsed?["Label"] as? String, "com.unlirice.agent")
+        XCTAssertEqual(parsed?["Label"] as? String, "com.calmdownoscar.unlirice.agent")
     }
 
     /// A launchd job pointing at a path that doesn't exist installs perfectly
@@ -112,12 +106,25 @@ final class BackgroundAgentTests: XCTestCase {
         XCTAssertEqual(BackgroundAgent.locateBinary(near: fake), agent)
     }
 
-    func testPlistPathIsInTheUsersLaunchAgentsFolder() {
-        let home = URL(fileURLWithPath: "/Users/someone")
+    func testPlistPathIsInsideTheApplicationBundle() {
+        let executable = URL(fileURLWithPath: "/Applications/Unli Rice.app/Contents/MacOS/UnliRice")
         XCTAssertEqual(
-            BackgroundAgent.plistURL(home: home).path,
-            "/Users/someone/Library/LaunchAgents/com.unlirice.agent.plist"
+            BackgroundAgent.plistURL(executable: executable).path,
+            "/Applications/Unli Rice.app/Contents/Library/LaunchAgents/com.calmdownoscar.unlirice.agent.plist"
         )
-        XCTAssertFalse(BackgroundAgent.isInstalled(home: directory))
+    }
+
+    private func launchAgentPlist() throws -> [String: Any] {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let url = repositoryRoot.appendingPathComponent(
+            "Config/LaunchAgents/com.calmdownoscar.unlirice.agent.plist"
+        )
+        let data = try Data(contentsOf: url)
+        return try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
     }
 }

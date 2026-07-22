@@ -38,13 +38,14 @@ source of truth for the generated project.
 
 ## Running itself
 
-The app is meant to be ignorable. The **In background** toggle installs a
-LaunchAgent so ingestion and the janitor keep running with the window closed;
-anything that needs a human decision waits in the notification centre instead of
-interrupting, and **Your Review** reads a month or a year back to you from notes
-you already have. Nothing that runs unattended can do more than the buttons can —
-the janitor may only tag and flag, ingest may only create and append, and there
-is no delete anywhere in the codebase.
+The app is meant to be ignorable. The **Keep working with the window closed**
+toggle registers its bundled LaunchAgent so ingestion and the janitor keep
+running after the window closes; anything that needs a human decision waits in
+the notification centre instead of interrupting, and **Your Review** reads a
+month or a year back to you from notes you already have. Nothing that runs
+unattended can do more than the buttons can — the janitor may only tag and flag,
+ingest may only create and append, and there is no delete anywhere in the
+codebase.
 
 ## How this got built
 
@@ -53,6 +54,11 @@ Vibecoded in about 6 hours using the pipeline described at
 work isn't really my strong side — I'm more of a front-end vibe coder — so
 rather than maintain something outside my lane long-term, it's open source.
 Issues and PRs welcome.
+
+## Privacy
+
+Unli Rice is local-first and does not collect user data. See the
+[Privacy Policy](PRIVACY.md).
 
 ## License
 
