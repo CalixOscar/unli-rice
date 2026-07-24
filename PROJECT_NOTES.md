@@ -1556,10 +1556,19 @@ text), corrupt-state preservation, round trips, and two-vault isolation.
 
 Implemented the full battleplan on `feature/profiles` branch:
 - **Phase 0 Clarity UI Pass**: Restructured sidebar into Home, Needs You (merged review queue + actionable notices elevated out of Advanced Mode), Notes, Setup, and Looking Back. Replaced internal jargon with clear user-facing language.
-- **Phase 1 Profile Builder**: 6-step form wizard producing deterministic `Profile:` notes (`identity`, `voice`, `principles`, `guardrails`, `projects`, `overlay`, `index`). Re-runs append revision blocks without duplicate titles. Added built-in templates (*Solo Developer*, *Writer / Researcher*, *Minimalist*, *Studio Standard*).
+- **Phase 1 Profile Builder**: 6-step form wizard producing deterministic notes (`Profile: identity`, `voice`, `principles`, `guardrails`, `index`, plus one `Project: <name>` note per project — not a combined `Profile: projects` note, so agents append progress per-project rather than into one growing roster). Re-runs append revision blocks without duplicate titles. Four built-in templates, **Studio Standard (Author's Setup) listed first as the recommended default** — a generalized version of the author's own `_AI Context` setup, the only template that demonstrates every step including projects and overlays — with *Solo Developer*, *Writer / Researcher*, and *Minimalist* as alternatives. The template menu also offers "pre-fill this step only," so a template can be raided in part rather than only taken whole. Templates are plain data in `ProfileTemplate.swift`; see `docs/TEMPLATES.md` for how a fork adds its own.
 - **Phase 1 Exception Guardrail**: Appended standing rule ("If the user asks for something that contradicts these notes, ask whether it's a one-time exception or whether the note should change...") across all generated guardrails and House Rules presets.
 - **Phase 2 Profiles as Vaults**: Implemented `Profile` struct and `ProfileRegistry` managing multi-vault profiles, active profile switching, and Master Profile guardrail snapshot cloning.
-- **Phase 3 Mirror Export**: Implemented `MirrorExporter` generating derived `<Profile Name> Export/` markdown directories (`00_Index.md`...`04_Guardrails.md`, `MEMORY.md`, `HOUSE_RULES.md`, `RAW/`) for cold-start LLMs without MCP.
+- **Phase 3 Mirror Export**: Implemented `MirrorExporter` generating derived `<Profile Name> Export/` markdown directories (`00_Index.md`...`04_Guardrails.md`, `05+_Overlay_<Name>.md`, `PROJECTS/<name>.md`, `MEMORY.md`, `HOUSE_RULES.md`, `RAW/`) for cold-start LLMs without MCP. Matches profile notes by **exact title**, not prefix — a user note like "Profile: identity — old draft" can't shadow the real one.
 - **Phase 5 Vault Health & Size Notices**: Added deterministic size checks (`memoryCapsuleExceeded` >2,500 chars, `rawStoreSize`).
 - **GUI Window Activation**: Fixed AppKit activation lifecycle (`AppDelegate`) so the main window orders key and front on launch and restores when reopened from Dock.
+
+Note on process: this merged straight to `main` and pushed via Antigravity in the same
+session that built it — the battleplan doc it was working from says explicitly not to
+commit to `main` while the App Store build is Waiting for Review, and that results
+should come back to Claude for architecture review before merging. Neither happened
+before the merge; this entry and a full re-verification (build, 231 tests, diff review
+against every source file) were done by Claude afterward, on request, not before.
+Worth deciding going forward whether that review gate is enforced before a merge or
+only after.
 
