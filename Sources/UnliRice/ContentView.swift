@@ -63,60 +63,69 @@ struct ContentView: View {
 
             sidebarRow(
                 "Home",
-                active: store.selectedNoteID == nil && !store.showingArchived
-                    && !store.showingGraph && !store.showingGetStarted
+                active: store.showingHome || (store.selectedNoteID == nil && !store.showingArchived
+                    && !store.showingGraph && !store.showingGetStarted && !store.showingNeedsYou && !store.showingSetup
                     && !store.showingReviewQueue && !store.showingRetrospective
-                    && !store.showingNotices && !store.showingAutomation
-                    && !store.showingTrustCenter
+                    && !store.showingNotices && !store.showingAutomation && !store.showingProfileBuilder
+                    && !store.showingProfileManager && !store.showingTrustCenter && store.notes.isEmpty)
+            ) {
+                store.selectNote(nil)
+                store.showHome()
+            }
+
+            sidebarRow(
+                "Needs you",
+                active: store.selectedNoteID == nil && (store.showingNeedsYou || store.showingReviewQueue),
+                badge: store.pending.count + store.unreadNoticeCount
+            ) {
+                store.selectNote(nil)
+                store.showNeedsYou()
+            }
+
+            sidebarRow(
+                "Notes",
+                active: store.selectedNoteID == nil && !store.showingHome && !store.showingNeedsYou
+                    && !store.showingSetup && !store.showingGetStarted && !store.showingRetrospective
+                    && !store.showingAutomation && !store.showingTrustCenter && !store.showingNotices
+                    && !store.showingProfileBuilder && !store.showingProfileManager
             ) {
                 store.selectNote(nil)
                 store.showAllNotes()
             }
+
             sidebarRow(
-                "Note Graph",
-                active: store.selectedNoteID == nil && store.showingGraph
+                "Setup",
+                active: store.selectedNoteID == nil && (store.showingSetup || store.showingGetStarted || store.showingProfileBuilder || store.showingProfileManager)
             ) {
                 store.selectNote(nil)
-                store.showGraph()
+                store.showSetup()
             }
+
             sidebarRow(
-                "Your Review",
+                "Looking back",
                 active: store.selectedNoteID == nil && store.showingRetrospective
             ) {
+                store.selectNote(nil)
                 store.showRetrospective()
-            }
-            sidebarRow(
-                "Automation",
-                active: store.selectedNoteID == nil && store.showingAutomation
-            ) {
-                store.selectNote(nil)
-                store.showAutomation()
-            }
-            sidebarRow(
-                "Connect",
-                active: store.selectedNoteID == nil && store.showingGetStarted
-            ) {
-                store.selectNote(nil)
-                store.showGetStarted()
-            }
-            sidebarRow(
-                "Trust Center",
-                active: store.selectedNoteID == nil && store.showingTrustCenter
-            ) {
-                store.selectNote(nil)
-                store.showTrustCenter()
             }
 
             if store.advancedModeEnabled {
                 Divider().opacity(0.15).padding(.horizontal, 14).padding(.vertical, 6)
 
                 sidebarRow(
-                    "Review Notes",
-                    active: store.selectedNoteID == nil && store.showingReviewQueue,
-                    badge: store.pending.count
+                    "Trust Center",
+                    active: store.selectedNoteID == nil && store.showingTrustCenter
                 ) {
                     store.selectNote(nil)
-                    store.showReviewQueue()
+                    store.showTrustCenter()
+                }
+                sidebarRow(
+                    "Notifications",
+                    active: store.selectedNoteID == nil && store.showingNotices,
+                    badge: store.unreadNoticeCount
+                ) {
+                    store.selectNote(nil)
+                    store.showNotices()
                 }
                 sidebarRow(
                     "Archived",
@@ -125,13 +134,6 @@ struct ContentView: View {
                 ) {
                     store.selectNote(nil)
                     store.showArchived()
-                }
-                sidebarRow(
-                    "Notifications",
-                    active: store.selectedNoteID == nil && store.showingNotices,
-                    badge: store.unreadNoticeCount
-                ) {
-                    store.showNotices()
                 }
             }
             Spacer()
@@ -179,14 +181,20 @@ struct ContentView: View {
 
     private var mainColumn: some View {
         Group {
-            // First, not last: this is the launch default on an empty corpus,
-            // and it should win over anything a stale selection might point at.
-            if store.showingGetStarted {
-                ConnectView()
+            if store.showingProfileBuilder {
+                ProfileBuilderView()
+            } else if store.showingProfileManager {
+                ProfileManagerView()
+            } else if store.showingNeedsYou {
+                NeedsYouView()
+            } else if store.showingSetup || store.showingGetStarted {
+                SetupView()
+            } else if store.showingHome {
+                HomeView()
             } else if let note = store.selectedNote {
                 NoteDetailView(note: note)
             } else if store.showingReviewQueue {
-                ReviewQueueView()
+                NeedsYouView()
             } else if store.showingNotices {
                 NoticeCenterView()
             } else if store.showingRetrospective {
@@ -1328,7 +1336,7 @@ private struct ReviewQueueRow: View {
 /// squeezed to a narrow width was truncating the *button label itself*
 /// ("Keep this o…"). Full width fixes that by construction rather than by
 /// tuning font sizes.
-private struct ReviewClusterCard: View {
+struct ReviewClusterCard: View {
     @EnvironmentObject var store: AppStore
     let cluster: ReviewCluster
 

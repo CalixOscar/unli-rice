@@ -67,6 +67,29 @@ public enum NoticeFactory {
             destination: .retrospective(period: period.id)
         )
     }
+
+    /// Notice raised when `Memory: capsule` exceeds the 2,500 character ceiling.
+    public static func memoryCapsuleExceeded(length: Int) -> Notice {
+        Notice(
+            kind: .problem,
+            key: "memory-capsule-size",
+            title: "Memory capsule is too long (\(length) chars)",
+            detail: "The `Memory: capsule` note is \(length) characters, exceeding the 2,500 character target for cold-start LLMs. Ask your assistant to condense it.",
+            destination: .none
+        )
+    }
+
+    /// Notice raised when the raw/ data store becomes large.
+    public static func rawStoreSize(sizeBytes: Int, fileCount: Int) -> Notice {
+        let mb = sizeBytes / (1024 * 1024)
+        return Notice(
+            kind: .routine,
+            key: "raw-store-size",
+            title: "Raw store health check (\(mb) MB)",
+            detail: "\(fileCount) raw files collected (\(mb) MB). Derivations remain intact and safe.",
+            destination: .none
+        )
+    }
 }
 
 /// Decides when a period is worth announcing.

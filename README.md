@@ -5,13 +5,19 @@ Kimi, coding assistants, local daemons), exposed over MCP. Multiple agents can
 read and write into the same notes concurrently; every change is recorded as
 an immutable event, and nothing is ever destructively deleted by an agent.
 
-See [PROJECT_NOTES.md](PROJECT_NOTES.md) for architecture, current status,
-and what's deferred — read that first before making changes.
+See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for full setup instructions, Profile Builder details, and feature walkthroughs.
+See [PROJECT_NOTES.md](PROJECT_NOTES.md) for architecture, current status, and what's deferred — read that first before making changes.
 
 Everything runs on-device, and the package has **no external dependencies** —
 no bundled model, analytics, cloud service, or credentials. The optional
 embedding connection is restricted to localhost. The reasoning that lives in
 the system comes from whatever agent you connect over MCP.
+
+## Documentation
+
+- **[Setup & User Guide](docs/USER_GUIDE.md)** — Step-by-step setup, connecting AI tools, Profile Builder, multi-vault profiles, and Mirror Export.
+- **[Starter Templates](docs/TEMPLATES.md)** — Built-in Profile Builder templates and custom template format.
+- **[Architecture & Project Notes](PROJECT_NOTES.md)** — Core design principles, append-only log architecture, and technical record.
 
 ## Quick start
 

@@ -79,6 +79,8 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     **Identify every write.** Pass your own lowercase tool name as `source`. Never write as `janitor` or `ingest`; those identities are reserved for machine pipelines.
 
     **Do not make structural judgements unilaterally.** If notes duplicate or contradict one another, use `flag_for_review` and explain the evidence. Do not merge, archive, or resolve the conflict yourself. There is no delete tool; archiving is soft and reversible.
+
+    **Exception Guardrail.** If the user asks for something that contradicts these notes, ask whether it's a one-time exception or whether the note should change. One-time → note the exception in the session; change → append the change to the relevant note.
     """
 
     private static let minimalistBody = """
@@ -89,6 +91,7 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Pass your own lowercase tool name as `source`; never use reserved `janitor` or `ingest`.
     - Titles are permanent. Use specific titles and `[[Exact Title]]` links.
     - Flag suspected duplicates or contradictions for human review; do not resolve them yourself.
+    - Exception Guardrail: If user request contradicts notes, ask if one-time exception or note change.
     - Nothing is deleted. Archive is soft and reversible.
     """
 }

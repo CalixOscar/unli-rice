@@ -129,5 +129,10 @@ public enum Autopilot {
     **Never resolve a conflict autonomously.** If two notes appear to duplicate \
     or contradict one another, call `flag_for_review` with the evidence and stop. \
     A human decides whether to merge, archive, or resolve the flag.
+
+    **Exception Guardrail.** If the user asks for something that contradicts \
+    these notes, ask whether it's a one-time exception or whether the note should \
+    change. One-time → note the exception in the session; change → append the change \
+    to the relevant note.
     """
 }

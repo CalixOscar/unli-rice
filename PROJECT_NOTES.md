@@ -1551,3 +1551,15 @@ text), corrupt-state preservation, round trips, and two-vault isolation.
   don't let the two get confused.
 - Remote configured: origin is https://github.com/CalixOscar/unli-rice.git.
 - Active branch: feature/unli-rice-animation.
+
+## Battleplan: Profiles, Profile Builder, and Mirror Export Layer (2026-07-24)
+
+Implemented the full battleplan on `feature/profiles` branch:
+- **Phase 0 Clarity UI Pass**: Restructured sidebar into Home, Needs You (merged review queue + actionable notices elevated out of Advanced Mode), Notes, Setup, and Looking Back. Replaced internal jargon with clear user-facing language.
+- **Phase 1 Profile Builder**: 6-step form wizard producing deterministic `Profile:` notes (`identity`, `voice`, `principles`, `guardrails`, `projects`, `overlay`, `index`). Re-runs append revision blocks without duplicate titles. Added built-in templates (*Solo Developer*, *Writer / Researcher*, *Minimalist*, *Studio Standard*).
+- **Phase 1 Exception Guardrail**: Appended standing rule ("If the user asks for something that contradicts these notes, ask whether it's a one-time exception or whether the note should change...") across all generated guardrails and House Rules presets.
+- **Phase 2 Profiles as Vaults**: Implemented `Profile` struct and `ProfileRegistry` managing multi-vault profiles, active profile switching, and Master Profile guardrail snapshot cloning.
+- **Phase 3 Mirror Export**: Implemented `MirrorExporter` generating derived `<Profile Name> Export/` markdown directories (`00_Index.md`...`04_Guardrails.md`, `MEMORY.md`, `HOUSE_RULES.md`, `RAW/`) for cold-start LLMs without MCP.
+- **Phase 5 Vault Health & Size Notices**: Added deterministic size checks (`memoryCapsuleExceeded` >2,500 chars, `rawStoreSize`).
+- **GUI Window Activation**: Fixed AppKit activation lifecycle (`AppDelegate`) so the main window orders key and front on launch and restores when reopened from Dock.
+

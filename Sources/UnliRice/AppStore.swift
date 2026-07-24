@@ -53,6 +53,22 @@ final class AppStore: ObservableObject {
     /// active note list.
     @Published var archiveSelection: Set<UUID> = []
 
+    @Published var showingHome: Bool = false
+    @Published var showingNeedsYou: Bool = false
+    @Published var showingSetup: Bool = false
+    @Published var showingProfileBuilder: Bool = false
+    @Published var showingProfileManager: Bool = false
+
+    @Published public private(set) var profileRegistry = ProfileRegistry()
+
+    var activeProfileName: String {
+        profileRegistry.activeProfile?.name ?? "Default Profile"
+    }
+
+    var unreadNotices: [Notice] {
+        notices.filter { !$0.isRead }
+    }
+
     @Published var showingArchived: Bool = false
     @Published var showingReviewQueue: Bool = false
     @Published var showingGraph: Bool = false
@@ -368,6 +384,9 @@ final class AppStore: ObservableObject {
         // generating a setup prompt and closing the app doesn't bring it back.
         showingGetStarted = !hasUserAuthoredNotes
             && !UserDefaults.standard.bool(forKey: Self.getStartedDoneKey)
+        if !showingGetStarted {
+            showingHome = true
+        }
 
         backgroundAgentInstalled = BackgroundAgent.isInstalled()
         migrateRoutineStampsIfNeeded()
@@ -621,6 +640,11 @@ final class AppStore: ObservableObject {
     /// notification centre would each have needed a line in six places, and the
     /// one that got missed would show through underneath another view.
     func closeAllPanes() {
+        showingHome = false
+        showingNeedsYou = false
+        showingSetup = false
+        showingProfileBuilder = false
+        showingProfileManager = false
         showingArchived = false
         showingReviewQueue = false
         showingGraph = false
@@ -629,6 +653,69 @@ final class AppStore: ObservableObject {
         showingNotices = false
         showingTrustCenter = false
         showingAutomation = false
+    }
+
+    func showHome() {
+        closeAllPanes()
+        showingHome = true
+        statusMessage = "Home — What Unli Rice is doing for you right now."
+    }
+
+    func showNeedsYou() {
+        closeAllPanes()
+        showingNeedsYou = true
+        statusMessage = pending.isEmpty && unreadNoticeCount == 0
+            ? "Nothing is waiting on you right now."
+            : "\(pending.count + unreadNoticeCount) item(s) waiting for your OK."
+    }
+
+    func showSetup() {
+        closeAllPanes()
+        showingSetup = true
+        statusMessage = "Setup — AI tool connections, profiles, house rules, and automation."
+    }
+
+    func showProfileBuilder() {
+        closeAllPanes()
+        showingProfileBuilder = true
+        statusMessage = "Profile Builder — create your personalized AI context document set."
+    }
+
+    func showProfileManager() {
+        closeAllPanes()
+        showingProfileManager = true
+        statusMessage = "Profiles — manage multi-vault profiles and master profile guardrails."
+    }
+
+    func switchProfile(_ profile: Profile) {
+        profileRegistry.switchActiveProfile(to: profile.id)
+        switchDataFolder(to: profile.folderURL)
+    }
+
+    func createNewProfile(name: String, folderPath: String, copyMasterGuardrails: Bool) {
+        let profile = profileRegistry.createProfile(name: name, folderPath: folderPath)
+        let folderURL = URL(fileURLWithPath: folderPath, isDirectory: true)
+
+        if copyMasterGuardrails, let master = profileRegistry.masterProfile, master.id != profile.id {
+            let masterStorePath = URL(fileURLWithPath: master.folderPath).appendingPathComponent("events.jsonl")
+            if FileManager.default.fileExists(atPath: masterStorePath.path),
+               let masterService = try? NoteService(store: EventStore(fileURL: masterStorePath)),
+               let masterGuardrail = (try? masterService.searchNotes(query: "Profile: guardrails"))?.first(where: { $0.title.lowercased() == "profile: guardrails" }) {
+                let targetStorePath = folderURL.appendingPathComponent("events.jsonl")
+                let targetService = (try? NoteService(store: EventStore(fileURL: targetStorePath))) ?? service
+                let copiedBody = """
+                \(masterGuardrail.body)
+
+                ---
+                *(Snapshot copied from Master Profile '\(master.name)' on \(ISO8601DateFormatter().string(from: Date())))*
+                """
+                if let note = try? targetService.createNote(title: "Profile: guardrails", body: copiedBody, source: "unlirice") {
+                    _ = try? targetService.tagNote(id: note.id, tag: "profile", source: "unlirice")
+                }
+            }
+        }
+
+        switchProfile(profile)
     }
 
     func showLatest() {

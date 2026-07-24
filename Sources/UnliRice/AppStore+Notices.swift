@@ -54,6 +54,11 @@ extension AppStore {
         }
     }
 
+    func markNoticeRead(_ notice: Notice) {
+        noticeStore.markRead(notice.id)
+        refreshNotices()
+    }
+
     func markAllNoticesRead() {
         noticeStore.markAllRead()
         refreshNotices()
