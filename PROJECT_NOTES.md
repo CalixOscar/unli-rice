@@ -1572,3 +1572,44 @@ against every source file) were done by Claude afterward, on request, not before
 Worth deciding going forward whether that review gate is enforced before a merge or
 only after.
 
+
+## Brain map restored to the sidebar (2026-07-24)
+
+The Phase 0 Clarity Pass rebuilt the sidebar and dropped the "Note Graph" row in
+the process — the view itself (`NoteGraphView.swift`), `showGraph()`, and the
+main-column render branch all survived, but nothing could reach them. Restored
+as **"Brain map"** (Clarity Pass naming: plain words, no jargon), placed after
+"Notes".
+
+Improvements made while reconnecting it, all in `NoteGraphView.swift`:
+
+- **Backlink focus**: selecting a node now brightens its edges, dims everything
+  outside its neighborhood, and always labels its direct neighbors. Direction is
+  ignored on purpose — a backlink and an outbound link are the same fact about
+  the pair.
+- **Inspector shows the neighborhood**: "Linked to N notes" with clickable chips
+  that walk the graph selection-by-selection; an unlinked note explains that
+  `[[title]]` links are what draw lines here.
+- **Click empty canvas to deselect** — required once selection dims the rest of
+  the map.
+- **Empty state** explaining what the map will become, instead of a blank grid.
+- **Node size by degree**: radius scales with `sqrt(link count)` (area ∝
+  importance, capped) so hub notes read as the brain's centres at a glance.
+  `findNode` hit-testing widened to match, and skips unrevealed nodes.
+- **Grow replay** ("Grow" button): reveals notes oldest-first over ~8s, each new
+  note budding beside an already-revealed neighbor, with a "MMMM yyyy · N of M
+  notes" caption as the clock. Physics, edge-drawing, node-drawing, and
+  hit-testing all gate on a `revealedIDs` set so unborn notes exert no force and
+  draw no lines. Purely presentational — it never writes to the store.
+
+Also fixed in passing: the "Notes" sidebar row's `active:` condition now excludes
+`showingGraph`, `showingArchived`, and `showingReviewQueue`, so it no longer
+double-highlights alongside Archived / Needs you.
+
+**App Store screenshots** regenerated in `Screenshots/AppStore/` (2880x1800):
+`01-brain-map.png` (backlink focus on a 13-link hub) and `02-brain-grow.png`
+(grow replay mid-build) lead the set; the stale `01-note-graph.png` was removed
+and the survivors renumbered `03`–`05`. Captured from the real signed app bundle
+driven against a throwaway 56-note demo vault (a fictional "Recipe Box" project),
+never real notes — the demo vault and its override were removed afterward and the
+real group-container corpus was never touched.

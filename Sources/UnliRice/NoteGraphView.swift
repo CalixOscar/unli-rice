@@ -51,15 +51,29 @@ enum GraphGrouping: String, CaseIterable, Identifiable {
     }()
 }
 
+extension NoteGraphView {
+    /// "July 2026" — the grow replay's on-screen clock.
+    static let replayCaptionFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter
+    }()
+}
+
 struct GraphNode: Identifiable, Equatable {
     let id: UUID
     let title: String
     let tags: Set<String>
+    /// When the note was created — the ordering the grow replay walks.
+    let createdAt: Date
     var x: Double
     var y: Double
     var vx: Double = 0
     var vy: Double = 0
     var color: Color
+    /// Links touching this node, in either direction. Drives node size: hub
+    /// notes render larger, so the brain's centres are visible at a glance.
+    var degree: Int = 0
     /// Which group this node is in under the *current* grouping. Recomputed
     /// when the grouping changes; nil means the note has no value for it (no
     /// tags, say), which is a real state and renders grey rather than being
@@ -104,6 +118,23 @@ struct NoteGraphView: View {
     /// again. Re-fitting on every cool-down would yank the view out from under
     /// someone who had deliberately zoomed into a corner.
     @State private var hasAutoFit = false
+
+    // Grow replay: animates the brain being built note-by-note in creation
+    // order. `revealedIDs == nil` means not replaying — everything shows.
+    // A Set rather than a count-prefix so reveal order and node order stay
+    // independent; nodes are never re-sorted mid-simulation.
+    @State private var revealedIDs: Set<UUID>? = nil
+    @State private var replayQueue: [UUID] = []
+    @State private var replayTick: Int = 0
+    /// Creation date of the most recently revealed note — the replay's clock,
+    /// shown as a caption while the brain grows.
+    @State private var replayDate: Date? = nil
+
+    private var isReplaying: Bool { revealedIDs != nil }
+
+    private func isRevealed(_ id: UUID) -> Bool {
+        revealedIDs?.contains(id) ?? true
+    }
     
     // Physics constants
     private let charge: Double = -450.0       // repulsion force
@@ -179,6 +210,14 @@ struct NoteGraphView: View {
                         .onEnded { value in
                             if draggedNodeID == nil {
                                 accumulatedPan = pan
+                                // A click on empty canvas (not a pan) clears the
+                                // selection — with neighbor-dimming active there
+                                // has to be a way back to the whole map.
+                                let dx = value.startLocation.x - value.location.x
+                                let dy = value.startLocation.y - value.location.y
+                                if sqrt(dx*dx + dy*dy) < 5.0, selectedNodeID != nil {
+                                    withAnimation { selectedNodeID = nil }
+                                }
                             } else {
                                 let start = value.startLocation
                                 let end = value.location
@@ -234,13 +273,46 @@ struct NoteGraphView: View {
                         }
                     }
                     .padding(16)
-                    
+
                     Spacer()
-                    
+
+                    // The replay's clock: which month of the corpus's life is
+                    // currently being written onto the canvas.
+                    if isReplaying, let replayDate {
+                        VStack(spacing: 3) {
+                            Text(Self.replayCaptionFormatter.string(from: replayDate))
+                                .font(.system(size: 16, weight: .semibold, design: .serif))
+                                .foregroundStyle(Theme.ink)
+                            Text("\(revealedIDs?.count ?? 0) of \(nodes.count) notes")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(Theme.inkDim)
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Theme.panel.opacity(0.75))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+                        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow).clipShape(RoundedRectangle(cornerRadius: 8)))
+                        .padding(.bottom, 24)
+                        .transition(.opacity)
+                    }
+
                     if let selectedNode = nodes.first(where: { $0.id == selectedNodeID }) {
                         inspectorPanel(for: selectedNode)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
+                }
+
+                if nodes.isEmpty {
+                    VStack(spacing: 8) {
+                        Text("Your brain map is empty")
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .foregroundStyle(Theme.ink)
+                        Text("Every note becomes a dot here, and every [[link]] between notes becomes a line.\nAs your AI tools write and cross-link notes, this grows into a map of what they know.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.inkDim)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(24)
                 }
             }
             // Once the layout settles, frame it. On appear would fit the
@@ -275,29 +347,60 @@ struct NoteGraphView: View {
             withAnimation { applyGrouping() }
         }
         .onReceive(timer) { _ in
+            advanceReplay()
             tickPhysics()
         }
     }
     
     // MARK: - Canvas Rendering
-    
+
+    /// Every node one link away from the current selection, in either
+    /// direction. Direction is deliberately ignored: a backlink and an outbound
+    /// link are the same fact about the *pair* of notes, and the map is about
+    /// which notes belong together, not who wrote the `[[..]]` first.
+    private var selectedNeighborIDs: Set<UUID> {
+        guard let selectedNodeID else { return [] }
+        var ids: Set<UUID> = []
+        for edge in edges {
+            if edge.source == selectedNodeID { ids.insert(edge.target) }
+            if edge.target == selectedNodeID { ids.insert(edge.source) }
+        }
+        return ids
+    }
+
     private func drawEdges(in context: GraphicsContext) {
         for edge in edges {
+            // During the grow replay an edge only exists once both of its notes
+            // do — a line to a not-yet-born note would spoil the story.
+            guard isRevealed(edge.source), isRevealed(edge.target) else { continue }
             guard let sourceNode = nodes.first(where: { $0.id == edge.source }),
                   let targetNode = nodes.first(where: { $0.id == edge.target }) else { continue }
-            
+
             // An edge survives the filter if either end is in the group: a link
             // out of the group you're inspecting is information about it.
             let isFiltered = filterGroup != nil
                 && sourceNode.group != filterGroup
                 && targetNode.group != filterGroup
-            
+
+            let touchesSelection = selectedNodeID != nil
+                && (edge.source == selectedNodeID || edge.target == selectedNodeID)
+
             var path = Path()
             path.move(to: CGPoint(x: sourceNode.x, y: sourceNode.y))
             path.addLine(to: CGPoint(x: targetNode.x, y: targetNode.y))
-            
+
             if isFiltered {
                 context.stroke(path, with: .color(Color.gray.opacity(0.04)), lineWidth: 0.5)
+            } else if touchesSelection {
+                // The selected note's own links are the whole story while a
+                // selection is active — they get the brightest stroke on screen.
+                let edgeColor = sourceNode.color
+                context.stroke(path, with: .color(edgeColor.opacity(0.22)), lineWidth: 5.0)
+                context.stroke(path, with: .color(edgeColor.opacity(0.75)), lineWidth: 1.6)
+            } else if selectedNodeID != nil {
+                // Everything not connected to the selection recedes rather than
+                // disappears: the rest of the brain stays visible as context.
+                context.stroke(path, with: .color(Color.gray.opacity(0.06)), lineWidth: 0.75)
             } else {
                 let edgeColor = sourceNode.color
                 // 1. Glowing background stroke
@@ -309,12 +412,19 @@ struct NoteGraphView: View {
     }
     
     private func drawNodes(in context: GraphicsContext) {
+        let neighbors = selectedNeighborIDs
         for node in nodes {
-            let radius = 12.0
+            guard isRevealed(node.id) else { continue }
+            let radius = radius(for: node)
             let isHovered = hoveredNodeID == node.id
             let isSelected = selectedNodeID == node.id
-            let isFiltered = filterGroup != nil && node.group != filterGroup
-            
+            let isNeighbor = neighbors.contains(node.id)
+            // Two ways to recede: outside the active legend filter, or outside
+            // the selected note's neighborhood. Both render the same — dim but
+            // present — because both mean "not what you're looking at right now".
+            let isFiltered = (filterGroup != nil && node.group != filterGroup)
+                || (selectedNodeID != nil && !isSelected && !isNeighbor)
+
             let baseColor = node.color
 
             // 1. Glowing outer blur layer (liquid glass glow)
@@ -364,7 +474,10 @@ struct NoteGraphView: View {
             // active group filter that has already narrowed the field.
             let inFocusedGroup = filterGroup != nil && !isFiltered
             let labelsAreLegible = nodes.count <= Self.labelBudget || inFocusedGroup
-            if isHovered || isSelected || (labelsAreLegible && zoom > 0.65) {
+            // A neighbor's label always draws while a note is selected: "what
+            // is this connected to" is the question a selection asks, and the
+            // handful of linked notes is well under any label budget.
+            if isHovered || isSelected || isNeighbor || (labelsAreLegible && zoom > 0.65) {
                 if !isFiltered || isSelected {
                     let labelText = Text(node.title)
                         .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium, design: .monospaced))
@@ -407,7 +520,11 @@ struct NoteGraphView: View {
         // 1. Repulsion (Charge) - O(N log N) simplified via dynamic stepping for large N
         let step = max(1, nodeCount / 80) // Prevents lag at 5k notes, limits checks to ~80 per node
         for i in 0..<nodeCount {
+            // Unrevealed nodes sit out the replay entirely — exerting force
+            // from an invisible node would shape the layout around ghosts.
+            guard isRevealed(nodes[i].id) else { continue }
             for j in stride(from: i + 1, to: nodeCount, by: step) {
+                guard isRevealed(nodes[j].id) else { continue }
                 let dx = nodes[i].x - nodes[j].x
                 let dy = nodes[i].y - nodes[j].y
                 let distSq = dx*dx + dy*dy + 0.1
@@ -429,6 +546,7 @@ struct NoteGraphView: View {
         
         // 2. Attraction (Edges / Links)
         for edge in edges {
+            guard isRevealed(edge.source), isRevealed(edge.target) else { continue }
             guard let sourceIdx = nodes.firstIndex(where: { $0.id == edge.source }),
                   let targetIdx = nodes.firstIndex(where: { $0.id == edge.target }) else { continue }
             
@@ -450,7 +568,8 @@ struct NoteGraphView: View {
         // 3. Gravity (Center pull + Clustered tag pull)
         for i in 0..<nodeCount {
             let node = nodes[i]
-            
+            guard isRevealed(node.id) else { continue }
+
             // Core gravity pull to center (0,0)
             nodes[i].vx -= node.x * centerGravity
             nodes[i].vy -= node.y * centerGravity
@@ -465,6 +584,7 @@ struct NoteGraphView: View {
         for i in 0..<nodeCount {
             // Keep dragged node pinned under cursor
             if nodes[i].id == draggedNodeID { continue }
+            guard isRevealed(nodes[i].id) else { continue }
             
             nodes[i].x += nodes[i].vx * alpha
             nodes[i].y += nodes[i].vy * alpha
@@ -493,6 +613,7 @@ struct NoteGraphView: View {
                 id: note.id,
                 title: note.title.split(separator: "/").last.map(String.init) ?? note.title,
                 tags: note.tags,
+                createdAt: note.createdAt,
                 x: x,
                 y: y,
                 // Both filled in by `applyGrouping` below, once every node
@@ -514,8 +635,100 @@ struct NoteGraphView: View {
             }
         }
         edges = edgeList
+
+        var degreeByID: [UUID: Int] = [:]
+        for edge in edgeList {
+            degreeByID[edge.source, default: 0] += 1
+            degreeByID[edge.target, default: 0] += 1
+        }
+        for index in nodes.indices {
+            nodes[index].degree = degreeByID[nodes[index].id] ?? 0
+        }
+
         applyGrouping()
         alpha = 1.0  // Start simulation
+    }
+
+    // MARK: - Grow Replay
+
+    private func startGrowReplay() {
+        guard nodes.count > 1 else { return }
+        replayQueue = nodes.sorted { $0.createdAt < $1.createdAt }.map(\.id)
+        revealedIDs = []
+        replayTick = 0
+        selectedNodeID = nil
+        filterGroup = nil
+        alpha = 1.0
+        revealNextNode()
+    }
+
+    private func stopGrowReplay() {
+        revealedIDs = nil
+        replayQueue = []
+        replayDate = nil
+        // Gentle re-heat so late arrivals that spawned on top of a neighbor
+        // spread out instead of freezing mid-overlap.
+        alpha = max(alpha, 0.5)
+    }
+
+    /// Called from the physics timer, so replay speed is defined in ticks. The
+    /// interval is derived from corpus size: the whole replay should take ~8
+    /// seconds whether the store holds 20 notes or 500 — it's a story beat,
+    /// not a progress bar.
+    private func advanceReplay() {
+        guard isReplaying, !replayQueue.isEmpty else { return }
+        replayTick += 1
+        let totalTicks = 480  // 8 seconds at 60fps
+        let interval = max(2, totalTicks / max(nodes.count, 1))
+        if replayTick % interval == 0 {
+            revealNextNode()
+        }
+    }
+
+    private func revealNextNode() {
+        guard var revealed = revealedIDs, !replayQueue.isEmpty else { return }
+        let id = replayQueue.removeFirst()
+
+        if let idx = nodes.firstIndex(where: { $0.id == id }) {
+            // Spawn beside an already-revealed neighbor when one exists: a new
+            // note visibly buds off the part of the brain it links to, rather
+            // than teleporting in at its final resting place.
+            let neighborIDs = edges.compactMap { edge -> UUID? in
+                if edge.source == id { return edge.target }
+                if edge.target == id { return edge.source }
+                return nil
+            }
+            if let anchorID = neighborIDs.first(where: { revealed.contains($0) }),
+               let anchor = nodes.first(where: { $0.id == anchorID }) {
+                nodes[idx].x = anchor.x + Double.random(in: -35...35)
+                nodes[idx].y = anchor.y + Double.random(in: -35...35)
+            }
+            nodes[idx].vx = 0
+            nodes[idx].vy = 0
+            replayDate = nodes[idx].createdAt
+        }
+
+        revealed.insert(id)
+        revealedIDs = revealed
+        // Keep the simulation warm for the whole replay: each arrival should
+        // nudge the layout, and a cooled graph would stack arrivals in place.
+        alpha = max(alpha, 0.45)
+
+        if replayQueue.isEmpty {
+            // Fully grown. Linger a moment so the final date is readable, then
+            // return to the normal (non-replay) state.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                if replayQueue.isEmpty { stopGrowReplay() }
+            }
+        }
+    }
+
+    /// Node radius grows with the square root of its link count — sqrt because
+    /// what should scale with importance is *area*, and a linear radius would
+    /// make a 25-link hub dwarf the canvas. Capped so the real corpus's biggest
+    /// hub stays a node rather than becoming a backdrop.
+    private func radius(for node: GraphNode) -> Double {
+        9.0 + min(13.0, 2.5 * sqrt(Double(node.degree)))
     }
     
     /// Six hues, cycled. Cycling is honest about the limit: past six groups the
@@ -614,8 +827,11 @@ struct NoteGraphView: View {
 
 
     private func findNode(at point: CGPoint) -> GraphNode? {
-        let hitRadius = 15.0 / zoom
         return nodes.first { node in
+            guard isRevealed(node.id) else { return false }
+            // At least the drawn circle, but never smaller than 15 *screen*
+            // pixels — small nodes stay clickable when zoomed out.
+            let hitRadius = max(radius(for: node) + 3.0, 15.0 / zoom)
             let dx = node.x - point.x
             let dy = node.y - point.y
             return (dx*dx + dy*dy) <= (hitRadius * hitRadius)
@@ -729,6 +945,16 @@ struct NoteGraphView: View {
             .labelsHidden()
             .frame(width: 210)
 
+            // Grow replays the corpus being written note-by-note, oldest
+            // first — the "watch the brain build itself" button.
+            controlButton(isReplaying ? "Stop" : "Grow", icon: isReplaying ? "stop.fill" : "play.fill") {
+                if isReplaying {
+                    stopGrowReplay()
+                } else {
+                    startGrowReplay()
+                }
+            }
+
             // Fit before Recenter: it's the one you want after the simulation
             // has thrown the layout past the edges of the window, which is most
             // of the time on a real corpus.
@@ -768,13 +994,19 @@ struct NoteGraphView: View {
     }
 
     private func inspectorPanel(for node: GraphNode) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        // The neighborhood, resolved to actual nodes so the chips below can
+        // carry titles and be clicked to walk the graph link by link.
+        let linkedNodes = selectedNeighborIDs
+            .compactMap { id in nodes.first(where: { $0.id == id }) }
+            .sorted { $0.title < $1.title }
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(node.title)
                     .font(.system(size: 14, weight: .semibold, design: .serif))
                     .foregroundStyle(Theme.ink)
                 Spacer()
-                
+
                 // Open note details view
                 Button(action: {
                     store.selectNote(node.id)
@@ -788,7 +1020,7 @@ struct NoteGraphView: View {
                 }
                 .buttonStyle(.plain)
             }
-            
+
             if !node.tags.isEmpty {
                 HStack(spacing: 6) {
                     ForEach(node.tags.sorted(), id: \.self) { tag in
@@ -798,6 +1030,46 @@ struct NoteGraphView: View {
                             .padding(.vertical, 2)
                             .foregroundStyle(Theme.accent)
                             .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.accent, lineWidth: 0.75))
+                    }
+                }
+            }
+
+            if linkedNodes.isEmpty {
+                Text("Not linked to any other note yet — link notes with [[title]] and they show up here.")
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Theme.inkDim)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("LINKED TO \(linkedNodes.count) NOTE\(linkedNodes.count == 1 ? "" : "S")")
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Theme.inkDim)
+
+                    // Wrapping would be nicer than one scrolling row, but a
+                    // horizontal scroller is what fits in a fixed-height panel
+                    // pinned to the bottom of the canvas.
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(linkedNodes) { linked in
+                                Button(action: {
+                                    withAnimation { selectedNodeID = linked.id }
+                                }) {
+                                    HStack(spacing: 5) {
+                                        Circle()
+                                            .fill(linked.color)
+                                            .frame(width: 6, height: 6)
+                                        Text(linked.title)
+                                            .font(.system(size: 10.5, design: .monospaced))
+                                            .foregroundStyle(Theme.ink)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.border, lineWidth: 0.75))
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
             }

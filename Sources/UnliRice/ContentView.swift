@@ -88,9 +88,18 @@ struct ContentView: View {
                     && !store.showingSetup && !store.showingGetStarted && !store.showingRetrospective
                     && !store.showingAutomation && !store.showingTrustCenter && !store.showingNotices
                     && !store.showingProfileBuilder && !store.showingProfileManager
+                    && !store.showingGraph && !store.showingArchived && !store.showingReviewQueue
             ) {
                 store.selectNote(nil)
                 store.showAllNotes()
+            }
+
+            sidebarRow(
+                "Brain map",
+                active: store.selectedNoteID == nil && store.showingGraph
+            ) {
+                store.selectNote(nil)
+                store.showGraph()
             }
 
             sidebarRow(

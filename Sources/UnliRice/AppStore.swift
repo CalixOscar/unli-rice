@@ -782,7 +782,7 @@ final class AppStore: ObservableObject {
     func showGraph() {
         closeAllPanes()
         showingGraph = true
-        statusMessage = "Note Graph View — visualizing note connections."
+        statusMessage = "Brain map — how your notes link together into one brain."
     }
 
     func selectNote(_ id: UUID?) {

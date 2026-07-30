@@ -1,0 +1,3 @@
+[mcp_servers.unlirice]
+command = "/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp"
+args = []
