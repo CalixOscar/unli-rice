@@ -21,6 +21,10 @@ the system comes from whatever agent you connect over MCP.
 
 ## Quick start
 
+Download directly from the **[Mac App Store](https://apps.apple.com/app/unli-rice)**.
+
+Alternatively, build a local app bundle:
+
 ```sh
 ./Scripts/make-app.sh         # builds dist/Unli Rice.app — then just open it
 ```

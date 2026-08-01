@@ -22,7 +22,7 @@ It is built around four promises that hold everywhere in the app:
 
 ## 1. Installing and launching
 
-**From the Mac App Store** (once approved): install and launch normally.
+**From the Mac App Store**: Download directly from the [Mac App Store](https://apps.apple.com/app/unli-rice) and launch normally.
 
 **From source** — the app is a plain Swift package with no external
 dependencies (macOS 13+):

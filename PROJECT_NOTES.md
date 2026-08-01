@@ -1613,3 +1613,10 @@ and the survivors renumbered `03`–`05`. Captured from the real signed app bund
 driven against a throwaway 56-note demo vault (a fictional "Recipe Box" project),
 never real notes — the demo vault and its override were removed afterward and the
 real group-container corpus was never touched.
+
+## Live on Mac App Store (2026-08-01)
+
+- App is live on the Mac App Store.
+- Updated `README.md` and `docs/USER_GUIDE.md` with Mac App Store links and installation details.
+- Updated calmdownoscar.com (`/apps/` page and root `index.html`) to reflect Mac App Store availability.
+
