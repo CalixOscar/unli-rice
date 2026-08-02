@@ -42,7 +42,7 @@ struct HomeView: View {
     }
 
     private var isConnected: Bool {
-        !store.connectionActivities.isEmpty || store.houseRulesNoteID != nil
+        !store.connectionActivities.isEmpty
     }
 
     private var statusCard: some View {

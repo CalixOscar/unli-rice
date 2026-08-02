@@ -791,6 +791,11 @@ final class AppStore: ObservableObject {
             // Not `closeAllPanes()`: `showingArchived` deliberately survives
             // opening a note, so closing it returns you to the archived list you
             // were reading rather than to All Notes.
+            showingHome = false
+            showingNeedsYou = false
+            showingSetup = false
+            showingProfileBuilder = false
+            showingProfileManager = false
             showingReviewQueue = false
             showingGraph = false
             showingGetStarted = false
