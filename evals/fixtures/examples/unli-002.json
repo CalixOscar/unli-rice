@@ -1,0 +1,6 @@
+{
+  "synthetic": true,
+  "agent": "synthetic-failing",
+  "text": "I'll add it to your existing `Projects/Pricing` folder.",
+  "tool_calls": []
+}

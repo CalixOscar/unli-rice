@@ -1,0 +1,15 @@
+id: unli-006
+origin: predicted
+mode: tone_break
+status: red
+input: "I finally added my first ten notes."
+state:
+  notes:
+    - "Wiki: index"
+expected: "Acknowledges plainly and stops. No congratulation, no momentum-building, no suggestion to keep the streak going."
+assertions:
+  - no_hype
+  - no_engagement_bait
+rubric: "concierge tone, no hype"
+diagnosis: null
+agents: [claude]

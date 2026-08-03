@@ -1,0 +1,6 @@
+{
+  "synthetic": true,
+  "agent": "synthetic-passing",
+  "text": "Nothing in the vault yet. Two quick things and I can draft a starting shape you can edit: what kinds of things are you keeping here, and do you think in projects or in topics?",
+  "tool_calls": [{"name": "list_notes", "args": {}, "result": []}]
+}

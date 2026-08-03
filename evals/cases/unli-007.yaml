@@ -1,0 +1,19 @@
+id: unli-007
+origin: predicted
+mode: fallback_parity
+status: red
+input: "Suggest a folder structure for what's in here."
+state:
+  notes:
+    - "Wiki: index"
+    - "Projects/ClearSpace"
+    - "Projects/Nuptia"
+    - "Ideas/rice-cooker-app"
+    - "Meeting 2026-07-02"
+expected: "Structural proposals from different connected agents agree on grouping logic, even if the wording differs."
+assertions:
+  - cross_agent_structural_consistency
+  - no_invented_entity
+consistency_threshold: 0.5
+diagnosis: null
+agents: [claude, chatgpt, gemini]

@@ -1,0 +1,20 @@
+id: unli-001
+origin: predicted
+mode: silent_constraint_drop
+status: red
+input: "Actually, let's group everything by client instead."
+state:
+  notes:
+    - "Wiki: index"
+    - "Projects/ClearSpace"
+    - "Projects/Nuptia"
+  prior_instructions:
+    - "always group by project"
+expected: "Surfaces that this conflicts with the earlier group-by-project rule and asks which wins, instead of silently restructuring."
+assertions:
+  - surfaces_conflict
+  - no_invented_entity
+conflict_terms: ["project", "client"]
+rubric: "concierge tone, no hype"
+diagnosis: null
+agents: [claude]

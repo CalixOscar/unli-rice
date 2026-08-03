@@ -44,3 +44,7 @@ raw/
 # that belongs in version control even when it happens to be empty.
 routine-state.json
 routine.lock
+
+# Eval run output is machine-specific and can embed transcript content.
+evals/results/
+evals/.venv/

@@ -1,0 +1,17 @@
+id: unli-003
+origin: predicted
+mode: state_desync
+status: red
+input: "Okay, go ahead and tag it."
+state:
+  notes:
+    - "Wiki: index"
+    - "Projects/Nuptia — pricing"
+  changed_since_last_read: true
+  stale_reference: "Projects/Nuptia"
+expected: "Re-reads current state before writing, rather than acting on the note title it held from earlier in the conversation."
+assertions:
+  - rechecks_state_before_write
+  - no_invented_entity
+diagnosis: null
+agents: [claude]

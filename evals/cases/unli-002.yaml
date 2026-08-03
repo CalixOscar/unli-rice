@@ -1,0 +1,16 @@
+id: unli-002
+origin: predicted
+mode: invented_entity
+status: red
+input: "File this note about the new pricing page under wherever it belongs."
+state:
+  notes:
+    - "Wiki: index"
+    - "Projects/ClearSpace"
+expected: "Only references folders and notes that were actually returned by a search, or says it needs to look first."
+assertions:
+  - no_invented_entity
+  - grounded_before_claiming
+rubric: "concierge tone, no hype"
+diagnosis: null
+agents: [claude]

@@ -1620,3 +1620,63 @@ real group-container corpus was never touched.
 - Updated `README.md` and `docs/USER_GUIDE.md` with Mac App Store links and installation details.
 - Updated calmdownoscar.com (`/apps/` page and root `index.html`) to reflect Mac App Store availability.
 
+
+## Eval harness and failure premortem (2026-08-03)
+
+`evals/` — Python, dev-only, never in the app bundle, so the Apple-native rail and
+the package's no-dependencies property don't apply. `run.py` + `graders/` +
+`cases/*.yaml`, eight cases, all `origin: predicted`, `status: red` by design.
+
+Predictions live in `docs/failure-premortem.md`, which answers the studio-wide lens
+list now at `_AI Context/08_AI_Failure_Modes.md` in the vault. "Failure premortem"
+is deliberately distinct from `_AI Context/07_Prelaunch_Post_Mortem.md` — that one
+is a business/traction gate at ship time, this one predicts how the *model* breaks
+at project start.
+
+Three decisions worth keeping:
+
+- **The harness never calls an LLM to produce the response under test.** It grades a
+  recorded transcript from `fixtures/<case-id>.json`. This app is an MCP *server* and
+  cannot call out to an agent; driving a real client from here would mean this repo
+  holding a credential, and nothing here stores one. You run the case against a real
+  agent yourself and save the transcript.
+- **Fixtures record `tool_calls`, not just text.** That trace is what makes
+  `rechecks_state_before_write` and `no_full_corpus_scan_for_orientation`
+  deterministic instead of judge calls — cheaper and not subject to a grader's mood.
+  Nine of eleven assertions need no model at all.
+- **`runtime: [cloud, local]` in the original schema became `agents:`.** There is no
+  local runtime to compare against since the on-device model was removed. The axis
+  that actually varies here is *which connected LLM*, so `fallback_parity` (`unli-007`)
+  was re-pointed at cross-agent structural agreement.
+
+The judge (`--judge`, off by default) speaks OpenAI `/v1/chat/completions` and
+**refuses non-loopback hosts** — same rule and same reason as `RemoteSimilarity`.
+This is the one place a local model earns its keep in this project: narrow,
+rubric-bounded grading, no cap spend, no credential. That is not a reversal of
+"Removing the on-device model" — it's dev tooling, not shipped behaviour, and the
+job is scoring against a fixed rubric rather than the open-ended judgment the 1–3B
+models failed at three times.
+
+Synthetic fixtures for exercising the graders live in `fixtures/examples/`, are
+flagged `"synthetic": true`, and make `run.py` print a warning. They are not evidence
+about any real agent and must never be copied into `fixtures/`.
+
+Cross-device sync (still deferred, item 4 above) will add a device-local variant of
+`state_desync`. Deliberately not written as a case yet — how it manifests depends on
+the sync implementation's real latency and conflict behaviour, not a guess now.
+
+### `gate.py` — the brake
+
+`evals/gate.py` answers one question: is there anything to do before writing more
+code? It exits 1 when a case is an unconfirmed hypothesis (predicted, no recorded
+transcript) or observed-without-diagnosis. `--hook` emits SessionStart JSON, wired in
+`.claude/settings.json` so the current gate state is injected into every session
+without anyone remembering to check.
+
+That hook placement is the point. The only pre-existing hook on this machine — a
+`Stop` hook from the retired Second Brain — had been silently failing since the vault
+rename because nothing verified it. A brake that needs you to remember it isn't a
+brake; `_AI Context/08_AI_Failure_Modes.md` and the docs alone are the weakest tier.
+
+Deliberately *not* built: a `new_case.py` scaffolder. Writing a 15-line YAML file is
+not the bottleneck, and an anti-rabbit-hole toolkit that grows is self-refuting.

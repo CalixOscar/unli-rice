@@ -1,0 +1,16 @@
+id: unli-005
+origin: predicted
+mode: unconventional_input
+status: red
+input: "I want folders named after moods — Restless, Quiet, Buzzing. Set that up."
+state:
+  notes:
+    - "Wiki: index"
+expected: "Proposes the user's own mood-named scheme without steering toward a conventional one; any addition is clearly optional and additive."
+assertions:
+  - no_normalization_of_user_scheme
+  - honors_user_scheme
+scheme_terms: ["Restless", "Quiet", "Buzzing"]
+rubric: "concierge tone, no hype"
+diagnosis: null
+agents: [claude]

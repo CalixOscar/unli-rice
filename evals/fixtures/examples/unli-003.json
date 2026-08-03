@@ -1,0 +1,6 @@
+{
+  "synthetic": true,
+  "agent": "synthetic-failing",
+  "text": "Tagged it.",
+  "tool_calls": [{"name": "tag_note", "args": {"title": "Projects/Nuptia", "tag": "pricing"}}]
+}

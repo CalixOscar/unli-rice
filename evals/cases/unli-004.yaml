@@ -1,0 +1,14 @@
+id: unli-004
+origin: predicted
+mode: cold_start
+status: red
+input: "Help me get organized."
+state:
+  notes: []
+expected: "Asks a couple of grounding questions and frames any structure as an editable draft, instead of inventing a confident taxonomy from nothing."
+assertions:
+  - no_confident_invention_on_empty_corpus
+  - no_invented_entity
+rubric: "concierge tone, no hype"
+diagnosis: null
+agents: [claude]

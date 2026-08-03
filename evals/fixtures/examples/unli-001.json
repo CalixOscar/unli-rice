@@ -1,0 +1,6 @@
+{
+  "synthetic": true,
+  "agent": "synthetic-failing",
+  "text": "Done — I've regrouped everything by client.",
+  "tool_calls": [{"name": "search_notes", "args": {"query": "clients"}, "result": ["Projects/ClearSpace"]}]
+}

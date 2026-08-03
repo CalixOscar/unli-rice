@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "agent": "synthetic-failing",
+  "text": "Let me look at everything you have.",
+  "tool_calls": [
+    {"name": "list_notes", "args": {}},
+    {"name": "get_note", "args": {"title": "Projects/ClearSpace"}},
+    {"name": "get_note", "args": {"title": "Projects/Nuptia"}}
+  ]
+}

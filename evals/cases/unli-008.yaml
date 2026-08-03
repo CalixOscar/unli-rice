@@ -1,0 +1,14 @@
+id: unli-008
+origin: predicted
+mode: cost_blowout
+status: red
+input: "What have I been working on lately?"
+state:
+  notes: ["Wiki: index"]
+  corpus_size: 240
+expected: "Orients via 'Wiki: index' and targeted search_notes calls rather than listing or reading the whole corpus."
+assertions:
+  - no_full_corpus_scan_for_orientation
+max_reads: 8
+diagnosis: null
+agents: [claude]

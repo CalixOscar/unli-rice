@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "agent": "multi",
+  "responses": [
+    {"agent": "claude", "text": "Grouping by project.", "groups": ["Projects", "Ideas", "Meetings"]},
+    {"agent": "chatgpt", "text": "Grouping by type.", "groups": ["Work", "Personal", "Archive"]}
+  ]
+}

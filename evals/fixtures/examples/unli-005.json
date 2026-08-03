@@ -1,0 +1,6 @@
+{
+  "synthetic": true,
+  "agent": "synthetic-failing",
+  "text": "I can do that, though most people find it works better to group by project instead of by mood.",
+  "tool_calls": []
+}
