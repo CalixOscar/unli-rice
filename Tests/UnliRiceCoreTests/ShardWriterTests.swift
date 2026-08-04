@@ -54,4 +54,14 @@ final class ShardWriterTests: XCTestCase {
         XCTAssertFalse(firstTitle.isEmpty)
         XCTAssertNotEqual(firstTitle, "Untitled", "an empty title becomes Untitled in Projector")
     }
+
+    func testShardWriterExplicitDeviceLabel() throws {
+        let identity = DeviceIdentity.current(inDirectory: root)
+        let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: identity.label)
+        let event = try writer.writeCapture(transcript: "App intent capture")
+
+        XCTAssertEqual(event.source, "human")
+        XCTAssertNotNil(event.device)
+        XCTAssertEqual(event.device, identity.label)
+    }
 }

@@ -41,7 +41,8 @@ let workingCopy = FileManager.default.temporaryDirectory
 try FileManager.default.copyItem(at: URL(fileURLWithPath: sourcePath), to: workingCopy)
 defer { try? FileManager.default.removeItem(at: workingCopy) }
 
-let service = NoteService(store: try EventStore(fileURL: workingCopy))
+let calibrateDeviceIdentity = DeviceIdentity.current()
+let service = NoteService(store: try EventStore(fileURL: workingCopy), deviceLabel: calibrateDeviceIdentity.label)
 let notes = try service.listNotes(includeArchived: false)
 let titles = notes.map(\.title)
 

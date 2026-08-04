@@ -16,6 +16,18 @@ public struct SentCaptureItem: Identifiable, Equatable, Sendable {
     }
 }
 
+public enum RecordingMode: String, Codable, CaseIterable, Identifiable {
+    case tapToToggle = "Tap to toggle"
+    case holdToRecord = "Hold to record"
+    public var id: String { rawValue }
+}
+
+public enum LayoutPlacement: String, Codable, CaseIterable, Identifiable {
+    case micTopNotesBottom = "Mic Top, Notes Bottom"
+    case micBottomNotesTop = "Mic Bottom, Notes Top"
+    public var id: String { rawValue }
+}
+
 @MainActor
 public final class CaptureStore: ObservableObject {
     public enum State: Equatable {
@@ -26,11 +38,26 @@ public final class CaptureStore: ObservableObject {
         case error(String)
     }
 
+    private static let recordingModeKey = "UnliRiceCapture_recordingMode"
+    private static let layoutPlacementKey = "UnliRiceCapture_layoutPlacement"
+
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
     @Published public var captures: [SentCaptureItem] = []
     @Published public var pulledNotes: [Note] = []
     @Published public var sharedFolderURL: URL?
+
+    @Published public var recordingMode: RecordingMode {
+        didSet {
+            UserDefaults.standard.set(recordingMode.rawValue, forKey: Self.recordingModeKey)
+        }
+    }
+
+    @Published public var layoutPlacement: LayoutPlacement {
+        didSet {
+            UserDefaults.standard.set(layoutPlacement.rawValue, forKey: Self.layoutPlacementKey)
+        }
+    }
 
     private let recorder: Recorder
     private let transcriber: Transcriber
@@ -44,6 +71,11 @@ public final class CaptureStore: ObservableObject {
         storageDir: URL? = nil,
         transcriber: Transcriber = SpeechAnalyzerTranscriber()
     ) {
+        let savedModeRaw = UserDefaults.standard.string(forKey: Self.recordingModeKey) ?? ""
+        self.recordingMode = RecordingMode(rawValue: savedModeRaw) ?? .tapToToggle
+
+        let savedLayoutRaw = UserDefaults.standard.string(forKey: Self.layoutPlacementKey) ?? ""
+        self.layoutPlacement = LayoutPlacement(rawValue: savedLayoutRaw) ?? .micTopNotesBottom
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let baseDir = storageDir ?? docs.appendingPathComponent("UnliRiceCapture", isDirectory: true)
         self.storageDir = baseDir

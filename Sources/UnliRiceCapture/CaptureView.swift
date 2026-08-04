@@ -3,6 +3,7 @@ import UnliRiceCore
 
 public struct CaptureView: View {
     @StateObject private var store: CaptureStore
+    @State private var showSettings = false
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -12,14 +13,21 @@ public struct CaptureView: View {
     public var body: some View {
         VStack(spacing: 16) {
             header
-            recordButton
-            statusView
-            Divider()
-            pulledNotesSection
-            Divider()
-            capturesList
+
+            if store.layoutPlacement == .micTopNotesBottom {
+                recordSection
+                Divider()
+                notesAndCapturesSection
+            } else {
+                notesAndCapturesSection
+                Divider()
+                recordSection
+            }
         }
         .padding(16)
+        .sheet(isPresented: $showSettings) {
+            settingsSheet
+        }
     }
 
     private var header: some View {
@@ -37,21 +45,53 @@ public struct CaptureView: View {
                     .font(.system(size: 14, weight: .semibold))
             }
             .buttonStyle(.plain)
+
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 8)
+        }
+    }
+
+    private var recordSection: some View {
+        VStack(spacing: 12) {
+            recordButton
+            statusView
         }
     }
 
     private var recordButton: some View {
-        Button(action: { store.toggleRecording() }) {
-            ZStack {
-                Circle()
-                    .fill(isRecording ? Color.red : Color.accentColor)
-                    .frame(width: 72, height: 72)
-                Image(systemName: isRecording ? "square.fill" : "mic.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(.white)
+        ZStack {
+            Circle()
+                .fill(isRecording ? Color.red : Color.accentColor)
+                .frame(width: 72, height: 72)
+            Image(systemName: isRecording ? "square.fill" : "mic.fill")
+                .font(.system(size: 28))
+                .foregroundColor(.white)
+        }
+        .contentShape(Circle())
+        .gesture(
+            store.recordingMode == .holdToRecord ?
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isRecording {
+                        store.startRecording()
+                    }
+                }
+                .onEnded { _ in
+                    if isRecording {
+                        store.stopAndProcess()
+                    }
+                }
+            : nil
+        )
+        .onTapGesture {
+            if store.recordingMode == .tapToToggle {
+                store.toggleRecording()
             }
         }
-        .buttonStyle(.plain)
     }
 
     private var isRecording: Bool {
@@ -63,11 +103,11 @@ public struct CaptureView: View {
         VStack(spacing: 6) {
             switch store.state {
             case .idle:
-                Text("Tap mic to record a thought")
+                Text(store.recordingMode == .holdToRecord ? "Press and hold mic to record" : "Tap mic to record a thought")
                     .font(.system(size: 13))
                     .foregroundColor(.secondary)
             case .recording:
-                Text("Recording… Tap to finish")
+                Text(store.recordingMode == .holdToRecord ? "Recording… Release to finish" : "Recording… Tap to finish")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.red)
             case .transcribing:
@@ -95,6 +135,14 @@ public struct CaptureView: View {
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(8)
             }
+        }
+    }
+
+    private var notesAndCapturesSection: some View {
+        VStack(spacing: 12) {
+            pulledNotesSection
+            Divider()
+            capturesList
         }
     }
 
@@ -173,6 +221,39 @@ public struct CaptureView: View {
                             .background(Color.secondary.opacity(0.08))
                             .cornerRadius(6)
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    private var settingsSheet: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Recording Behavior")) {
+                    Picker("Recording Mode", selection: $store.recordingMode) {
+                        ForEach(RecordingMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section(header: Text("Interface Layout")) {
+                    Picker("Layout Placement", selection: $store.layoutPlacement) {
+                        ForEach(LayoutPlacement.allCases) { placement in
+                            Text(placement.rawValue).tag(placement)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+            .navigationTitle("Capture Settings")
+
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        showSettings = false
                     }
                 }
             }

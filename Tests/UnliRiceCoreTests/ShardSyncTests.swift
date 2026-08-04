@@ -250,4 +250,63 @@ final class ShardSyncTests: XCTestCase {
         XCTAssertTrue(rebuiltShardContent.contains("Note A Keep"))
         XCTAssertFalse(rebuiltShardContent.contains("Note B Purge"), "purged note must not linger in published shard")
     }
+
+    /// Verifies two Mac devices ("Mac 1" and "Mac 2") syncing into the same shared folder.
+    /// Mac 2 imports Mac 1's shard, but Mac 2 MUST NOT re-publish Mac 1's imported events into Mac 2's published shard.
+    func testTwoMacDevicesPublishingIntoOneFolder() throws {
+        let mac1Dir = rootDir.appendingPathComponent("mac1_store", isDirectory: true)
+        let mac1LogURL = mac1Dir.appendingPathComponent("events.jsonl")
+        let mac1SyncStateURL = mac1Dir.appendingPathComponent("sync-state.json")
+        let mac1Store = try EventStore(fileURL: mac1LogURL)
+        let mac1Service = NoteService(store: mac1Store, deviceLabel: "Mac 1")
+
+        let mac2Dir = rootDir.appendingPathComponent("mac2_store", isDirectory: true)
+        let mac2LogURL = mac2Dir.appendingPathComponent("events.jsonl")
+        let mac2SyncStateURL = mac2Dir.appendingPathComponent("sync-state.json")
+        let mac2Store = try EventStore(fileURL: mac2LogURL)
+        let mac2Service = NoteService(store: mac2Store, deviceLabel: "Mac 2")
+
+        let mac1ShardURL = sharedSyncDir.appendingPathComponent("events-mac-1.jsonl")
+        let mac2ShardURL = sharedSyncDir.appendingPathComponent("events-mac-2.jsonl")
+
+        // 1. Mac 1 creates a note
+        _ = try mac1Service.createNote(title: "Note from Mac 1", body: "authored on Mac 1", source: "antigravity")
+
+        // 2. Mac 1 publishes its shard
+        let pub1 = try ShardPublisher.publishLocalEvents(
+            eventLogURL: mac1LogURL,
+            to: mac1ShardURL,
+            syncStateURL: mac1SyncStateURL,
+            ownDeviceLabel: "Mac 1",
+            isLocallyOriginated: { $0.device == nil || $0.device == "Mac 1" }
+        )
+        XCTAssertEqual(pub1, 1)
+
+        // 3. Mac 2 imports Mac 1's shard into its local store
+        let importReceipt = try ShardImporter.importShards(
+            from: sharedSyncDir,
+            into: mac2Store,
+            syncStateURL: mac2SyncStateURL,
+            ownShardFilename: "events-mac-2.jsonl"
+        )
+        XCTAssertEqual(importReceipt.eventsAppended, 1)
+        mac2Service.rebuild()
+
+        // 4. Mac 2 creates its own note
+        _ = try mac2Service.createNote(title: "Note from Mac 2", body: "authored on Mac 2", source: "antigravity")
+
+        // 5. Mac 2 publishes to its own shard
+        let pub2 = try ShardPublisher.publishLocalEvents(
+            eventLogURL: mac2LogURL,
+            to: mac2ShardURL,
+            syncStateURL: mac2SyncStateURL,
+            ownDeviceLabel: "Mac 2",
+            isLocallyOriginated: { $0.device == nil || $0.device == "Mac 2" }
+        )
+        XCTAssertEqual(pub2, 1, "Mac 2 must publish ONLY its own locally originated event, NOT Mac 1's imported event")
+
+        let mac2ShardText = try String(contentsOf: mac2ShardURL, encoding: .utf8)
+        XCTAssertTrue(mac2ShardText.contains("Note from Mac 2"))
+        XCTAssertFalse(mac2ShardText.contains("Note from Mac 1"), "Mac 2 re-published Mac 1's imported event — sync loop between Macs")
+    }
 }

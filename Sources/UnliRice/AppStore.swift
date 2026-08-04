@@ -350,7 +350,8 @@ final class AppStore: ObservableObject {
         embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
         do {
             let store = try EventStore(fileURL: url)
-            service = NoteService(store: store)
+            let deviceIdentity = DeviceIdentity.current(inDirectory: url.deletingLastPathComponent())
+            service = NoteService(store: store, deviceLabel: deviceIdentity.label)
         } catch {
             fatalError("Could not open event log at \(url.path): \(error)")
         }
@@ -504,7 +505,8 @@ final class AppStore: ObservableObject {
             }
 
             let store = try EventStore(fileURL: url)
-            service = NoteService(store: store)
+            let deviceIdentity = DeviceIdentity.current(inDirectory: url.deletingLastPathComponent())
+            service = NoteService(store: store, deviceLabel: deviceIdentity.label)
             dataURL = url
             dataFolderAccessStarted = isScoped
             activeDataFolderURL = isScoped ? folder : nil
@@ -747,11 +749,13 @@ final class AppStore: ObservableObject {
 
         if copyMasterGuardrails, let master = profileRegistry.masterProfile, master.id != profile.id {
             let masterStorePath = URL(fileURLWithPath: master.folderPath).appendingPathComponent("events.jsonl")
+            let masterDeviceIdentity = DeviceIdentity.current(inDirectory: masterStorePath.deletingLastPathComponent())
+            let targetStorePath = folderURL.appendingPathComponent("events.jsonl")
+            let targetDeviceIdentity = DeviceIdentity.current(inDirectory: targetStorePath.deletingLastPathComponent())
             if FileManager.default.fileExists(atPath: masterStorePath.path),
-               let masterService = try? NoteService(store: EventStore(fileURL: masterStorePath)),
+               let masterService = try? NoteService(store: EventStore(fileURL: masterStorePath), deviceLabel: masterDeviceIdentity.label),
                let masterGuardrail = (try? masterService.searchNotes(query: "Profile: guardrails"))?.first(where: { $0.title.lowercased() == "profile: guardrails" }) {
-                let targetStorePath = folderURL.appendingPathComponent("events.jsonl")
-                let targetService = (try? NoteService(store: EventStore(fileURL: targetStorePath))) ?? service
+                let targetService = (try? NoteService(store: EventStore(fileURL: targetStorePath), deviceLabel: targetDeviceIdentity.label)) ?? service
                 let copiedBody = """
                 \(masterGuardrail.body)
 

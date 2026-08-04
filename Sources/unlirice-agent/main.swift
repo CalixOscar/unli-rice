@@ -99,7 +99,8 @@ case "--ingest", "--janitor", "--preview-ingest":
         log("could not open event log at \(logURL.path)")
         exit(1)
     }
-    let manualService = NoteService(store: manualStore)
+    let manualDeviceIdentity = DeviceIdentity.current(inDirectory: logURL.deletingLastPathComponent())
+    let manualService = NoteService(store: manualStore, deviceLabel: manualDeviceIdentity.label)
     log("corpus: \(logURL.path)")
 
     do {
@@ -262,7 +263,8 @@ guard let store = try? EventStore(fileURL: eventLogURL) else {
     exit(1)
 }
 
-let service = NoteService(store: store)
+let deviceIdentity = DeviceIdentity.current(inDirectory: eventLogURL.deletingLastPathComponent())
+let service = NoteService(store: store, deviceLabel: deviceIdentity.label)
 let driver = RoutineDriver(service: service, eventLogURL: eventLogURL)
 let machine = MachineState.current()
 

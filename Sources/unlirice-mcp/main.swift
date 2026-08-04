@@ -29,7 +29,8 @@ do {
     logToStderr("unlirice-mcp: failed to open event log at \(dataURL.path): \(error)")
     exit(1)
 }
-let service = NoteService(store: store)
+let deviceIdentity = DeviceIdentity.current(inDirectory: dataURL.deletingLastPathComponent())
+let service = NoteService(store: store, deviceLabel: deviceIdentity.label)
 let dispatcher = ToolDispatcher(service: service)
 let connectionActivity = MCPConnectionActivityStore(besideEventLog: dataURL)
 var currentClientName = "Unknown MCP client"
