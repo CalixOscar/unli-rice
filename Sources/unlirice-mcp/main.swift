@@ -61,10 +61,17 @@ while let line = readLine(strippingNewline: true) {
             clientName: currentClientName,
             clientVersion: currentClientVersion
         )
+        let notesCount = (try? service.listNotes(includeArchived: false).count) ?? 0
+        let noteCountStr = "\(notesCount) note\(notesCount == 1 ? "" : "s")"
+        let contextNote = Autopilot.detectedPackageRoot() != nil
+            ? "Unli Rice notes supplement instructions for this project."
+            : "No project folder here — Unli Rice notes are your only context for this session."
+        let instructions = "This workspace has an Unli Rice vault: \(noteCountStr). Before answering, call search_notes or list_notes, and read `Wiki: index`. \(contextNote) Open your first reply with: ✅ Unli Rice vault connected — \(noteCountStr). If you found no relevant notes, say so instead. Never claim otherwise."
         JSONRPC.writeLine(JSONRPC.result(id: id, [
             "protocolVersion": "2024-11-05",
             "capabilities": ["tools": [:]],
-            "serverInfo": ["name": "unlirice-mcp", "version": "0.1.0"]
+            "serverInfo": ["name": "unlirice-mcp", "version": "0.1.0"],
+            "instructions": instructions
         ]))
 
     case "notifications/initialized":

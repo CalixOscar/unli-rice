@@ -105,7 +105,7 @@ struct TrustCenterView: View {
                     ForEach(store.connectionActivities) { activity in
                         HStack(spacing: 10) {
                             Circle()
-                                .fill(activity.lastToolSucceeded == false ? Theme.brass : Theme.emerald)
+                                .fill(activityColor(activity))
                                 .frame(width: 7, height: 7)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(clientLabel(activity))
@@ -215,6 +215,13 @@ struct TrustCenterView: View {
             .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.border, lineWidth: 1))
     }
 
+    private func activityColor(_ activity: MCPConnectionActivity) -> Color {
+        if activity.lastToolCallAt != nil {
+            return activity.lastToolSucceeded == false ? Theme.brass : Theme.emerald
+        }
+        return Theme.brass
+    }
+
     private func clientLabel(_ activity: MCPConnectionActivity) -> String {
         activity.clientVersion.map { "\(activity.clientName) \($0)" } ?? activity.clientName
     }
@@ -224,7 +231,7 @@ struct TrustCenterView: View {
             let outcome = activity.lastToolSucceeded == false ? "failed" : "succeeded"
             return "\(tool) · \(outcome) · \(date.formatted(.relative(presentation: .named)))"
         }
-        return "connected \(activity.lastSeenAt.formatted(.relative(presentation: .named)))"
+        return "connected \(activity.lastSeenAt.formatted(.relative(presentation: .named))), never read a note"
     }
 
     private func byteString(_ count: Int) -> String {

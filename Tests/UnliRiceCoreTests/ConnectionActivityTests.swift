@@ -45,4 +45,16 @@ final class ConnectionActivityTests: XCTestCase {
 
         XCTAssertEqual(try store.list().map(\.clientVersion), ["2", "1"])
     }
+
+    func testConnectedWithoutToolCallHasNilLastToolCallAt() throws {
+        let now = Date(timeIntervalSince1970: 500)
+        try store.recordConnection(clientName: "Claude Code", clientVersion: "1.0", at: now)
+
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.clientName, "Claude Code")
+        XCTAssertEqual(activity.lastSeenAt, now)
+        XCTAssertNil(activity.lastToolName)
+        XCTAssertNil(activity.lastToolCallAt)
+        XCTAssertNil(activity.lastToolSucceeded)
+    }
 }

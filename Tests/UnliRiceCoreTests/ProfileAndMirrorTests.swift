@@ -200,4 +200,46 @@ final class ProfileAndMirrorTests: XCTestCase {
             XCTAssertTrue(preset.body.contains("Exception Guardrail") || preset.body.contains("contradicts"))
         }
     }
+
+    func testMirrorExporterEmitsClaudeAndAgentsConventionFiles() throws {
+        let input = ProfileBuilderInput(name: "Vault Mode User", persona: "Peer", guardrails: ["Rule 1"])
+        _ = try ProfileBuilder.generateNotes(from: input, noteService: noteService)
+
+        let result = try MirrorExporter.exportMirror(
+            profileName: "Vault Mode Profile",
+            vaultFolderURL: tempDirectory,
+            noteService: noteService
+        )
+
+        let dir = result.exportDirectoryURL
+        let claudeURL = dir.appendingPathComponent("CLAUDE.md")
+        let agentsURL = dir.appendingPathComponent("AGENTS.md")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: claudeURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: agentsURL.path))
+
+        let claudeContent = try String(contentsOf: claudeURL, encoding: .utf8)
+        let agentsContent = try String(contentsOf: agentsURL, encoding: .utf8)
+
+        XCTAssertEqual(claudeContent, agentsContent)
+        XCTAssertTrue(claudeContent.contains("Vault Mode Profile"))
+        XCTAssertTrue(claudeContent.contains("✅ Unli Rice vault connected — 5 notes, profile \"Vault Mode Profile\"."))
+        XCTAssertTrue(claudeContent.contains("If you found no relevant notes, say so instead. Never claim otherwise."))
+    }
+
+    func testMirrorExporterEmptyVaultEmitsZeroNoteCountConvention() throws {
+        let result = try MirrorExporter.exportMirror(
+            profileName: "Empty Vault Profile",
+            vaultFolderURL: tempDirectory,
+            noteService: noteService
+        )
+
+        let dir = result.exportDirectoryURL
+        let claudeURL = dir.appendingPathComponent("CLAUDE.md")
+        let claudeContent = try String(contentsOf: claudeURL, encoding: .utf8)
+
+        XCTAssertTrue(claudeContent.contains("0 notes"))
+        XCTAssertTrue(claudeContent.contains("✅ Unli Rice vault connected — 0 notes, profile \"Empty Vault Profile\"."))
+    }
 }
+

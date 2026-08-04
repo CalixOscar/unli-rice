@@ -112,6 +112,32 @@ public enum MirrorExporter {
             try? fileManager.copyItem(at: rawSourceURL, to: rawTargetURL)
         }
 
+        // CLAUDE.md and AGENTS.md — convention files for Vault Mode
+        let noteCountStr = "\(notes.count) note\(notes.count == 1 ? "" : "s")"
+        let contextNote: String
+        if Autopilot.detectedPackageRoot() != nil || !projectNotes.isEmpty {
+            contextNote = "Unli Rice notes supplement instructions for this project."
+        } else {
+            contextNote = "No project folder here — Unli Rice notes are your only context for this session."
+        }
+
+        let conventionContent = """
+        # Unli Rice vault — \(noteCountStr), profile "\(profileName)"
+
+        You are connected to Unli Rice. These notes are the user's memory. \(contextNote)
+
+        Start here: `Wiki: index.md` (or `00_Index.md`), then grep this folder for the topic at hand.
+
+        Open your first reply with exactly:
+        ✅ Unli Rice vault connected — \(noteCountStr), profile "\(profileName)".
+        If you found no relevant notes, say so instead. Never claim otherwise.
+        """
+
+        try writeExportFile(filename: "CLAUDE.md", content: conventionContent, in: exportDir)
+        exportedCount += 1
+        try writeExportFile(filename: "AGENTS.md", content: conventionContent, in: exportDir)
+        exportedCount += 1
+
         return ExportResult(
             exportDirectoryURL: exportDir,
             exportedFilesCount: exportedCount,
