@@ -7,9 +7,12 @@ import Foundation
 public struct SyncState: Codable, Equatable, Sendable {
     /// Keyed by shard identifier (e.g. filename or device UUID).
     public var shardCursors: [String: FeedCursor]
+    /// Byte offset of local events.jsonl that has been published to own shard log.
+    public var publishedCursor: FeedCursor?
 
-    public init(shardCursors: [String: FeedCursor] = [:]) {
+    public init(shardCursors: [String: FeedCursor] = [:], publishedCursor: FeedCursor? = nil) {
         self.shardCursors = shardCursors
+        self.publishedCursor = publishedCursor
     }
 
     public func cursor(for shardID: String) -> FeedCursor? {

@@ -59,6 +59,8 @@ targets:
         DEVELOPMENT_TEAM: 22SNGN5JYD
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Unli Rice Capture uses your microphone to dictate notes."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Unli Rice Capture uses speech recognition to transcribe voice notes."
+        INFOPLIST_KEY_UIFileSharingEnabled: YES
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
         GENERATE_INFOPLIST_FILE: YES
         # Without a UILaunchScreen entry iOS runs the app at a legacy screen
         # size and letterboxes it — black bars, and not the full display.

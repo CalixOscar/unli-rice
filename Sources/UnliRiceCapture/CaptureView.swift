@@ -1,4 +1,5 @@
 import SwiftUI
+import UnliRiceCore
 
 public struct CaptureView: View {
     @StateObject private var store: CaptureStore
@@ -9,23 +10,33 @@ public struct CaptureView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             header
             recordButton
             statusView
             Divider()
+            pulledNotesSection
+            Divider()
             capturesList
         }
-        .padding(20)
+        .padding(16)
     }
 
     private var header: some View {
-        VStack(spacing: 4) {
-            Text("Unli Rice")
-                .font(.system(size: 24, weight: .bold, design: .serif))
-            Text("Voice Capture Companion")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.secondary)
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Unli Rice")
+                    .font(.system(size: 20, weight: .bold, design: .serif))
+                Text("Voice Capture & Memory")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Button(action: { store.sync() }) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -34,9 +45,9 @@ public struct CaptureView: View {
             ZStack {
                 Circle()
                     .fill(isRecording ? Color.red : Color.accentColor)
-                    .frame(width: 80, height: 80)
+                    .frame(width: 72, height: 72)
                 Image(systemName: isRecording ? "square.fill" : "mic.fill")
-                    .font(.system(size: 32))
+                    .font(.system(size: 28))
                     .foregroundColor(.white)
             }
         }
@@ -87,40 +98,80 @@ public struct CaptureView: View {
         }
     }
 
+    private var pulledNotesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Synced Vault Notes (\(store.pulledNotes.count))")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+
+            if store.pulledNotes.isEmpty {
+                Text("No synced notes found.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(store.pulledNotes.prefix(15)) { note in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(note.title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .lineLimit(1)
+                                if !note.body.isEmpty {
+                                    Text(note.body)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.secondary.opacity(0.06))
+                            .cornerRadius(6)
+                        }
+                    }
+                }
+                .frame(maxHeight: 140)
+            }
+        }
+    }
+
     private var capturesList: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Recent Captures (\(store.captures.count))")
-                .font(.system(size: 13, weight: .bold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("On-Device Captures (\(store.captures.count))")
+                .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.secondary)
 
             if store.captures.isEmpty {
-                Text("No captures recorded yet.")
-                    .font(.system(size: 12))
+                Text("No local captures recorded yet.")
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 10)
             } else {
                 ScrollView {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 6) {
                         ForEach(store.captures) { item in
                             HStack {
                                 Image(systemName: "waveform")
                                     .foregroundColor(.accentColor)
+                                    .font(.system(size: 12))
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(item.title)
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(.system(size: 12, weight: .semibold))
                                     Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.system(size: 11, design: .monospaced))
+                                        .font(.system(size: 10, design: .monospaced))
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(.green)
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 12))
                             }
-                            .padding(10)
+                            .padding(8)
                             .background(Color.secondary.opacity(0.08))
-                            .cornerRadius(8)
+                            .cornerRadius(6)
                         }
                     }
                 }

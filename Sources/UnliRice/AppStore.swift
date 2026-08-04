@@ -418,13 +418,30 @@ final class AppStore: ObservableObject {
     @discardableResult
     func runShardImportIfNeeded() -> Int {
         do {
+            let deviceIdentity = DeviceIdentity.current(inDirectory: dataURL.deletingLastPathComponent())
+            let ownShardFilename = "events-mac-\(deviceIdentity.id).jsonl"
             let eventStore = try EventStore(fileURL: dataURL)
-            let receipt = try ShardImporter.importShards(besideEventLog: dataURL, into: eventStore)
+
+            let receipt = try ShardImporter.importShards(
+                besideEventLog: dataURL,
+                into: eventStore,
+                ownShardFilename: ownShardFilename
+            )
             if receipt.eventsAppended > 0 {
                 service.rebuild()
                 _ = noticeStore.post(NoticeFactory.capturesArrived(count: receipt.eventsAppended))
                 reload()
             }
+
+            let ownShardURL = DataLocation.shardDirectory(besideEventLog: dataURL)
+                .appendingPathComponent(ownShardFilename)
+            try? ShardPublisher.publishLocalEvents(
+                eventLogURL: dataURL,
+                to: ownShardURL,
+                syncStateURL: SyncState.url(besideEventLog: dataURL),
+                ownDeviceLabel: deviceIdentity.label
+            )
+
             return receipt.eventsAppended
         } catch {
             return 0

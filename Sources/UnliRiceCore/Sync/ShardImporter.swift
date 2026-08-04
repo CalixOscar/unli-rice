@@ -22,7 +22,8 @@ public enum ShardImporter {
     public static func importShards(
         from shardDirectory: URL,
         into store: EventStore,
-        syncStateURL: URL
+        syncStateURL: URL,
+        ownShardFilename: String? = nil
     ) throws -> ImportReceipt {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: shardDirectory.path) else {
@@ -33,7 +34,9 @@ public enum ShardImporter {
             at: shardDirectory,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
-        ).filter { $0.pathExtension == "jsonl" }
+        ).filter { url in
+            url.pathExtension == "jsonl" && (ownShardFilename == nil || url.lastPathComponent != ownShardFilename)
+        }
 
         guard !shardFiles.isEmpty else {
             return ImportReceipt(eventsAppended: 0, shardsImported: 0)
@@ -79,10 +82,16 @@ public enum ShardImporter {
     @discardableResult
     public static func importShards(
         besideEventLog eventLog: URL,
-        into store: EventStore
+        into store: EventStore,
+        ownShardFilename: String? = nil
     ) throws -> ImportReceipt {
         let shardDirectory = DataLocation.shardDirectory(besideEventLog: eventLog)
         let syncStateURL = SyncState.url(besideEventLog: eventLog)
-        return try importShards(from: shardDirectory, into: store, syncStateURL: syncStateURL)
+        return try importShards(
+            from: shardDirectory,
+            into: store,
+            syncStateURL: syncStateURL,
+            ownShardFilename: ownShardFilename
+        )
     }
 }

@@ -29,11 +29,16 @@ public final class CaptureStore: ObservableObject {
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
     @Published public var captures: [SentCaptureItem] = []
+    @Published public var pulledNotes: [Note] = []
+    @Published public var sharedFolderURL: URL?
 
     private let recorder: Recorder
     private let transcriber: Transcriber
     private let shardWriter: ShardWriter
     private let storageDir: URL
+    private let eventStore: EventStore
+    private let noteService: NoteService
+    public let deviceIdentity: DeviceIdentity
 
     public init(
         storageDir: URL? = nil,
@@ -45,10 +50,63 @@ public final class CaptureStore: ObservableObject {
         self.recorder = Recorder()
         self.transcriber = transcriber
 
-        let deviceIdentity = DeviceIdentity.current(inDirectory: baseDir)
-        let shardFile = baseDir.appendingPathComponent("shards", isDirectory: true)
-            .appendingPathComponent("events-\(deviceIdentity.id).jsonl")
-        self.shardWriter = ShardWriter(shardFileURL: shardFile, deviceLabel: deviceIdentity.label)
+        let identity = DeviceIdentity.current(inDirectory: baseDir)
+        self.deviceIdentity = identity
+
+        let logURL = baseDir.appendingPathComponent("events.jsonl")
+        let store: EventStore
+        if let existing = try? EventStore(fileURL: logURL) {
+            store = existing
+        } else {
+            let fallbackURL = baseDir.appendingPathComponent("events-fallback.jsonl")
+            store = try! EventStore(fileURL: fallbackURL)
+        }
+        self.eventStore = store
+        self.noteService = NoteService(store: store)
+
+        let ownShardFile = baseDir.appendingPathComponent("shards", isDirectory: true)
+            .appendingPathComponent("events-phone-\(identity.id).jsonl")
+        self.shardWriter = ShardWriter(shardFileURL: ownShardFile, deviceLabel: identity.label)
+
+        self.sharedFolderURL = SharedFolderManager.shared.resolveBookmark()
+        sync()
+    }
+
+    public func setSharedFolder(_ url: URL) {
+        do {
+            try SharedFolderManager.shared.saveBookmark(for: url)
+            self.sharedFolderURL = url
+            sync()
+        } catch {
+            state = .error("Failed to save shared folder bookmark: \(error.localizedDescription)")
+        }
+    }
+
+    public func sync() {
+        let syncFolder = sharedFolderURL ?? storageDir.appendingPathComponent("shards", isDirectory: true)
+        let needsStop = syncFolder.startAccessingSecurityScopedResource()
+        defer { if needsStop { syncFolder.stopAccessingSecurityScopedResource() } }
+
+        let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+        let ownShardFilename = "events-phone-\(deviceIdentity.id).jsonl"
+
+        _ = try? ShardImporter.importShards(
+            from: syncFolder,
+            into: eventStore,
+            syncStateURL: syncStateURL,
+            ownShardFilename: ownShardFilename
+        )
+
+        noteService.rebuild()
+        pulledNotes = (try? noteService.listNotes()) ?? []
+
+        let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
+        _ = try? ShardPublisher.publishLocalEvents(
+            eventLogURL: storageDir.appendingPathComponent("events.jsonl"),
+            to: ownShardFileURL,
+            syncStateURL: syncStateURL,
+            ownDeviceLabel: deviceIdentity.label
+        )
     }
 
     public func toggleRecording() {
@@ -63,7 +121,6 @@ public final class CaptureStore: ObservableObject {
     }
 
     public func startRecording() {
-        // Asking for microphone access is asynchronous, so starting is too.
         Task {
             do {
                 let audioURL = try await recorder.startRecording(
@@ -91,12 +148,15 @@ public final class CaptureStore: ObservableObject {
                 let transcript = try await transcriber.transcribe(audioURL: audioURL)
                 let event = try shardWriter.writeCapture(transcript: transcript)
 
+                // Also append to local eventStore on phone
+                let jsonEncoder = JSONEncoder()
+                jsonEncoder.dateEncodingStrategy = .iso8601
+                if let rawData = try? jsonEncoder.encode(event) {
+                    try? eventStore.appendRaw(rawData)
+                }
+
                 let item = SentCaptureItem(
                     id: event.id,
-                    // `ShardWriter` always sets a title, and already falls back
-                    // to a timestamped one. Mirror that here rather than
-                    // reintroducing a constant the janitor would see as a
-                    // duplicate of every other capture.
                     title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
                     timestamp: event.timestamp,
                     audioURL: audioURL
@@ -104,8 +164,10 @@ public final class CaptureStore: ObservableObject {
                 captures.insert(item, at: 0)
                 state = .completed(title: item.title)
                 partialTranscript = transcript
+
+                // Sync after capture
+                sync()
             } catch {
-                // Audio file survives on disk at audioURL even if transcription fails!
                 state = .error("Transcription failed: \(error.localizedDescription) (audio saved at \(audioURL.lastPathComponent))")
             }
         }
