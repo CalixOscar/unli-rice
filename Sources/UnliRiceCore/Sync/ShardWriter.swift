@@ -13,10 +13,16 @@ public struct ShardWriter: Sendable {
         let noteID = UUID()
         let eventID = UUID()
 
-        // HARD REQUIREMENT: title derived via ImporterText.sanitizeTitle(ImporterText.condense(transcript, limit: 60))
+        // Titles must differ between captures, and not as a matter of taste:
+        // `Janitor.duplicateProposals` scores note *titles* alone and proposes a
+        // merge at >= 0.85 token overlap. A constant fallback scores 1.0 against
+        // every other capture that used it, so a handful of failed
+        // transcriptions would fill the review queue with proposals to merge
+        // unrelated recordings. Empty titles are worse still — `Projector` turns
+        // them into "Untitled", which then fights over `idsByTitle`.
         let condensed = ImporterText.condense(transcript, limit: 60)
         let derivedTitle = ImporterText.sanitizeTitle(condensed)
-        let finalTitle = derivedTitle.isEmpty ? "Voice note" : derivedTitle
+        let finalTitle = derivedTitle.isEmpty ? Self.timestampedFallbackTitle(for: date) : derivedTitle
 
         let event = Event(
             id: eventID,
@@ -49,5 +55,17 @@ public struct ShardWriter: Sendable {
         try handle.write(contentsOf: Data("\n".utf8))
 
         return event
+    }
+
+    /// The title for a capture whose transcript came back empty — a silent
+    /// recording, or a transcription that failed after the audio was saved.
+    ///
+    /// Second precision, not minute, so two captures in the same minute stay
+    /// distinguishable to the janitor's title comparison.
+    public static func timestampedFallbackTitle(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return "Voice note — \(formatter.string(from: date))"
     }
 }

@@ -88,7 +88,11 @@ public final class CaptureStore: ObservableObject {
 
                 let item = SentCaptureItem(
                     id: event.id,
-                    title: event.title ?? "Voice note",
+                    // `ShardWriter` always sets a title, and already falls back
+                    // to a timestamped one. Mirror that here rather than
+                    // reintroducing a constant the janitor would see as a
+                    // duplicate of every other capture.
+                    title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
                     timestamp: event.timestamp,
                     audioURL: audioURL
                 )

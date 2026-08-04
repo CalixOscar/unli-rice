@@ -36,4 +36,22 @@ final class ShardWriterTests: XCTestCase {
         XCTAssertTrue(raw.contains("\"device\":\"iPhone\""))
         XCTAssertTrue(raw.contains("\"title\":\"\(expectedTitle)\""))
     }
+
+    /// A constant fallback title scores 1.0 against itself in
+    /// `Janitor.duplicateProposals`, which compares titles alone at a 0.85
+    /// threshold — so two failed transcriptions would propose merging two
+    /// unrelated recordings. Distinct titles are what stops that.
+    func testEmptyTranscriptsGetDistinctTitlesRatherThanAConstant() throws {
+        let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
+
+        let first = try writer.writeCapture(transcript: "", date: Date(timeIntervalSince1970: 1000))
+        let second = try writer.writeCapture(transcript: "   ", date: Date(timeIntervalSince1970: 1001))
+
+        let firstTitle = try XCTUnwrap(first.title)
+        let secondTitle = try XCTUnwrap(second.title)
+
+        XCTAssertNotEqual(firstTitle, secondTitle)
+        XCTAssertFalse(firstTitle.isEmpty)
+        XCTAssertNotEqual(firstTitle, "Untitled", "an empty title becomes Untitled in Projector")
+    }
 }

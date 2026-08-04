@@ -4,7 +4,7 @@ options:
   bundleIdPrefix: com.calmdownoscar
   deploymentTarget:
     macOS: "13.0"
-    iOS: "16.0"
+    iOS: "26.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
@@ -40,7 +40,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.core.ios
         PRODUCT_MODULE_NAME: UnliRiceCore
-        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        # Matches Package.swift's .iOS(.v26) so SwiftPM and Xcode agree.
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
 
   UnliRiceCapture:
     type: application
@@ -53,12 +54,14 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture
         PRODUCT_NAME: UnliRiceCapture
+        INFOPLIST_KEY_CFBundleDisplayName: "Unli Rice Capture"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: 22SNGN5JYD
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Unli Rice Capture uses your microphone to dictate notes."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Unli Rice Capture uses speech recognition to transcribe voice notes."
         GENERATE_INFOPLIST_FILE: YES
-        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        # SpeechAnalyzer/SpeechTranscriber require 26; see Package.swift.
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
 
   UnliRiceHost:
     type: library.static
