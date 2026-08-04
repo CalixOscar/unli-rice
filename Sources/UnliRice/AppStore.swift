@@ -402,6 +402,33 @@ final class AppStore: ObservableObject {
         // remember to check.
         routineDriver.announceNow(settings: agentSettings)
         refreshNotices()
+
+        runShardImportIfNeeded()
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.runShardImportIfNeeded()
+            }
+        }
+    }
+
+    @discardableResult
+    func runShardImportIfNeeded() -> Int {
+        do {
+            let eventStore = try EventStore(fileURL: dataURL)
+            let receipt = try ShardImporter.importShards(besideEventLog: dataURL, into: eventStore)
+            if receipt.eventsAppended > 0 {
+                service.rebuild()
+                _ = noticeStore.post(NoticeFactory.capturesArrived(count: receipt.eventsAppended))
+                reload()
+            }
+            return receipt.eventsAppended
+        } catch {
+            return 0
+        }
     }
 
     /// Whether anything in this corpus was written by a person or an agent, as
