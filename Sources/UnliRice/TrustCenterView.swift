@@ -219,7 +219,9 @@ struct TrustCenterView: View {
         if activity.lastToolCallAt != nil {
             return activity.lastToolSucceeded == false ? Theme.brass : Theme.emerald
         }
-        return Theme.brass
+        // Vault Mode delivery is real evidence, just not evidence of a read —
+        // amber here would flag the primary path as broken while it works.
+        return activity.lastContextDeliveredAt != nil ? Theme.emerald : Theme.brass
     }
 
     private func clientLabel(_ activity: MCPConnectionActivity) -> String {
@@ -230,6 +232,9 @@ struct TrustCenterView: View {
         if let tool = activity.lastToolName, let date = activity.lastToolCallAt {
             let outcome = activity.lastToolSucceeded == false ? "failed" : "succeeded"
             return "\(tool) · \(outcome) · \(date.formatted(.relative(presentation: .named)))"
+        }
+        if let deliveredAt = activity.lastContextDeliveredAt {
+            return "vault context delivered \(deliveredAt.formatted(.relative(presentation: .named)))"
         }
         return "connected \(activity.lastSeenAt.formatted(.relative(presentation: .named))), never read a note"
     }

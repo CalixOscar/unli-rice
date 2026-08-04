@@ -56,5 +56,81 @@ final class ConnectionActivityTests: XCTestCase {
         XCTAssertNil(activity.lastToolName)
         XCTAssertNil(activity.lastToolCallAt)
         XCTAssertNil(activity.lastToolSucceeded)
+        // The distinction the Trust Center alarm turns on: connected and given
+        // nothing is not the same as connected and handed the vault.
+        XCTAssertNil(activity.lastContextDeliveredAt)
+    }
+
+    func testContextDeliveryIsRecordedWithoutClaimingAToolCall() throws {
+        let now = Date(timeIntervalSince1970: 600)
+        try store.recordContextDelivery(clientName: "Claude Code", clientVersion: nil, at: now)
+
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.lastContextDeliveredAt, now)
+        XCTAssertEqual(activity.lastSeenAt, now)
+        // Vault Mode reads files; nothing here can observe that, so delivery
+        // must never masquerade as a confirmed read.
+        XCTAssertNil(activity.lastToolCallAt)
+        XCTAssertNil(activity.lastToolName)
+    }
+
+    func testDeliveryThenToolCallKeepsBothSignals() throws {
+        let delivered = Date(timeIntervalSince1970: 700)
+        let called = Date(timeIntervalSince1970: 800)
+        try store.recordContextDelivery(clientName: "Claude Code", clientVersion: nil, at: delivered)
+        try store.recordToolCall(
+            clientName: "Claude Code",
+            clientVersion: nil,
+            toolName: "search_notes",
+            succeeded: true,
+            at: called
+        )
+
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.lastContextDeliveredAt, delivered)
+        XCTAssertEqual(activity.lastToolCallAt, called)
+    }
+
+    func testActivityWrittenBeforeContextFieldExistedStillDecodes() throws {
+        // The prompt hook and older builds both write records without the new
+        // key; a store that refuses them would take the whole Trust Center down.
+        let legacy = """
+        {"version":1,"clients":[{"id":"Codex","clientName":"Codex",\
+        "firstSeenAt":"2026-08-04T10:00:00Z","lastSeenAt":"2026-08-04T10:00:00Z"}]}
+        """
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(legacy.utf8).write(to: root.appendingPathComponent("connections.json"))
+
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.clientName, "Codex")
+        XCTAssertNil(activity.lastContextDeliveredAt)
+    }
+
+    func testRecordWrittenByThePromptHookDecodes() throws {
+        // Verbatim output of Scripts/unlirice-prompt-hook.py. The hook writes
+        // this file from Python while the app reads it from Swift, so the two
+        // encoders have to agree — including the `Z`-suffixed ISO-8601 dates
+        // that `.iso8601` decoding expects.
+        let fromHook = """
+        {
+          "version": 1,
+          "clients": [
+            {
+              "id": "Claude Code",
+              "clientName": "Claude Code",
+              "firstSeenAt": "2026-08-04T03:52:02Z",
+              "lastSeenAt": "2026-08-04T03:52:02Z",
+              "lastContextDeliveredAt": "2026-08-04T03:52:02Z"
+            }
+          ]
+        }
+        """
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(fromHook.utf8).write(to: root.appendingPathComponent("connections.json"))
+
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.id, "Claude Code")
+        XCTAssertNotNil(activity.lastContextDeliveredAt)
+        XCTAssertNil(activity.lastToolCallAt)
     }
 }

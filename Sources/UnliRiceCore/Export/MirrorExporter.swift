@@ -114,9 +114,15 @@ public enum MirrorExporter {
 
         // CLAUDE.md and AGENTS.md — convention files for Vault Mode
         let noteCountStr = "\(notes.count) note\(notes.count == 1 ? "" : "s")"
+        // Ask about the folder the agent will actually open, not the exporting
+        // process's own location: `detectedPackageRoot()` walks up from
+        // `Bundle.main`, which answers "was this app launched from a package?"
+        // — a different question, and one whose answer changes between a Finder
+        // launch and `swift test`. Vault-has-project-notes isn't the same claim
+        // either, so it doesn't belong in this condition.
         let contextNote: String
-        if Autopilot.detectedPackageRoot() != nil || !projectNotes.isEmpty {
-            contextNote = "Unli Rice notes supplement instructions for this project."
+        if Autopilot.packageRoot(startingAt: exportDir) != nil {
+            contextNote = "Unli Rice notes supplement the instructions already in this project."
         } else {
             contextNote = "No project folder here — Unli Rice notes are your only context for this session."
         }

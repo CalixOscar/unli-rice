@@ -57,14 +57,22 @@ while let line = readLine(strippingNewline: true) {
             currentClientName = (clientInfo["name"] as? String) ?? currentClientName
             currentClientVersion = clientInfo["version"] as? String
         }
-        _ = try? connectionActivity.recordConnection(
+        // Serving `instructions` below *is* a context delivery, so record it as
+        // one — otherwise Trust Center reports "never read a note" for a client
+        // that was handed the vault and simply hasn't called a tool yet.
+        _ = try? connectionActivity.recordContextDelivery(
             clientName: currentClientName,
             clientVersion: currentClientVersion
         )
         let notesCount = (try? service.listNotes(includeArchived: false).count) ?? 0
         let noteCountStr = "\(notesCount) note\(notesCount == 1 ? "" : "s")"
-        let contextNote = Autopilot.detectedPackageRoot() != nil
-            ? "Unli Rice notes supplement instructions for this project."
+        // The client's working directory, not `Bundle.main` — this server is
+        // launched inside whatever project the user is working in, which is the
+        // thing being asked about.
+        let contextNote = Autopilot.packageRoot(
+            startingAt: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        ) != nil
+            ? "Unli Rice notes supplement the instructions already in this project."
             : "No project folder here — Unli Rice notes are your only context for this session."
         let instructions = "This workspace has an Unli Rice vault: \(noteCountStr). Before answering, call search_notes or list_notes, and read `Wiki: index`. \(contextNote) Open your first reply with: ✅ Unli Rice vault connected — \(noteCountStr). If you found no relevant notes, say so instead. Never claim otherwise."
         JSONRPC.writeLine(JSONRPC.result(id: id, [

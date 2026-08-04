@@ -71,6 +71,13 @@ extension AppStore {
                 detail = "\(latest.clientName) called \(tool) \(calledAt.formatted(.relative(presentation: .named)))."
                 state = latest.lastToolSucceeded == false ? .attention : .healthy
                 title = "An MCP client has checked in"
+            } else if let deliveredAt = latest.lastContextDeliveredAt {
+                // Vault Mode: the agent reads Markdown off disk, which nothing
+                // here can see. Delivery is the strongest true claim available,
+                // so make it rather than crying wolf about a read we can't watch.
+                detail = "\(latest.clientName) was given the vault context \(deliveredAt.formatted(.relative(presentation: .named))). Reading files isn't observable from here."
+                state = .healthy
+                title = "Vault context delivered"
             } else {
                 detail = "\(latest.clientName) has been connected \(latest.lastSeenAt.formatted(.relative(presentation: .named))), but has never read a note."
                 state = .attention
