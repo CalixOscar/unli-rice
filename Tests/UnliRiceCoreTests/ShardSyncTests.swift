@@ -176,4 +176,78 @@ final class ShardSyncTests: XCTestCase {
         let notesAfterReimport = try macService.listNotes()
         XCTAssertFalse(notesAfterReimport.contains { $0.id == phoneEvent.noteId })
     }
+
+    /// The mirror image of `testMacPublishesOnlyLocallyOriginatedEvents`, from the
+    /// phone's side. Mac-authored events carry no `device` at all — `NoteService`
+    /// never sets one — so a filter that only inspects events that *have* a
+    /// device label cannot recognise them as foreign.
+    func testPhoneDoesNotRepublishImportedMacEvents() throws {
+        // The phone's own capture, labelled with its device.
+        try phoneStore.append(Event(
+            noteId: UUID(), source: "human", kind: .created,
+            title: "Dictated on the walk in", text: "mine", device: "iPhone"
+        ))
+
+        // A Mac event the phone imported. Mac events have device == nil.
+        try phoneStore.append(Event(
+            noteId: UUID(), source: "claude", kind: .created,
+            title: "Written on the Mac", text: "not mine", device: nil
+        ))
+
+        let phoneShard = sharedSyncDir.appendingPathComponent("events-phone-test.jsonl")
+        let published = try ShardPublisher.publishLocalEvents(
+            eventLogURL: phoneLogURL,
+            to: phoneShard,
+            syncStateURL: phoneSyncStateURL,
+            ownDeviceLabel: "iPhone",
+            isLocallyOriginated: { $0.device == "iPhone" }
+        )
+
+        let shardText = try String(contentsOf: phoneShard, encoding: .utf8)
+        XCTAssertFalse(
+            shardText.contains("Written on the Mac"),
+            "the phone re-published an imported Mac event into its own shard — a sync loop"
+        )
+        XCTAssertEqual(published, 1, "only the phone's own capture should be published")
+    }
+
+    /// FIX 3 Test: Verifies that purging a note on Mac rewrites events.jsonl smaller,
+    /// and ShardPublisher detects the shrink, rebuilds the published shard from scratch,
+    /// and removes the purged note from the published shard.
+    func testPurgeThenPublishRebuildsPublishedShard() throws {
+        _ = try macService.createNote(title: "Note A Keep", body: "body A", source: "antigravity")
+        let noteB = try macService.createNote(title: "Note B Purge", body: "body B", source: "antigravity")
+
+        let macShardURL = sharedSyncDir.appendingPathComponent("events-mac-purge-test.jsonl")
+
+        // 1. Initial publish -> publishes 2 events
+        let count1 = try ShardPublisher.publishLocalEvents(
+            eventLogURL: macLogURL,
+            to: macShardURL,
+            syncStateURL: macSyncStateURL,
+            ownDeviceLabel: "Mac"
+        )
+        XCTAssertEqual(count1, 2)
+
+        let initialShardContent = try String(contentsOf: macShardURL, encoding: .utf8)
+        XCTAssertTrue(initialShardContent.contains("Note A Keep"))
+        XCTAssertTrue(initialShardContent.contains("Note B Purge"))
+
+        // 2. Purge Note B on Mac -> rewrites macLogURL smaller
+        try TrashService.purge(noteIDs: [noteB.id], logURL: macLogURL)
+        macService.rebuild()
+
+        // 3. Publish again -> ShardPublisher catches log shrink, rebuilds published shard from scratch
+        let count2 = try ShardPublisher.publishLocalEvents(
+            eventLogURL: macLogURL,
+            to: macShardURL,
+            syncStateURL: macSyncStateURL,
+            ownDeviceLabel: "Mac"
+        )
+        XCTAssertEqual(count2, 1)
+
+        let rebuiltShardContent = try String(contentsOf: macShardURL, encoding: .utf8)
+        XCTAssertTrue(rebuiltShardContent.contains("Note A Keep"))
+        XCTAssertFalse(rebuiltShardContent.contains("Note B Purge"), "purged note must not linger in published shard")
+    }
 }

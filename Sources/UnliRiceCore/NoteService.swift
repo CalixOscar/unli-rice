@@ -41,8 +41,11 @@ public final class NoteService {
     /// every write. See `LinkIndex`.
     private var links = LinkIndex()
 
-    public init(store: EventStore) {
+    public var deviceLabel: String?
+
+    public init(store: EventStore, deviceLabel: String? = nil) {
         self.store = store
+        self.deviceLabel = deviceLabel
     }
 
     /// Throws away the cached projection so the next read refolds the whole log.
@@ -63,28 +66,28 @@ public final class NoteService {
     @discardableResult
     public func createNote(title: String, body: String, source: String) throws -> Note {
         let noteId = UUID()
-        try store.append(Event(noteId: noteId, source: source, kind: .created, title: title, text: body))
+        try store.append(Event(noteId: noteId, source: source, kind: .created, title: title, text: body, device: deviceLabel))
         return try require(noteId)
     }
 
     @discardableResult
     public func appendToNote(id: UUID, text: String, source: String) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .appended, text: text))
+        try store.append(Event(noteId: id, source: source, kind: .appended, text: text, device: deviceLabel))
         return try require(id)
     }
 
     @discardableResult
     public func tagNote(id: UUID, tag: String, source: String) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .tagged, tag: tag))
+        try store.append(Event(noteId: id, source: source, kind: .tagged, tag: tag, device: deviceLabel))
         return try require(id)
     }
 
     @discardableResult
     public func untagNote(id: UUID, tag: String, source: String) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .untagged, tag: tag))
+        try store.append(Event(noteId: id, source: source, kind: .untagged, tag: tag, device: deviceLabel))
         return try require(id)
     }
 
@@ -92,14 +95,14 @@ public final class NoteService {
     @discardableResult
     public func archiveNote(id: UUID, reason: String, source: String) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .archived, reason: reason))
+        try store.append(Event(noteId: id, source: source, kind: .archived, reason: reason, device: deviceLabel))
         return try require(id)
     }
 
     @discardableResult
     public func unarchiveNote(id: UUID, source: String) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .unarchived))
+        try store.append(Event(noteId: id, source: source, kind: .unarchived, device: deviceLabel))
         return try require(id)
     }
 
@@ -109,14 +112,14 @@ public final class NoteService {
     @discardableResult
     public func flagForReview(id: UUID, reason: String, source: String) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .flagged, reason: reason))
+        try store.append(Event(noteId: id, source: source, kind: .flagged, reason: reason, device: deviceLabel))
         return try require(id)
     }
 
     @discardableResult
     public func resolveReview(id: UUID, flagId: UUID, source: String, outcome: String? = nil) throws -> Note {
         try requireExists(id)
-        try store.append(Event(noteId: id, source: source, kind: .reviewResolved, reason: outcome, relatedEventId: flagId))
+        try store.append(Event(noteId: id, source: source, kind: .reviewResolved, reason: outcome, relatedEventId: flagId, device: deviceLabel))
         return try require(id)
     }
 

@@ -54,22 +54,32 @@ public final class CaptureStore: ObservableObject {
         self.deviceIdentity = identity
 
         let logURL = baseDir.appendingPathComponent("events.jsonl")
+        var initError: String? = nil
         let store: EventStore
-        if let existing = try? EventStore(fileURL: logURL) {
-            store = existing
-        } else {
-            let fallbackURL = baseDir.appendingPathComponent("events-fallback.jsonl")
-            store = try! EventStore(fileURL: fallbackURL)
+        do {
+            store = try EventStore(fileURL: logURL)
+        } catch {
+            initError = "Failed to initialize event log: \(error.localizedDescription)"
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("events-\(UUID().uuidString).jsonl")
+            do {
+                store = try EventStore(fileURL: tempURL)
+            } catch {
+                preconditionFailure("Failed to initialize temporary storage: \(error)")
+            }
         }
         self.eventStore = store
-        self.noteService = NoteService(store: store)
+        self.noteService = NoteService(store: store, deviceLabel: identity.label)
 
         let ownShardFile = baseDir.appendingPathComponent("shards", isDirectory: true)
             .appendingPathComponent("events-phone-\(identity.id).jsonl")
         self.shardWriter = ShardWriter(shardFileURL: ownShardFile, deviceLabel: identity.label)
 
         self.sharedFolderURL = SharedFolderManager.shared.resolveBookmark()
-        sync()
+        if let initError = initError {
+            self.state = .error(initError)
+        } else {
+            sync()
+        }
     }
 
     public func setSharedFolder(_ url: URL) {
@@ -101,11 +111,17 @@ public final class CaptureStore: ObservableObject {
         pulledNotes = (try? noteService.listNotes()) ?? []
 
         let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
+        let ownDeviceLabel = deviceIdentity.label
         _ = try? ShardPublisher.publishLocalEvents(
             eventLogURL: storageDir.appendingPathComponent("events.jsonl"),
             to: ownShardFileURL,
             syncStateURL: syncStateURL,
-            ownDeviceLabel: deviceIdentity.label
+            ownDeviceLabel: ownDeviceLabel,
+            isLocallyOriginated: { event in
+                // Phone publishes events originated on this phone (device == phoneDeviceLabel).
+                // Imported Mac events have device == nil or device == macDeviceLabel, so they are filtered out.
+                event.device == ownDeviceLabel
+            }
         )
     }
 

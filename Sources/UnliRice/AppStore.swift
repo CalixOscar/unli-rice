@@ -435,11 +435,16 @@ final class AppStore: ObservableObject {
 
             let ownShardURL = DataLocation.shardDirectory(besideEventLog: dataURL)
                 .appendingPathComponent(ownShardFilename)
+            let ownDeviceLabel = deviceIdentity.label
             try? ShardPublisher.publishLocalEvents(
                 eventLogURL: dataURL,
                 to: ownShardURL,
                 syncStateURL: SyncState.url(besideEventLog: dataURL),
-                ownDeviceLabel: deviceIdentity.label
+                ownDeviceLabel: ownDeviceLabel,
+                isLocallyOriginated: { event in
+                    // Mac-originated events have device == nil (legacy) or device == ownDeviceLabel
+                    event.device == nil || event.device == ownDeviceLabel
+                }
             )
 
             return receipt.eventsAppended

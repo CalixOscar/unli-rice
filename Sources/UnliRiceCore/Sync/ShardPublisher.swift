@@ -10,7 +10,8 @@ public enum ShardPublisher {
         eventLogURL: URL,
         to targetShardFileURL: URL,
         syncStateURL: URL,
-        ownDeviceLabel: String? = nil
+        ownDeviceLabel: String? = nil,
+        isLocallyOriginated: ((Event) -> Bool)? = nil
     ) throws -> Int {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: eventLogURL.path) else {
@@ -20,7 +21,25 @@ public enum ShardPublisher {
         var syncState = SyncState.load(from: syncStateURL)
         let feed = ShardFeed(fileURL: eventLogURL)
 
-        let (lines, newCursor) = try feed.readEvents(after: syncState.publishedCursor)
+        let lines: [Data]
+        let newCursor: FeedCursor
+
+        do {
+            let result = try feed.readEvents(after: syncState.publishedCursor)
+            lines = result.events
+            newCursor = result.newCursor
+        } catch ShardFeedError.shardShrunk {
+            // FIX 3: Local log is not a foreign shard. When local events.jsonl shrinks (e.g. after Trash.purge),
+            // rebuild the published shard from scratch to stop purged events from lingering.
+            if fileManager.fileExists(atPath: targetShardFileURL.path) {
+                try? fileManager.removeItem(at: targetShardFileURL)
+            }
+            syncState.publishedCursor = nil
+            let result = try feed.readEvents(after: nil)
+            lines = result.events
+            newCursor = result.newCursor
+        }
+
         guard !lines.isEmpty else {
             return 0
         }
@@ -35,23 +54,34 @@ public enum ShardPublisher {
         let handle = try FileHandle(forWritingTo: targetShardFileURL)
         defer { try? handle.close() }
 
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         var publishedCount = 0
 
-        for lineData in lines {
-            // LOOP PREVENTION FILTER:
-            // Only publish events that originated on THIS device.
-            if let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] {
-                let device = json["device"] as? String
+        // Ownership predicate logic:
+        // Caller supplies explicit isLocallyOriginated predicate.
+        // Asymmetry note: Mac passes `device == nil || device == macLabel` (legacy nil-device events originated on Mac).
+        // Phone passes `device == phoneLabel` (phone never wrote a nil-device event).
+        let predicate: (Event) -> Bool = isLocallyOriginated ?? { event in
+            guard let ownLabel = ownDeviceLabel else {
+                return event.device == nil
+            }
+            if ownLabel.lowercased().contains("mac") {
+                return event.device == nil || event.device == ownLabel
+            } else {
+                return event.device == ownLabel
+            }
+        }
 
-                // If event has a device specified, and it does not match our device identity, it is imported -> SKIP
-                if let device = device {
-                    if let ownLabel = ownDeviceLabel, device != ownLabel {
-                        continue
-                    } else if ownDeviceLabel == nil && (device == "iPhone" || device.contains("phone") || device.contains("foreign")) {
-                        // Skip foreign device line when own label is unspecified
-                        continue
-                    }
-                }
+        for lineData in lines {
+            guard let event = try? decoder.decode(Event.self, from: lineData) else {
+                continue
+            }
+
+            // LOOP PREVENTION FILTER:
+            // Only publish events that originated locally according to the ownership predicate.
+            guard predicate(event) else {
+                continue
             }
 
             try handle.seekToEnd()
