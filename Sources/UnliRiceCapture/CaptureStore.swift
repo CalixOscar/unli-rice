@@ -63,12 +63,17 @@ public final class CaptureStore: ObservableObject {
     }
 
     public func startRecording() {
-        do {
-            let audioURL = try recorder.startRecording(outputDirectory: storageDir.appendingPathComponent("Audio"))
-            state = .recording(audioURL: audioURL)
-            partialTranscript = "Recording audio…"
-        } catch {
-            state = .error("Failed to start recorder: \(error.localizedDescription)")
+        // Asking for microphone access is asynchronous, so starting is too.
+        Task {
+            do {
+                let audioURL = try await recorder.startRecording(
+                    outputDirectory: storageDir.appendingPathComponent("Audio")
+                )
+                state = .recording(audioURL: audioURL)
+                partialTranscript = "Recording audio…"
+            } catch {
+                state = .error(error.localizedDescription)
+            }
         }
     }
 

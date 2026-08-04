@@ -2,10 +2,17 @@ import AVFoundation
 import Foundation
 
 public enum RecorderError: Error, LocalizedError {
+    case microphonePermissionDenied
+    case audioSessionUnavailable(String)
     case recordingFailed(String)
 
     public var errorDescription: String? {
         switch self {
+        case .microphonePermissionDenied:
+            return "Unli Rice Capture needs microphone access to record. "
+                + "You can grant it in Settings › Privacy › Microphone."
+        case .audioSessionUnavailable(let reason):
+            return "Could not start the audio session: \(reason)"
         case .recordingFailed(let reason):
             return "Recorder error: \(reason)"
         }
@@ -21,7 +28,43 @@ public final class Recorder: NSObject, AVAudioRecorderDelegate, @unchecked Senda
         super.init()
     }
 
-    public func startRecording(outputDirectory: URL) throws -> URL {
+    /// Asks for microphone access, if it hasn't been granted already.
+    ///
+    /// A usage string in Info.plist only supplies the *wording* of the prompt —
+    /// something has to actually request it, or `AVAudioRecorder.record()` just
+    /// returns false with no prompt and no explanation.
+    public static func ensureMicrophonePermission() async -> Bool {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            return true
+        case .denied:
+            return false
+        case .undetermined:
+            return await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+        @unknown default:
+            return false
+        }
+    }
+
+    public func startRecording(outputDirectory: URL) async throws -> URL {
+        guard await Self.ensureMicrophonePermission() else {
+            throw RecorderError.microphonePermissionDenied
+        }
+
+        // Recording also needs an active session in a category that permits
+        // input. Without this the recorder fails to start even with permission.
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+            try session.setActive(true)
+        } catch {
+            throw RecorderError.audioSessionUnavailable(error.localizedDescription)
+        }
+
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
