@@ -45,6 +45,21 @@ public final class NoteService {
         self.store = store
     }
 
+    /// Throws away the cached projection so the next read refolds the whole log.
+    ///
+    /// `EventStore.read` already handles a log that *shrank* (it reports
+    /// `restarted` and the cache is dropped), but nothing handled a log that
+    /// changed *behind* the cursor — which is what appending imported events
+    /// with older timestamps does. There was previously no way to ask for a cold
+    /// rebuild short of constructing a new `NoteService`.
+    public func rebuild() {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        cachedNotes = [:]
+        links.reset()
+        cursor = .start
+    }
+
     @discardableResult
     public func createNote(title: String, body: String, source: String) throws -> Note {
         let noteId = UUID()

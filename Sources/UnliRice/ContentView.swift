@@ -1256,6 +1256,9 @@ private struct EventHistoryRow: View {
         case .unarchived: return "Restored from archive"
         case .flagged: return "Flagged for review"
         case .reviewResolved: return "Review resolved"
+        // An event from a newer build. History shows the gap honestly rather
+        // than hiding the row.
+        case .unrecognized: return "Unrecognized event"
         }
     }
 
@@ -1269,6 +1272,8 @@ private struct EventHistoryRow: View {
             return event.reason
         case .unarchived:
             return nil
+        case .unrecognized:
+            return "Written by a newer version of Unli Rice."
         }
     }
 
@@ -1282,6 +1287,7 @@ private struct EventHistoryRow: View {
         case .unarchived: return "tray.and.arrow.up.fill"
         case .flagged: return "flag.fill"
         case .reviewResolved: return "checkmark.circle.fill"
+        case .unrecognized: return "questionmark.circle"
         }
     }
 
