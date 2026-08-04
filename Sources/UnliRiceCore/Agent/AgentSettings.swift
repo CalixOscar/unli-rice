@@ -88,11 +88,19 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         claudeProjectsBookmark = try container.decodeIfPresent(Data.self, forKey: .claudeProjectsBookmark)
     }
 
+    private static var bookmarkResolutionOptions: URL.BookmarkResolutionOptions {
+        #if os(macOS)
+        return .withSecurityScope
+        #else
+        return []
+        #endif
+    }
+
     public var scanRoots: [URL] {
         var urls: [URL] = []
         for (_, data) in scanRootBookmarks {
             var isStale = false
-            if let url = try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
+            if let url = try? URL(resolvingBookmarkData: data, options: Self.bookmarkResolutionOptions, relativeTo: nil, bookmarkDataIsStale: &isStale) {
                 urls.append(url)
             }
         }
@@ -105,7 +113,7 @@ public struct AgentSettings: Codable, Equatable, Sendable {
     public var claudeProjectsURL: URL? {
         guard let data = claudeProjectsBookmark else { return nil }
         var isStale = false
-        return try? URL(resolvingBookmarkData: data, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+        return try? URL(resolvingBookmarkData: data, options: Self.bookmarkResolutionOptions, relativeTo: nil, bookmarkDataIsStale: &isStale)
     }
 
     /// Resolves the user-selected corpus folder. Callers must keep a successful
@@ -116,7 +124,7 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         var isStale = false
         return try? URL(
             resolvingBookmarkData: data,
-            options: .withSecurityScope,
+            options: Self.bookmarkResolutionOptions,
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         )

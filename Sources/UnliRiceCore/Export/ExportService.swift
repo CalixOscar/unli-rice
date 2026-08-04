@@ -39,8 +39,12 @@ public enum ExportService {
             try text.write(to: destination, atomically: true, encoding: .utf8)
 
         case .pdf:
+            #if os(macOS)
             let data = PDFExporter.renderCombined(notes)
             try data.write(to: destination)
+            #else
+            break
+            #endif
 
         case .okfBundle:
             let events = try service.transactionLog(limit: .max)

@@ -20,9 +20,15 @@ public struct DeviceIdentity: Codable, Equatable, Sendable {
             return identity
         }
 
+        #if os(macOS)
+        let deviceLabel = Host.current().localizedName ?? "Mac"
+        #else
+        let deviceLabel = "iPhone"
+        #endif
+
         let newIdentity = DeviceIdentity(
             id: UUID().uuidString,
-            label: Host.current().localizedName ?? "Mac"
+            label: deviceLabel
         )
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         if let data = try? JSONEncoder().encode(newIdentity) {

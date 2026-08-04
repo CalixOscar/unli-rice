@@ -6,7 +6,7 @@ let package = Package(
     // Back to macOS 13. The package sat on 14 only because that was MLX's floor
     // and SPM platforms are package-wide — see PROJECT_NOTES.md for why the
     // on-device model was removed.
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v13), .iOS(.v16)],
     products: [
         .library(name: "UnliRiceCore", targets: ["UnliRiceCore"]),
         .executable(name: "unlirice-mcp", targets: ["unlirice-mcp"]),

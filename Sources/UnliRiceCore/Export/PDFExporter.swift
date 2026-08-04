@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import Foundation
 
@@ -81,3 +82,4 @@ public enum PDFExporter {
         return result
     }
 }
+#endif

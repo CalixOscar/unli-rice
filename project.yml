@@ -4,6 +4,7 @@ options:
   bundleIdPrefix: com.calmdownoscar
   deploymentTarget:
     macOS: "13.0"
+    iOS: "16.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
@@ -29,6 +30,35 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.core
+
+  UnliRiceCoreiOS:
+    type: library.static
+    platform: iOS
+    sources:
+      - Sources/UnliRiceCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.core.ios
+        PRODUCT_MODULE_NAME: UnliRiceCore
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+  UnliRiceCapture:
+    type: application
+    platform: iOS
+    sources:
+      - Sources/UnliRiceCapture
+    dependencies:
+      - target: UnliRiceCoreiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture
+        PRODUCT_NAME: UnliRiceCapture
+        TARGETED_DEVICE_FAMILY: "1,2"
+        DEVELOPMENT_TEAM: 22SNGN5JYD
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Unli Rice Capture uses your microphone to dictate notes."
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Unli Rice Capture uses speech recognition to transcribe voice notes."
+        GENERATE_INFOPLIST_FILE: YES
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
   UnliRiceHost:
     type: library.static
