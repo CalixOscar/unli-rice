@@ -157,6 +157,43 @@ public final class CaptureStore: ObservableObject {
         )
     }
 
+    public func deleteCapture(id: UUID) {
+        captures.removeAll { $0.id == id }
+        pulledNotes.removeAll { $0.id == id }
+
+        let logURL = storageDir.appendingPathComponent("events.jsonl")
+        if FileManager.default.fileExists(atPath: logURL.path) {
+            _ = try? TrashService.purge(noteIDs: [id], logURL: logURL)
+        }
+
+        let ownShardFilename = "events-phone-\(deviceIdentity.id).jsonl"
+        let syncFolder = sharedFolderURL ?? storageDir.appendingPathComponent("shards", isDirectory: true)
+        let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
+
+        // Remove the target published shard file so ShardPublisher rebuilds it cleanly from logURL
+        if FileManager.default.fileExists(atPath: ownShardFileURL.path) {
+            try? FileManager.default.removeItem(at: ownShardFileURL)
+        }
+
+        let syncStateURL = SyncState.url(besideEventLog: logURL)
+        var syncState = SyncState.load(from: syncStateURL)
+        syncState.publishedCursor = nil
+        try? syncState.save(to: syncStateURL)
+
+        let ownDeviceLabel = deviceIdentity.label
+        _ = try? ShardPublisher.publishLocalEvents(
+            eventLogURL: logURL,
+            to: ownShardFileURL,
+            syncStateURL: syncStateURL,
+            ownDeviceLabel: ownDeviceLabel,
+            isLocallyOriginated: { event in
+                event.device == ownDeviceLabel
+            }
+        )
+
+        sync()
+    }
+
     public func toggleRecording() {
         switch state {
         case .idle, .completed, .error:

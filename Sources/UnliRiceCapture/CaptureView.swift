@@ -11,7 +11,7 @@ public struct CaptureView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             header
 
             if store.layoutPlacement == .micTopNotesBottom {
@@ -56,19 +56,20 @@ public struct CaptureView: View {
     }
 
     private var recordSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             recordButton
             statusView
         }
+        .frame(maxHeight: 160)
     }
 
     private var recordButton: some View {
         ZStack {
             Circle()
                 .fill(isRecording ? Color.red : Color.accentColor)
-                .frame(width: 72, height: 72)
+                .frame(width: 68, height: 68)
             Image(systemName: isRecording ? "square.fill" : "mic.fill")
-                .font(.system(size: 28))
+                .font(.system(size: 26))
                 .foregroundColor(.white)
         }
         .contentShape(Circle())
@@ -100,25 +101,25 @@ public struct CaptureView: View {
     }
 
     private var statusView: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             switch store.state {
             case .idle:
                 Text(store.recordingMode == .holdToRecord ? "Press and hold mic to record" : "Tap mic to record a thought")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12.5))
                     .foregroundColor(.secondary)
             case .recording:
                 Text(store.recordingMode == .holdToRecord ? "Recording… Release to finish" : "Recording… Tap to finish")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundColor(.red)
             case .transcribing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("Transcribing voice note…")
-                        .font(.system(size: 13))
+                        .font(.system(size: 12.5))
                 }
             case .completed(let title):
                 Text("Saved: “\(title)”")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12.5, weight: .medium))
                     .foregroundColor(.green)
             case .error(let msg):
                 Text(msg)
@@ -129,8 +130,8 @@ public struct CaptureView: View {
 
             if !store.partialTranscript.isEmpty && store.state != .idle {
                 Text(store.partialTranscript)
-                    .font(.system(size: 12.5, design: .monospaced))
-                    .padding(10)
+                    .font(.system(size: 12, design: .monospaced))
+                    .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(8)
@@ -139,11 +140,17 @@ public struct CaptureView: View {
     }
 
     private var notesAndCapturesSection: some View {
-        VStack(spacing: 12) {
-            pulledNotesSection
-            Divider()
-            capturesList
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                pulledNotesSection
+                if !store.pulledNotes.isEmpty && !store.captures.isEmpty {
+                    Divider()
+                }
+                capturesList
+            }
+            .padding(.vertical, 4)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var pulledNotesSection: some View {
@@ -160,28 +167,35 @@ public struct CaptureView: View {
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(store.pulledNotes.prefix(15)) { note in
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(store.pulledNotes) { note in
+                        HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(note.title)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .lineLimit(1)
+                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .lineLimit(2)
                                 if !note.body.isEmpty {
                                     Text(note.body)
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
-                                        .lineLimit(2)
+                                        .lineLimit(3)
                                 }
                             }
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Color.secondary.opacity(0.06))
-                            .cornerRadius(6)
+                            Spacer()
+                            Button(action: { store.deleteCapture(id: note.id) }) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.red.opacity(0.8))
+                                    .padding(6)
+                            }
+                            .buttonStyle(.plain)
                         }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.secondary.opacity(0.06))
+                        .cornerRadius(8)
                     }
                 }
-                .frame(maxHeight: 140)
             }
         }
     }
@@ -198,29 +212,31 @@ public struct CaptureView: View {
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
-                ScrollView {
-                    VStack(spacing: 6) {
-                        ForEach(store.captures) { item in
-                            HStack {
-                                Image(systemName: "waveform")
-                                    .foregroundColor(.accentColor)
-                                    .font(.system(size: 12))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.title)
-                                        .font(.system(size: 12, weight: .semibold))
-                                    Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.system(size: 12))
+                VStack(spacing: 6) {
+                    ForEach(store.captures) { item in
+                        HStack {
+                            Image(systemName: "waveform")
+                                .foregroundColor(.accentColor)
+                                .font(.system(size: 12))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(item.title)
+                                    .font(.system(size: 12.5, weight: .semibold))
+                                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.secondary)
                             }
-                            .padding(8)
-                            .background(Color.secondary.opacity(0.08))
-                            .cornerRadius(6)
+                            Spacer()
+                            Button(action: { store.deleteCapture(id: item.id) }) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.red.opacity(0.8))
+                                    .padding(6)
+                            }
+                            .buttonStyle(.plain)
                         }
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.08))
+                        .cornerRadius(8)
                     }
                 }
             }

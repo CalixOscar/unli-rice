@@ -309,4 +309,69 @@ final class ShardSyncTests: XCTestCase {
         XCTAssertTrue(mac2ShardText.contains("Note from Mac 2"))
         XCTAssertFalse(mac2ShardText.contains("Note from Mac 1"), "Mac 2 re-published Mac 1's imported event — sync loop between Macs")
     }
+
+    /// Verifies that deleting a capture on-device before Mac retrieves it purges it locally and removes it from the published shard.
+    func testDeleteBeforeMacImportExcludesNoteFromPublishedShard() throws {
+        let phoneShardFilename = "events-phone-del.jsonl"
+        let phoneShardURL = sharedSyncDir.appendingPathComponent(phoneShardFilename)
+        let writer = ShardWriter(shardFileURL: phoneShardURL, deviceLabel: "iPhone")
+
+        // 1. Phone captures two voice notes
+        let capture1 = try writer.writeCapture(transcript: "Keep this thought")
+        let capture2 = try writer.writeCapture(transcript: "Delete this secret before Mac sees it")
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try phoneStore.appendRaw(encoder.encode(capture1))
+        try phoneStore.appendRaw(encoder.encode(capture2))
+
+        // 2. Initial publish -> publishes 2 events to phone shard
+        _ = try ShardPublisher.publishLocalEvents(
+            eventLogURL: phoneLogURL,
+            to: phoneShardURL,
+            syncStateURL: phoneSyncStateURL,
+            ownDeviceLabel: "iPhone",
+            isLocallyOriginated: { $0.device == "iPhone" }
+        )
+        let initialShardText = try String(contentsOf: phoneShardURL, encoding: .utf8)
+        XCTAssertTrue(initialShardText.contains("Delete this secret"))
+
+        // 3. User deletes capture 2 before Mac imports
+        try TrashService.purge(noteIDs: [capture2.noteId], logURL: phoneLogURL)
+        if FileManager.default.fileExists(atPath: phoneShardURL.path) {
+            try FileManager.default.removeItem(at: phoneShardURL)
+        }
+
+        // Reset cursor & re-publish
+        var phoneState = SyncState.load(from: phoneSyncStateURL)
+        phoneState.publishedCursor = nil
+        try phoneState.save(to: phoneSyncStateURL)
+
+        _ = try ShardPublisher.publishLocalEvents(
+            eventLogURL: phoneLogURL,
+            to: phoneShardURL,
+            syncStateURL: phoneSyncStateURL,
+            ownDeviceLabel: "iPhone",
+            isLocallyOriginated: { $0.device == "iPhone" }
+        )
+
+        // 4. Verify phone shard on disk no longer contains capture 2
+        let updatedShardText = try String(contentsOf: phoneShardURL, encoding: .utf8)
+        XCTAssertTrue(updatedShardText.contains("Keep this thought"))
+        XCTAssertFalse(updatedShardText.contains("Delete this secret"), "deleted capture must be removed from published shard before Mac retrieves it")
+
+        // 5. Mac imports phone shard -> Mac receives ONLY capture 1!
+        let macReceipt = try ShardImporter.importShards(
+            from: sharedSyncDir,
+            into: macStore,
+            syncStateURL: macSyncStateURL,
+            ownShardFilename: "events-mac-111.jsonl"
+        )
+        XCTAssertEqual(macReceipt.eventsAppended, 1)
+        macService.rebuild()
+
+        let macNotes = try macService.listNotes()
+        XCTAssertTrue(macNotes.contains { $0.id == capture1.noteId })
+        XCTAssertFalse(macNotes.contains { $0.id == capture2.noteId })
+    }
 }
