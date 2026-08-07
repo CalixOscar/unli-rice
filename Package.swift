@@ -6,7 +6,14 @@ let package = Package(
     // Back to macOS 13. The package sat on 14 only because that was MLX's floor
     // and SPM platforms are package-wide — see PROJECT_NOTES.md for why the
     // on-device model was removed.
-    platforms: [.macOS(.v13)],
+    // iOS 26 is the floor for `SpeechAnalyzer`/`SpeechTranscriber`, which the
+    // capture app depends on — the legacy `SFSpeechRecognizer` ends a session on
+    // a pause, the behaviour a dictation app exists to avoid. Adding a second
+    // platform does not move the macOS floor; these are independent.
+    // `.v26` needs swift-tools-version 6; the string form is the equivalent on
+    // 5.10, and bumping the tools version would change concurrency defaults for
+    // every target — not something to do as a side effect of adding a platform.
+    platforms: [.macOS(.v13), .iOS("26.0")],
     products: [
         .library(name: "UnliRiceCore", targets: ["UnliRiceCore"]),
         .executable(name: "unlirice-mcp", targets: ["unlirice-mcp"]),

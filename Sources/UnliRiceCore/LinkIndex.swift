@@ -29,10 +29,18 @@ import Foundation
 /// is the only property that matters here. If the two ever disagree, trust the
 /// cold one and fix this.
 struct LinkIndex {
-    /// First note to claim a title owns it, matching `Projector.resolveLinks`'s
-    /// "oldest wins". Built in log order rather than by sorting on `createdAt`,
-    /// which is the same thing for a log written in real time — the assumption
-    /// `Projector.apply` already documents and relies on.
+    /// The oldest note to claim a title owns it, matching
+    /// `Projector.resolveLinks`'s "oldest wins, ties broken by id".
+    ///
+    /// This used to claim in *arrival* order, on the reasoning that arrival and
+    /// `createdAt` order are the same thing for a log written in real time. They
+    /// are — right up until a second device appears. An event captured offline
+    /// and imported later arrives after events that happened before it, and then
+    /// the incumbent-wins rule hands the title to the *newer* note while a cold
+    /// `Projector.project` hands it to the older one. `ShardImportTests` pins it.
+    ///
+    /// So a later arrival with an older `createdAt` displaces the incumbent, and
+    /// everything that resolved to the incumbent is recomputed.
     private var idsByTitle: [String: UUID] = [:]
 
     /// Each note's `[[…]]` targets as last parsed from its body.
@@ -62,7 +70,20 @@ struct LinkIndex {
             dirty.insert(id)
 
             let titleKey = note.title.lowercased()
-            if idsByTitle[titleKey] == nil {
+            if let incumbentID = idsByTitle[titleKey] {
+                // Same tie-break as Projector.resolveLinks: (createdAt, id).
+                let incumbent = notes[incumbentID]
+                let claims = incumbent.map {
+                    (note.createdAt, note.id.uuidString) < ($0.createdAt, $0.id.uuidString)
+                } ?? true
+                if claims {
+                    idsByTitle[titleKey] = id
+                    dirty.formUnion(danglingBy[titleKey] ?? [])
+                    // Whatever pointed at the incumbent has to be re-resolved —
+                    // some of it was resolving by this title and now lands here.
+                    dirty.formUnion(incumbent?.backlinks ?? [])
+                }
+            } else {
                 idsByTitle[titleKey] = id
                 // Anything that was dangling on this title now resolves.
                 dirty.formUnion(danglingBy[titleKey] ?? [])

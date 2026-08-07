@@ -17,6 +17,17 @@ public struct MCPConnectionActivity: Codable, Identifiable, Equatable, Sendable 
     public var lastToolCallAt: Date?
     public var lastToolSucceeded: Bool?
 
+    /// When this client was last handed the vault's context — the prompt hook
+    /// firing, or the MCP `initialize` instructions being served.
+    ///
+    /// Deliberately *not* the same claim as `lastToolCallAt`. In Vault Mode the
+    /// agent reads Markdown off the filesystem, which nothing here can observe,
+    /// so a read can never be confirmed the way a tool call can. Recording the
+    /// delivery separately lets the UI say "context was delivered, a read isn't
+    /// observable" instead of the false "never read a note" — while still
+    /// distinguishing both from a client that got nothing at all.
+    public var lastContextDeliveredAt: Date?
+
     public init(
         id: String,
         clientName: String,
@@ -25,7 +36,8 @@ public struct MCPConnectionActivity: Codable, Identifiable, Equatable, Sendable 
         lastSeenAt: Date,
         lastToolName: String? = nil,
         lastToolCallAt: Date? = nil,
-        lastToolSucceeded: Bool? = nil
+        lastToolSucceeded: Bool? = nil,
+        lastContextDeliveredAt: Date? = nil
     ) {
         self.id = id
         self.clientName = clientName
@@ -35,6 +47,7 @@ public struct MCPConnectionActivity: Codable, Identifiable, Equatable, Sendable 
         self.lastToolName = lastToolName
         self.lastToolCallAt = lastToolCallAt
         self.lastToolSucceeded = lastToolSucceeded
+        self.lastContextDeliveredAt = lastContextDeliveredAt
     }
 }
 
@@ -88,6 +101,21 @@ public final class MCPConnectionActivityStore: @unchecked Sendable {
     ) throws -> MCPConnectionActivity {
         try mutate(clientName: clientName, clientVersion: clientVersion, at: date) { activity in
             activity.lastSeenAt = date
+        }
+    }
+
+    /// Records that the vault's context was handed to a client — the prompt hook
+    /// firing, or `initialize` serving its instructions. Evidence of delivery,
+    /// never of a read; see `lastContextDeliveredAt`.
+    @discardableResult
+    public func recordContextDelivery(
+        clientName: String,
+        clientVersion: String?,
+        at date: Date = Date()
+    ) throws -> MCPConnectionActivity {
+        try mutate(clientName: clientName, clientVersion: clientVersion, at: date) { activity in
+            activity.lastSeenAt = date
+            activity.lastContextDeliveredAt = date
         }
     }
 

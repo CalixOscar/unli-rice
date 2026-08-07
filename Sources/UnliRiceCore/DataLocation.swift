@@ -75,6 +75,16 @@ public enum DataLocation {
         folder.appendingPathComponent("events.jsonl")
     }
 
+    /// The directory where foreign device event shards live (`shards/` beside the event log).
+    public static func shardDirectory(besideEventLog eventLog: URL) -> URL {
+        eventLog.deletingLastPathComponent().appendingPathComponent("shards", isDirectory: true)
+    }
+
+    /// The shard URL for a specific device identifier beside the event log.
+    public static func shardURL(id: String, besideEventLog eventLog: URL) -> URL {
+        shardDirectory(besideEventLog: eventLog).appendingPathComponent("events-\(id).jsonl")
+    }
+
     /// The path without the env override or the migration side-effect — for
     /// tools that want to name the real log without opening it.
     public static func defaultEventLogURL() -> URL {

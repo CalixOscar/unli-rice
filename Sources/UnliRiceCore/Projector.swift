@@ -17,14 +17,29 @@ public enum Projector {
     /// Split out of `project` so a reader that has already consumed most of the
     /// log can apply only what arrived since (see `EventStore.read(from:)`).
     /// Folding is associative over the log *as long as batches arrive in
-    /// timestamp order*, which for an append-only file written in real time they
-    /// do — each batch is sorted here, but a batch cannot reorder itself against
-    /// one already folded. An event written with a backdated timestamp would
-    /// therefore land in a different order than a whole-log `project` would put
-    /// it, so nothing in this codebase backdates one; `Event.timestamp` defaults
-    /// to now and no method overrides it.
+    /// timestamp order* — each batch is sorted here, but a batch cannot reorder
+    /// itself against one already folded, so an event with a backdated timestamp
+    /// lands in a different order than a whole-log `project` would put it.
+    ///
+    /// Backdated events **do** occur. `VaultSnapshotService.restore` appends
+    /// snapshot events whose timestamps precede the live tail, and importing a
+    /// capture made offline on another device does the same by construction.
+    /// (This comment used to claim nothing backdates; it was already untrue.)
+    ///
+    /// What that costs is bounded: `LinkIndex` is the component that noticed,
+    /// and it now resolves title ownership by `createdAt` rather than arrival so
+    /// the incremental answer still equals the cold one — see `ShardImportTests`.
+    /// An `.appended` for a `noteId` this projection hasn't seen yet is still
+    /// dropped below, so an importer must not split a note's history across
+    /// batches.
     public static func apply(_ events: [Event], to notes: inout [UUID: Note]) {
         for event in events.sorted(by: { $0.timestamp < $1.timestamp }) {
+            // A kind this build predates. It stays in the log — and crosses
+            // device boundaries intact via `EventStore.appendRaw` — but it can't
+            // be folded, and it earns no editor attribution either, because
+            // there's no way to say what it did.
+            guard event.kind != .unrecognized else { continue }
+
             // Anyone who changed a note they didn't write, whatever the change
             // was. Kept apart from `sources` — which only ever meant "wrote
             // text into this" — because the janitor's whole job is tagging and
@@ -36,6 +51,9 @@ public enum Projector {
             }
 
             switch event.kind {
+            case .unrecognized:
+                continue // unreachable: the guard above already skipped these
+
             case .created:
                 notes[event.noteId] = Note(
                     id: event.noteId,

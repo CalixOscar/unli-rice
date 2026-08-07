@@ -12,6 +12,25 @@ public enum EventKind: String, Codable, Sendable {
     case unarchived
     case flagged
     case reviewResolved
+
+    /// A kind written by a build newer than this one.
+    ///
+    /// Without this case, decoding such an event *throws* — and since
+    /// `EventStore.read` decodes with `try?`, the line would be silently
+    /// dropped while the cursor moved past it. On a single-writer log that could
+    /// never happen; once a second device writes the same corpus it becomes a
+    /// permanent, unrecoverable data loss the moment the two builds drift.
+    ///
+    /// Decoding to this case keeps the event readable and skippable. Note the
+    /// original spelling is *not* preserved through a re-encode, which is why
+    /// importers must carry foreign lines across with `EventStore.appendRaw`
+    /// rather than decoding and re-encoding them.
+    case unrecognized
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = EventKind(rawValue: raw) ?? .unrecognized
+    }
 }
 
 /// A single immutable fact appended to the event log. Notes are never edited or
@@ -29,6 +48,20 @@ public struct Event: Codable, Sendable, Identifiable {
     public var reason: String?
     public var relatedEventId: UUID?
 
+    /// Which device wrote this, when that isn't the machine holding the log.
+    ///
+    /// Deliberately separate from `source`, which is *agent* identity — "claude",
+    /// "ingest", "janitor", "human" — and which fans out into `Note.creator`,
+    /// `sources`, `editors`, and the retrospective's contributor stats. A phone
+    /// capture is still written by `human`; recording it as `source: "ios"`
+    /// would credit a device for what the user dictated and split their own
+    /// contribution history across two identities, permanently, because events
+    /// are immutable.
+    ///
+    /// Optional so old lines decode in new builds and new lines decode in old
+    /// ones — the only extension shape that is safe in both directions.
+    public var device: String?
+
     public init(
         id: UUID = UUID(),
         noteId: UUID,
@@ -39,7 +72,8 @@ public struct Event: Codable, Sendable, Identifiable {
         text: String? = nil,
         tag: String? = nil,
         reason: String? = nil,
-        relatedEventId: UUID? = nil
+        relatedEventId: UUID? = nil,
+        device: String? = nil
     ) {
         self.id = id
         self.noteId = noteId
@@ -51,5 +85,6 @@ public struct Event: Codable, Sendable, Identifiable {
         self.tag = tag
         self.reason = reason
         self.relatedEventId = relatedEventId
+        self.device = device
     }
 }

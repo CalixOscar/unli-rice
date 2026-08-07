@@ -350,7 +350,8 @@ final class AppStore: ObservableObject {
         embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
         do {
             let store = try EventStore(fileURL: url)
-            service = NoteService(store: store)
+            let deviceIdentity = DeviceIdentity.current(inDirectory: url.deletingLastPathComponent())
+            service = NoteService(store: store, deviceLabel: deviceIdentity.label)
         } catch {
             fatalError("Could not open event log at \(url.path): \(error)")
         }
@@ -402,6 +403,55 @@ final class AppStore: ObservableObject {
         // remember to check.
         routineDriver.announceNow(settings: agentSettings)
         refreshNotices()
+
+        runShardImportIfNeeded()
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.runShardImportIfNeeded()
+            }
+        }
+    }
+
+    @discardableResult
+    func runShardImportIfNeeded() -> Int {
+        do {
+            let deviceIdentity = DeviceIdentity.current(inDirectory: dataURL.deletingLastPathComponent())
+            let ownShardFilename = "events-mac-\(deviceIdentity.id).jsonl"
+            let eventStore = try EventStore(fileURL: dataURL)
+
+            let receipt = try ShardImporter.importShards(
+                besideEventLog: dataURL,
+                into: eventStore,
+                ownShardFilename: ownShardFilename
+            )
+            if receipt.eventsAppended > 0 {
+                service.rebuild()
+                _ = noticeStore.post(NoticeFactory.capturesArrived(count: receipt.eventsAppended))
+                reload()
+            }
+
+            let ownShardURL = DataLocation.shardDirectory(besideEventLog: dataURL)
+                .appendingPathComponent(ownShardFilename)
+            let ownDeviceLabel = deviceIdentity.label
+            try? ShardPublisher.publishLocalEvents(
+                eventLogURL: dataURL,
+                to: ownShardURL,
+                syncStateURL: SyncState.url(besideEventLog: dataURL),
+                ownDeviceLabel: ownDeviceLabel,
+                isLocallyOriginated: { event in
+                    // Mac-originated events have device == nil (legacy) or device == ownDeviceLabel
+                    event.device == nil || event.device == ownDeviceLabel
+                }
+            )
+
+            return receipt.eventsAppended
+        } catch {
+            return 0
+        }
     }
 
     /// Whether anything in this corpus was written by a person or an agent, as
@@ -455,7 +505,8 @@ final class AppStore: ObservableObject {
             }
 
             let store = try EventStore(fileURL: url)
-            service = NoteService(store: store)
+            let deviceIdentity = DeviceIdentity.current(inDirectory: url.deletingLastPathComponent())
+            service = NoteService(store: store, deviceLabel: deviceIdentity.label)
             dataURL = url
             dataFolderAccessStarted = isScoped
             activeDataFolderURL = isScoped ? folder : nil
@@ -698,11 +749,13 @@ final class AppStore: ObservableObject {
 
         if copyMasterGuardrails, let master = profileRegistry.masterProfile, master.id != profile.id {
             let masterStorePath = URL(fileURLWithPath: master.folderPath).appendingPathComponent("events.jsonl")
+            let masterDeviceIdentity = DeviceIdentity.current(inDirectory: masterStorePath.deletingLastPathComponent())
+            let targetStorePath = folderURL.appendingPathComponent("events.jsonl")
+            let targetDeviceIdentity = DeviceIdentity.current(inDirectory: targetStorePath.deletingLastPathComponent())
             if FileManager.default.fileExists(atPath: masterStorePath.path),
-               let masterService = try? NoteService(store: EventStore(fileURL: masterStorePath)),
+               let masterService = try? NoteService(store: EventStore(fileURL: masterStorePath), deviceLabel: masterDeviceIdentity.label),
                let masterGuardrail = (try? masterService.searchNotes(query: "Profile: guardrails"))?.first(where: { $0.title.lowercased() == "profile: guardrails" }) {
-                let targetStorePath = folderURL.appendingPathComponent("events.jsonl")
-                let targetService = (try? NoteService(store: EventStore(fileURL: targetStorePath))) ?? service
+                let targetService = (try? NoteService(store: EventStore(fileURL: targetStorePath), deviceLabel: targetDeviceIdentity.label)) ?? service
                 let copiedBody = """
                 \(masterGuardrail.body)
 

@@ -47,7 +47,7 @@ public struct EventBatch: Sendable {
 /// which is what makes every derived action (tags, archiving, projections)
 /// reversible by construction. See PROJECT_NOTES.md.
 public final class EventStore: @unchecked Sendable {
-    private let fileURL: URL
+    public let fileURL: URL
     private let queue = DispatchQueue(label: "com.unlirice.eventstore")
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -82,6 +82,39 @@ public final class EventStore: @unchecked Sendable {
         try queue.sync {
             var payload = try encoder.encode(event)
             payload.append(UInt8(ascii: "\n"))
+
+            let fd = open(fileURL.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+            guard fd >= 0 else { throw EventStoreError.fileUnavailable }
+            defer { close(fd) }
+
+            guard flock(fd, LOCK_EX) == 0 else { throw EventStoreError.fileUnavailable }
+            defer { flock(fd, LOCK_UN) }
+
+            let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+            handle.write(payload)
+        }
+    }
+
+    /// Appends one already-encoded line, without decoding it first.
+    ///
+    /// This exists for importing events written by *another* device. `read`
+    /// drops any line it cannot decode (`try?`), and `EventKind` has no unknown
+    /// case, so a decode-then-re-encode importer running on an older build would
+    /// silently discard every event carrying a kind or field that build predates
+    /// — permanently, since the cursor moves past it either way.
+    ///
+    /// Carrying the original bytes across means an old binary faithfully
+    /// preserves what it cannot yet interpret, and a later upgrade makes those
+    /// events simply appear. The caller is expected to have decoded no more than
+    /// the `id` it needs for deduplication.
+    ///
+    /// Takes the same exclusive `flock` as `append` for the same reason.
+    public func appendRaw(_ line: Data) throws {
+        try queue.sync {
+            var payload = line
+            if payload.last != UInt8(ascii: "\n") {
+                payload.append(UInt8(ascii: "\n"))
+            }
 
             let fd = open(fileURL.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
             guard fd >= 0 else { throw EventStoreError.fileUnavailable }

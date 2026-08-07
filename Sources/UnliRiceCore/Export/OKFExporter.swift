@@ -65,6 +65,10 @@ public enum OKFExporter {
         case .unarchived: return "Unarchive"
         case .flagged: return "Flag"
         case .reviewResolved: return "Review resolved"
+        // Written by a newer build. Name it plainly rather than guessing or
+        // omitting the row — an export that quietly drops history is worse than
+        // one that admits a gap.
+        case .unrecognized: return "Unrecognized event"
         }
     }
 

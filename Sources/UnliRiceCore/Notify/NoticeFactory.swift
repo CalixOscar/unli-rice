@@ -90,6 +90,18 @@ public enum NoticeFactory {
             destination: .none
         )
     }
+
+    /// Notice raised when foreign shard captures arrive and are imported.
+    public static func capturesArrived(count: Int, at date: Date = Date()) -> Notice {
+        Notice(
+            timestamp: date,
+            kind: .routine,
+            key: "captures-arrived",
+            title: count == 1 ? "New capture arrived" : "\(count) new captures arrived",
+            detail: "\(count) event\(count == 1 ? "" : "s") imported from foreign shard.",
+            destination: .none
+        )
+    }
 }
 
 /// Decides when a period is worth announcing.
