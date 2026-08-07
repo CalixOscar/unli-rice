@@ -16,10 +16,10 @@ struct ProfileManagerView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Profiles")
                         .font(.system(size: 20, weight: .semibold, design: .serif))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("One profile = one vault folder. Switching profiles reopens memory against that vault.")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
 
@@ -31,7 +31,7 @@ struct ProfileManagerView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .foregroundStyle(Theme.onAccent)
-                .background(Theme.accent)
+                .background(Theme.accentColor)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
@@ -43,14 +43,14 @@ struct ProfileManagerView: View {
                         
                         HStack(spacing: 12) {
                             Circle()
-                                .fill(isActive ? Theme.accent : Theme.inkDim.opacity(0.4))
+                                .fill(isActive ? Theme.accentColor : Theme.textSecondary.opacity(0.4))
                                 .frame(width: 8, height: 8)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 8) {
                                     Text(profile.name)
                                         .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(Theme.ink)
+                                        .foregroundStyle(Theme.textPrimary)
 
                                     if profile.isMaster {
                                         Text("MASTER")
@@ -66,14 +66,14 @@ struct ProfileManagerView: View {
                                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                                             .padding(.horizontal, 5)
                                             .padding(.vertical, 2)
-                                            .foregroundStyle(Theme.accent)
-                                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accent, lineWidth: 1))
+                                            .foregroundStyle(Theme.accentColor)
+                                            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.accentColor, lineWidth: 1))
                                     }
                                 }
 
                                 Text(profile.folderPath)
                                     .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .lineLimit(1)
                             }
 
@@ -87,8 +87,8 @@ struct ProfileManagerView: View {
                                 .font(.system(size: 11, weight: .medium))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .foregroundStyle(Theme.accent)
-                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                                .foregroundStyle(Theme.accentColor)
+                                .solidControl(cornerRadius: 4)
                             }
 
                             if !profile.isMaster {
@@ -97,12 +97,11 @@ struct ProfileManagerView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 10.5))
-                                .foregroundStyle(Theme.inkDim)
+                                .foregroundStyle(Theme.textSecondary)
                             }
                         }
                         .padding(12)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(isActive ? Theme.accent.opacity(0.6) : Theme.border, lineWidth: 1))
+                        .liquidGlass(cornerRadius: 6)
                     }
                 }
             }
@@ -118,16 +117,16 @@ struct ProfileManagerView: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 12.5))
                         .padding(7)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                        .background(Theme.bgField)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
 
                     HStack {
                         TextField("Vault Directory Path", text: $newProfileFolder)
                             .textFieldStyle(.plain)
                             .font(.system(size: 12, design: .monospaced))
                             .padding(7)
-                            .background(Theme.panel)
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                            .background(Theme.bgField)
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
 
                         Button("Choose Folder…") {
                             chooseFolder()
@@ -136,14 +135,13 @@ struct ProfileManagerView: View {
                         .font(.system(size: 11))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .foregroundStyle(Theme.ink)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                        .foregroundStyle(Theme.onSolidFill)
+                        .solidControl(cornerRadius: 4)
                     }
 
                     Toggle("Snapshot copy Master Profile guardrails into new vault", isOn: $copyMasterGuardrails)
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
 
                     HStack {
                         Button("Cancel") {
@@ -151,7 +149,7 @@ struct ProfileManagerView: View {
                         }
                         .buttonStyle(.plain)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
 
                         Spacer()
 
@@ -163,14 +161,13 @@ struct ProfileManagerView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 5)
                         .foregroundStyle(Theme.onAccent)
-                        .background(Theme.accent)
+                        .background(Theme.accentColor)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                         .disabled(newProfileName.isEmpty || newProfileFolder.isEmpty)
                     }
                 }
                 .padding(14)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.brass.opacity(0.5), lineWidth: 1))
+                .liquidGlass(cornerRadius: 8)
             }
         }
         .padding(20)

@@ -41,10 +41,10 @@ struct ProfileBuilderView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Profile Builder")
                         .font(.system(size: 20, weight: .semibold, design: .serif))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Step \(step.rawValue) of 6 — \(step.title)")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
 
@@ -77,15 +77,14 @@ struct ProfileBuilderView: View {
                 .fixedSize()
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                .solidControl(cornerRadius: 6)
             }
 
             // Step Progress Indicator
             HStack(spacing: 4) {
                 ForEach(Step.allCases) { s in
                     Rectangle()
-                        .fill(s.rawValue <= step.rawValue ? Theme.accent : Theme.border)
+                        .fill(s.rawValue <= step.rawValue ? Theme.accentColor : Theme.borderLight)
                         .frame(height: 3)
                         .clipShape(Capsule())
                 }
@@ -124,9 +123,8 @@ struct ProfileBuilderView: View {
                     .font(.system(size: 12))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                    .foregroundStyle(Theme.onSolidFill)
+                    .solidControl(cornerRadius: 6)
                 }
 
                 Button("Skip Step") {
@@ -135,7 +133,7 @@ struct ProfileBuilderView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 12))
                 .padding(.horizontal, 10)
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
 
                 Spacer()
 
@@ -148,7 +146,7 @@ struct ProfileBuilderView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 } else {
                     Button("Next →") {
@@ -159,7 +157,7 @@ struct ProfileBuilderView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 7)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
             }
@@ -193,7 +191,7 @@ struct ProfileBuilderView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Quirks & Working Patterns")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 HStack {
                     chipToggle("many ideas, weak finisher", set: $input.quirks)
@@ -223,11 +221,11 @@ struct ProfileBuilderView: View {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 }
                 .padding(6)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
             }
         }
     }
@@ -263,7 +261,7 @@ struct ProfileBuilderView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Formatting Preferences")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 HStack {
                     chipToggle("short answers", set: $input.formattingChips)
@@ -288,11 +286,11 @@ struct ProfileBuilderView: View {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 }
                 .padding(6)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
             }
         }
     }
@@ -315,11 +313,11 @@ struct ProfileBuilderView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Core Principles")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 ForEach(input.principles, id: \.self) { p in
                     HStack {
-                        Text("• \(p)").font(.system(size: 12)).foregroundStyle(Theme.ink)
+                        Text("• \(p)").font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
                         Spacer()
                         Button("Remove") {
                             input.principles.removeAll { $0 == p }
@@ -342,11 +340,11 @@ struct ProfileBuilderView: View {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 }
                 .padding(6)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
             }
         }
     }
@@ -356,7 +354,7 @@ struct ProfileBuilderView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Guardrails are hard constraints your AI assistants must obey at all times.")
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
 
             // Exception Guardrail Box
             Toggle(isOn: $input.includeExceptionRule) {
@@ -366,21 +364,20 @@ struct ProfileBuilderView: View {
                         .foregroundStyle(Theme.brass)
                     Text("“If the user asks for something that contradicts these notes, ask whether it's a one-time exception or whether the note should change.”")
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .padding(12)
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.brass.opacity(0.5), lineWidth: 1))
+            .liquidGlass(cornerRadius: 6)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Non-Negotiable Guardrails")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
 
                 ForEach(input.guardrails, id: \.self) { g in
                     HStack {
-                        Text("• \(g)").font(.system(size: 12)).foregroundStyle(Theme.ink)
+                        Text("• \(g)").font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
                         Spacer()
                         Button("Remove") {
                             input.guardrails.removeAll { $0 == g }
@@ -403,11 +400,11 @@ struct ProfileBuilderView: View {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 }
                 .padding(6)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
             }
         }
     }
@@ -417,7 +414,7 @@ struct ProfileBuilderView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("List active projects so connected AI tools understand your ongoing work.")
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
 
             ForEach($input.projects) { $project in
                 VStack(alignment: .leading, spacing: 6) {
@@ -440,11 +437,10 @@ struct ProfileBuilderView: View {
                     TextField("Status (e.g. Active, Paused, Shipped)", text: $project.status)
                         .textFieldStyle(.plain)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .padding(10)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                .liquidGlass(cornerRadius: 6)
             }
 
             Button("+ Add Project") {
@@ -452,7 +448,7 @@ struct ProfileBuilderView: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentColor)
         }
     }
 
@@ -461,7 +457,7 @@ struct ProfileBuilderView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Optional platform or domain-specific overlays (e.g. Apple, Web, Cloud).")
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
 
             ForEach($input.overlays) { $overlay in
                 VStack(alignment: .leading, spacing: 6) {
@@ -483,8 +479,7 @@ struct ProfileBuilderView: View {
                         .frame(height: 60)
                 }
                 .padding(10)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                .liquidGlass(cornerRadius: 6)
             }
 
             Button("+ Add Overlay") {
@@ -492,7 +487,7 @@ struct ProfileBuilderView: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.accent)
+            .foregroundStyle(Theme.accentColor)
         }
     }
 
@@ -501,14 +496,14 @@ struct ProfileBuilderView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             content()
                 .padding(7)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
             Text(hint)
                 .font(.system(size: 11))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
@@ -519,7 +514,7 @@ struct ProfileBuilderView: View {
     private func removableList(_ items: [String], onRemove: @escaping (String) -> Void) -> some View {
         ForEach(Array(items.enumerated()), id: \.offset) { _, item in
             HStack {
-                Text("• \(item)").font(.system(size: 12)).foregroundStyle(Theme.ink)
+                Text("• \(item)").font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Button("Remove") {
                     onRemove(item)
@@ -544,10 +539,10 @@ struct ProfileBuilderView: View {
                 .font(.system(size: 11))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(isSelected ? Theme.accentSoft : Theme.panel)
-                .foregroundStyle(isSelected ? Theme.accent : Theme.inkDim)
+                .background(isSelected ? Theme.accentSoft : Theme.solidFill)
+                .foregroundStyle(isSelected ? Theme.accentColor : Theme.textSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? Theme.accent : Theme.border, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? Theme.accentColor : Theme.solidStroke, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

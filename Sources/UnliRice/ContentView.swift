@@ -6,8 +6,8 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Dark space background
-            Theme.background
+            // Background
+            Theme.bgMain
                 .ignoresSafeArea()
 
             // Glowing neon background blobs
@@ -20,7 +20,7 @@ struct ContentView: View {
                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
 
                     Circle()
-                        .fill(Theme.accent.opacity(0.14))
+                        .fill(Theme.accentColor.opacity(0.14))
                         .frame(width: 350, height: 350)
                         .blur(radius: 80)
                         .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
@@ -55,7 +55,7 @@ struct ContentView: View {
                     .foregroundStyle(Theme.brass)
                 Text("AI Notes & Memory")
                     .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(.horizontal, 16)
             .padding(.top, 20)
@@ -163,8 +163,7 @@ struct ContentView: View {
         }
         .frame(width: 190, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.black.opacity(0.18))
-        .background(.ultraThinMaterial)
+        .liquidGlass(cornerRadius: 0)
     }
 
     private func sidebarRow(_ title: String, active: Bool = false, badge: Int? = nil, action: @escaping () -> Void) -> some View {
@@ -181,7 +180,7 @@ struct ContentView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(active ? Theme.accentSoft : Color.clear)
-            .foregroundStyle(active ? Theme.accent : Theme.inkDim)
+            .foregroundStyle(active ? Theme.accentColor : Theme.textSecondary)
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)
@@ -244,7 +243,7 @@ struct ContentView: View {
             } else if store.visibleNotes.isEmpty {
                 Text(emptyMessage)
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(20)
                 Spacer()
             } else {
@@ -267,7 +266,7 @@ struct ContentView: View {
                             Button("Show \(store.hiddenNoteCount) more") { store.showEverything() }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 11.5, weight: .medium))
-                                .foregroundStyle(Theme.accent)
+                                .foregroundStyle(Theme.accentColor)
                                 .padding(.vertical, 12)
                         }
                     }
@@ -280,7 +279,7 @@ struct ContentView: View {
                 Text(store.statusMessage)
                     .font(.system(size: 11.5))
                     .italic()
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                 if !store.showingArchived {
                     NewNoteRow()
                 }
@@ -307,12 +306,12 @@ struct ContentView: View {
             HStack {
                 Text(store.showingArchived ? "Archived" : "All Notes")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 let total = store.showingArchived ? store.archivedNotes.count : store.notes.count
                 Text("\(store.visibleNotes.count) of \(total) · append-only")
                     .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             SearchField()
@@ -330,12 +329,12 @@ struct ContentView: View {
         HStack {
             Text(title.uppercased())
                 .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
             Spacer()
         }
         .padding(.vertical, 6)
         .padding(.top, 6)
-        .background(Theme.background.opacity(0.92))
+        .background(Theme.bgMain.opacity(0.92))
     }
 }
 
@@ -349,7 +348,7 @@ private struct SearchField: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
             TextField("Search titles, bodies, tags…", text: $store.searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12.5))
@@ -357,15 +356,15 @@ private struct SearchField: View {
                 Button(action: { store.searchText = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.bgField)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.borderLight, lineWidth: 1))
     }
 }
 
@@ -380,7 +379,7 @@ private struct ArchiveToolbar: View {
                  ? "Archiving never deleted anything. Tick notes to trash them for good."
                  : "\(store.archiveSelection.count) selected")
                 .font(.system(size: 11))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
 
             Spacer()
 
@@ -391,9 +390,8 @@ private struct ArchiveToolbar: View {
                 .font(.system(size: 11))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .foregroundStyle(Theme.ink)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                .foregroundStyle(Theme.onSolidFill)
+                .solidControl(cornerRadius: 6)
 
             // Destructive, so it is styled as such and stays disabled until
             // something is actually ticked — the only irreversible control in
@@ -403,10 +401,10 @@ private struct ArchiveToolbar: View {
                 .font(.system(size: 11, weight: .medium))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .foregroundStyle(store.archiveSelection.isEmpty ? Theme.inkDim : Theme.crit)
+                .foregroundStyle(store.archiveSelection.isEmpty ? Theme.textSecondary : Theme.crit)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(store.archiveSelection.isEmpty ? Theme.border : Theme.crit, lineWidth: 1)
+                        .stroke(store.archiveSelection.isEmpty ? Theme.borderLight : Theme.crit, lineWidth: 1)
                 )
                 .disabled(store.archiveSelection.isEmpty)
         }
@@ -436,7 +434,7 @@ struct CleanupMenu: View {
             }
             Divider()
             Text("Each copies a prompt to paste into your assistant.")
-                .foregroundColor(Theme.ink)
+                .foregroundColor(Theme.textPrimary)
         } label: {
             Text(label)
                 .font(.system(size: 11))
@@ -463,7 +461,7 @@ struct AIReviewMenu: View {
             }
             Divider()
             Text("Copies a prompt listing all pending reviews to paste into the LLM.")
-                .foregroundColor(Theme.ink)
+                .foregroundColor(Theme.textPrimary)
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "cpu")
@@ -489,17 +487,16 @@ private struct ReviewQueueView: View {
             HStack(spacing: 10) {
                 Text("Review Notes")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text("\(store.pending.count) item\(store.pending.count == 1 ? "" : "s")")
                     .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
 
                 AIReviewMenu()
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                    .solidControl(cornerRadius: 6)
 
                 // Sits here rather than in the empty state because "nothing is
                 // flagged" is exactly when bulk tidying is worth offering: the
@@ -508,8 +505,7 @@ private struct ReviewQueueView: View {
                 CleanupMenu(prompts: CleanupPrompts.review)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                    .solidControl(cornerRadius: 6)
             }
 
             // Answers "why am I seeing this at all" before the cards do — a
@@ -522,7 +518,7 @@ private struct ReviewQueueView: View {
             // items here" belongs on the page that lists them.
             Text("The janitor reads your notes and flags what it can't decide alone — likely duplicates, notes worth merging. It never changes anything itself; everything below waits for your OK. Nothing here is deleted by any button. The closest is Archive, which is always reversible.")
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
@@ -531,8 +527,8 @@ private struct ReviewQueueView: View {
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .foregroundStyle(Theme.accent)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .foregroundStyle(Theme.accentColor)
+                    .solidControl(cornerRadius: 4)
 
                 Button("Run the janitor") { Task { await store.runJanitorNow() } }
                     .buttonStyle(.plain)
@@ -540,7 +536,7 @@ private struct ReviewQueueView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .foregroundStyle(Theme.brass)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .solidControl(cornerRadius: 4)
 
                 if store.janitorBusy {
                     ProgressView().controlSize(.small).scaleEffect(0.7)
@@ -549,7 +545,7 @@ private struct ReviewQueueView: View {
                 if let summary = store.janitorSummary {
                     Text(summary)
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .disabled(store.janitorBusy)
@@ -557,7 +553,7 @@ private struct ReviewQueueView: View {
             if store.pending.isEmpty {
                 Text("Nothing flagged right now.")
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(.top, 12)
                 Spacer()
             } else {
@@ -605,10 +601,8 @@ private struct PromptRow: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Theme.ink)
-        .background(Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 999))
+        .foregroundStyle(Theme.onSolidFill)
+        .solidControl(cornerRadius: 999)
     }
 }
 
@@ -633,7 +627,7 @@ private struct NoteRow: View {
                     Image(systemName: store.archiveSelection.contains(note.id)
                           ? "checkmark.square.fill" : "square")
                         .font(.system(size: 12))
-                        .foregroundStyle(store.archiveSelection.contains(note.id) ? Theme.accent : Theme.inkDim)
+                        .foregroundStyle(store.archiveSelection.contains(note.id) ? Theme.accentColor : Theme.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -655,7 +649,7 @@ private struct NoteRow: View {
 
                     Text(note.title)
                         .font(.system(size: 13))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
 
                     // The first line of the body, dimmed. This is what makes
@@ -664,7 +658,7 @@ private struct NoteRow: View {
                     if let preview = bodyPreview {
                         Text(preview)
                             .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.inkDim.opacity(0.75))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.75))
                             .lineLimit(1)
                     }
 
@@ -677,7 +671,7 @@ private struct NoteRow: View {
                     }
                     Text(note.updatedAt.formatted(.relative(presentation: .named)))
                         .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .contentShape(Rectangle())
             }
@@ -690,7 +684,7 @@ private struct NoteRow: View {
                     Button(action: { rowAction() }) {
                         Image(systemName: store.showingArchived ? "tray.and.arrow.up" : "archivebox")
                             .font(.system(size: 11))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     .buttonStyle(.plain)
                     .help(store.showingArchived ? "Restore to All Notes" : "Archive (reversible)")
@@ -702,9 +696,7 @@ private struct NoteRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(hovering ? Theme.panel.opacity(0.9) : Theme.panel.opacity(0.55))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border.opacity(0.5), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .liquidGlass(cornerRadius: 4)
         .onHover { hovering = $0 }
     }
 
@@ -766,14 +758,14 @@ private struct NewNoteRow: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 12.5))
                 .padding(7)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
 
             ZStack(alignment: .topLeading) {
                 if noteBody.isEmpty {
                     Text("What do you want to remember? (⌘⏎ to save)")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 13)
                         .allowsHitTesting(false)
@@ -784,24 +776,23 @@ private struct NewNoteRow: View {
                     .frame(minHeight: 64, maxHeight: 120)
                     .padding(4)
             }
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .background(Theme.bgField)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
 
             if let duplicate = suggestions.possibleDuplicate {
                 HStack(spacing: 8) {
                     Text("This looks like it might be the same as \"\(duplicate.title)\".")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     Button("Add to that note instead") { addToExisting(duplicate.id) }
                         .buttonStyle(.plain)
                         .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentColor)
                 }
                 .padding(8)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.brass, lineWidth: 1))
+                .liquidGlass(cornerRadius: 4)
             }
 
             if !suggestions.suggestedTags.isEmpty {
@@ -833,7 +824,7 @@ private struct NewNoteRow: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -845,7 +836,7 @@ private struct NewNoteRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label.uppercased())
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
             HStack(spacing: 6) { content() }
         }
     }
@@ -860,9 +851,9 @@ private struct NewNoteRow: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .foregroundStyle(selected ? Theme.onAccent : Theme.ink)
-        .background(selected ? Theme.accent : Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.border, lineWidth: selected ? 0 : 1))
+        .foregroundStyle(selected ? Theme.onAccent : Theme.textPrimary)
+        .background(selected ? Theme.accentColor : Theme.solidFill)
+        .overlay(RoundedRectangle(cornerRadius: 999).stroke(selected ? Theme.accentColor : Theme.solidStroke, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 999))
     }
 
@@ -947,7 +938,7 @@ private struct NoteDetailView: View {
             .font(.system(size: 11.5, design: .monospaced))
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Theme.inkDim)
+        .foregroundStyle(Theme.textSecondary)
     }
 
     private var header: some View {
@@ -955,13 +946,13 @@ private struct NoteDetailView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(note.title)
                     .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 if note.archived {
                     Button("Unarchive") { store.unarchive(note) }
                         .buttonStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentColor)
                 } else {
                     Button("Archive") { store.archive(note) }
                         .buttonStyle(.plain)
@@ -971,19 +962,18 @@ private struct NoteDetailView: View {
             }
             Text("created \(note.createdAt.formatted(.relative(presentation: .named))) · updated \(note.updatedAt.formatted(.relative(presentation: .named))) · sources: \(note.sources.sorted().joined(separator: ", "))")
                 .font(.system(size: 10.5, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
         }
     }
 
     private var bodyText: some View {
         Text(note.body.isEmpty ? "(empty — nothing written yet)" : note.body)
             .font(.system(size: 13))
-            .foregroundStyle(note.body.isEmpty ? Theme.inkDim : Theme.ink)
+            .foregroundStyle(note.body.isEmpty ? Theme.textSecondary : Theme.textPrimary)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(12)
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .liquidGlass(cornerRadius: 6)
     }
 
     @ViewBuilder
@@ -1015,8 +1005,7 @@ private struct NoteDetailView: View {
                 }
             }
             .padding(12)
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .liquidGlass(cornerRadius: 6)
         }
     }
 
@@ -1024,11 +1013,11 @@ private struct NoteDetailView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(label.uppercased())
                 .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(width: 120, alignment: .leading)
             Text(value)
                 .font(.system(size: 10.5, design: .monospaced))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
                 .textSelection(.enabled)
             Spacer()
         }
@@ -1040,8 +1029,8 @@ private struct NoteDetailView: View {
             .font(.system(size: 10.5, weight: .medium, design: .monospaced))
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
-            .foregroundStyle(Theme.accent)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .foregroundStyle(Theme.accentColor)
+            .solidControl(cornerRadius: 4)
     }
 
     private var tagsSection: some View {
@@ -1061,8 +1050,8 @@ private struct NoteDetailView: View {
                         .font(.system(size: 10.5, design: .monospaced))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .foregroundStyle(Theme.accent)
-                        .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.accent, lineWidth: 1))
+                        .foregroundStyle(Theme.accentColor)
+                        .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.accentColor, lineWidth: 1))
                     }
                 }
             }
@@ -1071,14 +1060,14 @@ private struct NoteDetailView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 11.5))
                     .padding(6)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .background(Theme.bgField)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
                     .frame(maxWidth: 140)
                     .onSubmit(addTag)
                 Button("Add", action: addTag)
                     .buttonStyle(.plain)
                     .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .disabled(draftTag.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -1103,12 +1092,12 @@ private struct NoteDetailView: View {
                         Text("[[\(target)]] — no note with that title yet")
                     }
                     .font(.system(size: 11.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                 }
                 if !note.backlinks.isEmpty {
                     Text("LINKED FROM")
                         .font(.system(size: 9.5, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 4)
                     ForEach(note.backlinks.sorted(by: titleOrder), id: \.self) { id in
                         linkRow(to: id)
@@ -1131,7 +1120,7 @@ private struct NoteDetailView: View {
         }
         .buttonStyle(.plain)
         .font(.system(size: 12, design: .monospaced))
-        .foregroundStyle(Theme.accent)
+        .foregroundStyle(Theme.accentColor)
     }
 
     @ViewBuilder
@@ -1154,7 +1143,7 @@ private struct NoteDetailView: View {
                 if draftAppend.isEmpty {
                     Text("Append more, any time — this is what makes it a memory rather than a one-shot note. Try [[Another Note Title]] to link.")
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 13)
                         .allowsHitTesting(false)
@@ -1165,8 +1154,8 @@ private struct NoteDetailView: View {
                     .frame(minHeight: 56, maxHeight: 100)
                     .padding(4)
             }
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .background(Theme.bgField)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
             HStack {
                 Spacer()
                 Button("Append", action: appendText)
@@ -1176,7 +1165,7 @@ private struct NoteDetailView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .disabled(draftAppend.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -1190,7 +1179,7 @@ private struct NoteDetailView: View {
                 Spacer()
                 Text("\(history.count) immutable event\(history.count == 1 ? "" : "s")")
                     .font(.system(size: 9.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
             ForEach(Array(history.reversed())) { event in
                 EventHistoryRow(event: event)
@@ -1206,7 +1195,7 @@ private struct NoteDetailView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-            .foregroundStyle(Theme.inkDim)
+            .foregroundStyle(Theme.textSecondary)
     }
 }
 
@@ -1223,27 +1212,26 @@ private struct EventHistoryRow: View {
                 HStack(spacing: 6) {
                     Text(label)
                         .font(.system(size: 11.5, weight: .medium))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("by \(event.source)")
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundStyle(Theme.brass)
                     Spacer()
                     Text(event.timestamp.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 9.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 if let detail, !detail.isEmpty {
                     Text(detail)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
         .padding(9)
-        .background(Theme.panel.opacity(0.65))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border.opacity(0.7), lineWidth: 1))
+        .liquidGlass(cornerRadius: 4)
     }
 
     private var label: String {
@@ -1290,7 +1278,7 @@ private struct EventHistoryRow: View {
         case .archived, .untagged: return Theme.crit
         case .flagged: return Theme.brass
         case .unarchived, .reviewResolved: return Theme.emerald
-        default: return Theme.accent
+        default: return Theme.accentColor
         }
     }
 }
@@ -1304,15 +1292,10 @@ private struct ReviewQueueRow: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(flag.reason.withoutJanitorMarker)
                 .font(.system(size: 11.5))
-                .foregroundStyle(Theme.ink)
-                // Without this, SwiftUI is free to collapse a Text nested this
-                // deep in flexible VStacks down to one line with a trailing
-                // ellipsis instead of actually wrapping — the bug that made the
-                // review queue unreadable. This pins the height to the wrapped
-                // content instead of letting the layout guess.
+                .foregroundStyle(Theme.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 6) {
-                actionButton("Accept", color: Theme.accent) {
+                actionButton("Accept", color: Theme.accentColor) {
                     store.resolve(note: note, flag: flag, outcome: "accepted")
                 }
                 actionButton("Reject", color: Theme.crit) {
@@ -1321,8 +1304,7 @@ private struct ReviewQueueRow: View {
             }
         }
         .padding(9)
-        .background(Theme.background)
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+        .liquidGlass(cornerRadius: 4)
     }
 
     private func actionButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -1332,19 +1314,10 @@ private struct ReviewQueueRow: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .foregroundStyle(color)
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.border, lineWidth: 1))
+            .solidControl(cornerRadius: 3)
     }
 }
 
-/// One card per `ReviewCluster` — one decision, however many flags it took to
-/// raise it. For a duplicate group, Accept/Reject resolves every flag in the
-/// group at once (`AppStore.resolve(cluster:outcome:)`), which is exactly what
-/// pressing each one individually would have done, minus the repetition.
-/// The card's layout assumes the wide main column, not the old 260pt sidebar —
-/// note titles are long file paths, and side-by-side title-plus-button
-/// squeezed to a narrow width was truncating the *button label itself*
-/// ("Keep this o…"). Full width fixes that by construction rather than by
-/// tuning font sizes.
 struct ReviewClusterCard: View {
     @EnvironmentObject var store: AppStore
     let cluster: ReviewCluster
@@ -1359,7 +1332,7 @@ struct ReviewClusterCard: View {
                 Button(action: { store.selectNote(note.id) }) {
                     Text(note.title)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .underline()
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1368,23 +1341,10 @@ struct ReviewClusterCard: View {
 
             Text(cluster.summary)
                 .font(.system(size: 12.5))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if cluster.isDuplicateGroup {
-                // There used to be an "ask the assistant which to keep" button
-                // here, backed by the bundled local model. Both are gone: the
-                // model was removed once measured (PROJECT_NOTES.md), and a
-                // 1.7B model's opinion on which of two notes is "the real one"
-                // was never worth the weight it carried in a UI that otherwise
-                // hands every judgement to the human. An agent connected over
-                // MCP can be asked the same question, with a better answer.
-
-                // One row per note: a preview of what it actually says, plus
-                // its own "Keep this one." This is the honest version of what
-                // used to be a generic Accept/Reject that changed nothing —
-                // now the button says exactly what pressing it does, and
-                // there's room to read enough to decide without opening it.
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(cluster.notes) { note in
                         VStack(alignment: .leading, spacing: 3) {
@@ -1392,7 +1352,7 @@ struct ReviewClusterCard: View {
                                 Button(action: { store.selectNote(note.id) }) {
                                     Text(note.title)
                                         .font(.system(size: 11.5, design: .monospaced))
-                                        .foregroundStyle(Theme.ink)
+                                        .foregroundStyle(Theme.textPrimary)
                                         .underline()
                                         .multilineTextAlignment(.leading)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -1402,7 +1362,7 @@ struct ReviewClusterCard: View {
 
                                 Spacer(minLength: 12)
 
-                                actionButton("Keep this one", color: Theme.accent) {
+                                actionButton("Keep this one", color: Theme.accentColor) {
                                     store.consolidate(cluster: cluster, keeping: note)
                                 }
                                 .fixedSize()
@@ -1410,33 +1370,31 @@ struct ReviewClusterCard: View {
                             if !note.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 Text(preview(of: note.body))
                                     .font(.system(size: 11))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .lineLimit(2)
                             }
                         }
                         .padding(8)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                        .liquidGlass(cornerRadius: 4)
                     }
                 }
 
-                actionButton("These aren't the same — leave them alone", color: Theme.inkDim) {
+                actionButton("These aren't the same — leave them alone", color: Theme.textSecondary) {
                     store.resolve(cluster: cluster, outcome: "not a duplicate")
                 }
             } else {
                 HStack(spacing: 8) {
-                    actionButton("Got it, I'll take care of it", color: Theme.accent) {
+                    actionButton("Got it, I'll take care of it", color: Theme.accentColor) {
                         store.resolve(cluster: cluster, outcome: "acknowledged")
                     }
-                    actionButton("Not important, dismiss", color: Theme.inkDim) {
+                    actionButton("Not important, dismiss", color: Theme.textSecondary) {
                         store.resolve(cluster: cluster, outcome: "dismissed")
                     }
                 }
             }
         }
         .padding(14)
-        .background(Theme.background)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+        .liquidGlass(cornerRadius: 6)
     }
 
     private func preview(of body: String) -> String {
@@ -1454,6 +1412,6 @@ struct ReviewClusterCard: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .foregroundStyle(color)
-            .overlay(RoundedRectangle(cornerRadius: 3).stroke(Theme.border, lineWidth: 1))
+            .solidControl(cornerRadius: 3)
     }
 }

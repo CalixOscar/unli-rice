@@ -26,19 +26,19 @@ struct HouseRulesPresetGalleryView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("House Rules Templates")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Choose a starting point. Nothing is written to your notes until you save the draft.")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
                 Button("Done") { dismiss() }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
             .padding(18)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(Theme.borderLight)
 
             HSplitView {
                 presetList
@@ -48,7 +48,7 @@ struct HouseRulesPresetGalleryView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
-        .background(Theme.background)
+        .background(Theme.bgMain)
         .confirmationDialog(
             "Delete this custom template?",
             isPresented: Binding(
@@ -84,7 +84,7 @@ struct HouseRulesPresetGalleryView: View {
                     if store.customHouseRulesPresets.isEmpty {
                         Text("No imported templates")
                             .font(.system(size: 11))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                     } else {
                         ForEach(store.customHouseRulesPresets) { preset in
                             presetRow(preset)
@@ -104,7 +104,7 @@ struct HouseRulesPresetGalleryView: View {
             }
             .scrollContentBackground(.hidden)
 
-            Divider().overlay(Theme.border)
+            Divider().overlay(Theme.borderLight)
 
             Button {
                 if let imported = store.importHouseRulesPreset() {
@@ -119,17 +119,17 @@ struct HouseRulesPresetGalleryView: View {
             .foregroundStyle(Theme.brass)
             .padding(14)
         }
-        .background(Theme.panel)
+        .liquidGlass(cornerRadius: 0)
     }
 
     private func presetRow(_ preset: HouseRulesPreset) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(preset.title)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Text(preset.summary)
                 .font(.system(size: 10.5))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .lineLimit(2)
         }
         .padding(.vertical, 3)
@@ -143,15 +143,15 @@ struct HouseRulesPresetGalleryView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(preset.title)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text(preset.summary)
                             .font(.system(size: 11))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
                     Text("~\(preset.approximateTokenCount) tokens · \(preset.characterCount) characters")
                         .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 if renamingPresetID == preset.id {
@@ -169,13 +169,13 @@ struct HouseRulesPresetGalleryView: View {
                 ScrollView {
                     Text(preset.body)
                         .font(.system(size: 11.5, design: .monospaced))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .padding(14)
                 }
-                .background(Color.black.opacity(0.25))
-                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.bgField)
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Theme.borderLight, lineWidth: 1))
 
                 if let error = store.houseRulesStateError {
                     Text(error)
@@ -188,13 +188,13 @@ struct HouseRulesPresetGalleryView: View {
                     if preset.origin == .imported {
                         Button("Rename…") { beginRename(preset) }
                             .buttonStyle(.plain)
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                         Button("Duplicate") {
                             let copy = store.duplicateCustomHouseRulesPreset(preset)
                             selectedPresetID = copy.id
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         Button("Delete", role: .destructive) { pendingDelete = preset }
                             .buttonStyle(.plain)
                             .foregroundStyle(Theme.crit)
@@ -212,14 +212,14 @@ struct HouseRulesPresetGalleryView: View {
                     .padding(.horizontal, 15)
                     .padding(.vertical, 7)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
             }
             .padding(18)
         } else {
             Text("Select a template to preview it.")
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }

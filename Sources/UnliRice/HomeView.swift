@@ -12,10 +12,10 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Home")
                         .font(.system(size: 24, weight: .bold, design: .serif))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("What Unli Rice is doing for you right now.")
                         .font(.system(size: 13))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 // 1. Status Banner — "Memory is working" / "Not connected"
@@ -55,12 +55,12 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(isConnected ? "Shared Memory is Working" : "Not Connected Yet")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(isConnected
                      ? "\(store.notes.count) notes stored · \(store.activeProfileName) active · \(store.connectionActivities.count) client interaction\(store.connectionActivities.count == 1 ? "" : "s") recorded"
                      : "Connect your AI tools in Setup so they can read and write to your shared memory.")
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Spacer()
@@ -73,12 +73,11 @@ struct HomeView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .foregroundStyle(Theme.onAccent)
-            .background(Theme.accent)
+            .background(Theme.accentColor)
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
         .padding(16)
-        .background(Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+        .liquidGlass(cornerRadius: 8)
     }
 
     private var needsAttentionCard: some View {
@@ -90,10 +89,10 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(needsAttentionCount) item\(needsAttentionCount == 1 ? "" : "s") waiting for your decision")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Tidying proposals and notices require your sign-off.")
                     .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             Spacer()
@@ -106,11 +105,10 @@ struct HomeView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .foregroundStyle(Theme.brass)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.brass, lineWidth: 1))
+            .solidControl(cornerRadius: 6)
         }
         .padding(16)
-        .background(Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.brass.opacity(0.4), lineWidth: 1))
+        .liquidGlass(cornerRadius: 8)
     }
 
     private var profileSection: some View {
@@ -118,7 +116,7 @@ struct HomeView: View {
             HStack {
                 Text("WHO YOU ARE (PROFILE)")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer()
                 Text(store.activeProfileName)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -129,11 +127,11 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Your personalized AI context profile is active.")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
 
                     Text("Connected AI assistants read your Identity, Voice, Principles, and Guardrails automatically.")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
 
                     HStack(spacing: 10) {
                         Button("Launch Profile Builder") {
@@ -143,35 +141,34 @@ struct HomeView: View {
                         .font(.system(size: 11.5, weight: .medium))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .foregroundStyle(Theme.accent)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                        .foregroundStyle(Theme.accentColor)
+                        .solidControl(cornerRadius: 6)
 
                         Button("Manage Profiles") {
                             store.showProfileManager()
                         }
                         .buttonStyle(.plain)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                     }
                     .padding(.top, 4)
                 }
                 .padding(16)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+                .liquidGlass(cornerRadius: 8)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 16))
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(Theme.accentColor)
                         Text("Create Your AI Context Profile")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                     }
 
                     Text("Build a personalized context document set (Identity, Voice, Principles, Guardrails) that any LLM can read to understand who you are and how you work.")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Button("Build Profile →") {
@@ -182,13 +179,12 @@ struct HomeView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .padding(.top, 4)
                 }
                 .padding(16)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.accent.opacity(0.4), lineWidth: 1))
+                .liquidGlass(cornerRadius: 8)
             }
         }
     }
@@ -201,42 +197,40 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("RECENT ACTIVITY")
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
 
             if store.notices.isEmpty {
                 Text("No recent notices.")
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.panel)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .liquidGlass(cornerRadius: 6)
             } else {
                 VStack(spacing: 8) {
                     ForEach(store.notices.prefix(4)) { notice in
                         HStack(alignment: .top, spacing: 10) {
                             Circle()
-                                .fill(notice.kind == .problem ? Theme.crit : Theme.accent)
+                                .fill(notice.kind == .problem ? Theme.crit : Theme.accentColor)
                                 .frame(width: 6, height: 6)
                                 .padding(.top, 5)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(notice.title)
                                     .font(.system(size: 12.5, weight: .medium))
-                                    .foregroundStyle(Theme.ink)
+                                    .foregroundStyle(Theme.textPrimary)
                                 Text(notice.detail)
                                     .font(.system(size: 11.5))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .lineLimit(2)
                             }
                             Spacer()
                             Text(notice.timestamp.formatted(.relative(presentation: .named)))
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .padding(10)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border.opacity(0.5), lineWidth: 1))
+                        .liquidGlass(cornerRadius: 6)
                     }
                 }
             }

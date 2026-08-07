@@ -15,17 +15,17 @@ struct NoticeCenterView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("What's happened")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 if !store.notices.isEmpty {
                     Button("Mark all read") { store.markAllNoticesRead() }
                         .buttonStyle(.plain)
                         .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentColor)
                     Button("Clear") { store.clearNotices() }
                         .buttonStyle(.plain)
                         .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
 
@@ -33,13 +33,13 @@ struct NoticeCenterView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Nothing to report.")
                         .font(.system(size: 13))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("""
                         This is where the app tells you what it did while you weren't \
                         here, and what needs your OK. An empty list is the normal state.
                         """)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
@@ -56,7 +56,7 @@ struct NoticeCenterView: View {
 
             Text("Clearing these never touches a note. The event log is the record; this is just the news.")
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -78,12 +78,12 @@ private struct NoticeRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(notice.title)
                         .font(.system(size: 12.5, weight: notice.isRead ? .regular : .medium))
-                        .foregroundStyle(notice.isRead ? Theme.inkDim : Theme.ink)
+                        .foregroundStyle(notice.isRead ? Theme.textSecondary : Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                     Text(notice.detail)
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
                 }
@@ -93,7 +93,7 @@ private struct NoticeRow: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(notice.timestamp.formatted(date: .abbreviated, time: .shortened))
                         .font(.system(size: 9.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
                     if notice.destination != .none {
                         Text("open →")
                             .font(.system(size: 9.5, design: .monospaced))
@@ -103,9 +103,7 @@ private struct NoticeRow: View {
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(notice.isRead ? Color.white.opacity(0.02) : Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .liquidGlass(cornerRadius: 6)
         }
         .buttonStyle(.plain)
     }
@@ -117,7 +115,7 @@ private struct NoticeRow: View {
         case .problem: return Theme.crit
         case .review: return Theme.brass
         case .retrospective: return Theme.violet
-        case .routine: return Theme.accent
+        case .routine: return Theme.accentColor
         }
     }
 }

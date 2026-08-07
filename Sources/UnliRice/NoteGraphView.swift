@@ -268,7 +268,7 @@ struct NoteGraphView: View {
                             controlsPanel(viewport: geometry.size)
                             Text("💡 Tip: Click selected node again to open note. Drag to move.")
                                 .font(.system(size: 9.5, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim.opacity(0.85))
+                                .foregroundStyle(Theme.textSecondary.opacity(0.85))
                                 .padding(.trailing, 8)
                         }
                     }
@@ -282,16 +282,14 @@ struct NoteGraphView: View {
                         VStack(spacing: 3) {
                             Text(Self.replayCaptionFormatter.string(from: replayDate))
                                 .font(.system(size: 16, weight: .semibold, design: .serif))
-                                .foregroundStyle(Theme.ink)
+                                .foregroundStyle(Theme.textPrimary)
                             Text("\(revealedIDs?.count ?? 0) of \(nodes.count) notes")
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
-                        .background(Theme.panel.opacity(0.75))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
-                        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow).clipShape(RoundedRectangle(cornerRadius: 8)))
+                        .liquidGlass(cornerRadius: 8)
                         .padding(.bottom, 24)
                         .transition(.opacity)
                     }
@@ -306,10 +304,10 @@ struct NoteGraphView: View {
                     VStack(spacing: 8) {
                         Text("Your brain map is empty")
                             .font(.system(size: 15, weight: .semibold, design: .serif))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text("Every note becomes a dot here, and every [[link]] between notes becomes a line.\nAs your AI tools write and cross-link notes, this grows into a map of what they know.")
                             .font(.system(size: 11.5))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(24)
@@ -342,7 +340,7 @@ struct NoteGraphView: View {
                 }
             }
         }
-        .background(Theme.background)
+        .background(Theme.bgMain)
         .onChange(of: grouping) { _ in
             withAnimation { applyGrouping() }
         }
@@ -481,7 +479,7 @@ struct NoteGraphView: View {
                 if !isFiltered || isSelected {
                     let labelText = Text(node.title)
                         .font(.system(size: 9.5, weight: isSelected ? .semibold : .medium, design: .monospaced))
-                        .foregroundColor(isSelected ? Theme.ink : Theme.inkDim)
+                        .foregroundColor(isSelected ? Theme.textPrimary : Theme.textSecondary)
                     
                     let resolved = context.resolve(labelText)
                     let textSize = resolved.measure(in: CGSize(width: 300, height: 100))
@@ -619,7 +617,7 @@ struct NoteGraphView: View {
                 // Both filled in by `applyGrouping` below, once every node
                 // exists — a group's colour depends on how many notes are in it
                 // relative to the others, which isn't knowable per-node.
-                color: Theme.inkDim,
+                color: Theme.textSecondary,
                 group: nil
             )
         }
@@ -737,11 +735,11 @@ struct NoteGraphView: View {
     /// group. Capping the *groups* instead (an "other" bucket) would hide
     /// exactly the long tail someone opens this view to find.
     private static let palette: [Color] = [
-        Theme.accent, Theme.violet, Theme.brass, Theme.emerald, Theme.crit, Theme.ink
+        Theme.accentColor, Theme.violet, Theme.brass, Theme.emerald, Theme.crit, Theme.textPrimary
     ]
 
     private func color(forGroup group: String?) -> Color {
-        guard let group, let index = groupOrder.firstIndex(of: group) else { return Theme.inkDim }
+        guard let group, let index = groupOrder.firstIndex(of: group) else { return Theme.textSecondary }
         return Self.palette[index % Self.palette.count]
     }
 
@@ -868,7 +866,7 @@ struct NoteGraphView: View {
                     path.addLine(to: CGPoint(x: width, y: y))
                 }
             }
-            .stroke(Theme.border.opacity(0.12), lineWidth: 0.5)
+            .stroke(Theme.borderLight.opacity(0.12), lineWidth: 0.5)
         }
     }
     
@@ -879,13 +877,13 @@ struct NoteGraphView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("\(grouping.displayName.uppercased()) CLUSTERS")
                 .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.bottom, 2)
 
             if groupOrder.isEmpty {
                 Text("nothing to group by")
                     .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             } else {
                 // The scroller is only introduced once the list would overflow.
                 // A ScrollView always claims the height it's offered, so using
@@ -905,9 +903,7 @@ struct NoteGraphView: View {
         }
         .padding(12)
         .frame(width: 180, alignment: .leading)
-        .background(Theme.panel.opacity(0.75))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
-        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow).clipShape(RoundedRectangle(cornerRadius: 6)))
+        .liquidGlass(cornerRadius: 6)
     }
 
     private func legendItem(label: String, color: Color) -> some View {
@@ -924,7 +920,7 @@ struct NoteGraphView: View {
 
                 Text(label)
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(filterGroup == label ? Theme.ink : Theme.inkDim)
+                    .foregroundStyle(filterGroup == label ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 0)
@@ -969,12 +965,10 @@ struct NoteGraphView: View {
 
             Text("\(Int(zoom * 100))%")
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
         }
         .padding(8)
-        .background(Theme.panel.opacity(0.75))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
-        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow).clipShape(RoundedRectangle(cornerRadius: 6)))
+        .liquidGlass(cornerRadius: 6)
     }
 
     private func controlButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -989,8 +983,8 @@ struct NoteGraphView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
-        .foregroundStyle(Theme.ink)
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+        .foregroundStyle(Theme.onSolidFill)
+        .solidControl(cornerRadius: 4)
     }
 
     private func inspectorPanel(for node: GraphNode) -> some View {
@@ -1004,7 +998,7 @@ struct NoteGraphView: View {
             HStack {
                 Text(node.title)
                     .font(.system(size: 14, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
 
                 // Open note details view
@@ -1016,7 +1010,7 @@ struct NoteGraphView: View {
                         Image(systemName: "arrow.up.right")
                     }
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 }
                 .buttonStyle(.plain)
             }
@@ -1028,8 +1022,8 @@ struct NoteGraphView: View {
                             .font(.system(size: 9.5, design: .monospaced))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .foregroundStyle(Theme.accent)
-                            .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.accent, lineWidth: 0.75))
+                            .foregroundStyle(Theme.accentColor)
+                            .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.accentColor, lineWidth: 0.75))
                     }
                 }
             }
@@ -1037,12 +1031,12 @@ struct NoteGraphView: View {
             if linkedNodes.isEmpty {
                 Text("Not linked to any other note yet — link notes with [[title]] and they show up here.")
                     .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("LINKED TO \(linkedNodes.count) NOTE\(linkedNodes.count == 1 ? "" : "S")")
                         .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
 
                     // Wrapping would be nicer than one scrolling row, but a
                     // horizontal scroller is what fits in a fixed-height panel
@@ -1059,12 +1053,12 @@ struct NoteGraphView: View {
                                             .frame(width: 6, height: 6)
                                         Text(linked.title)
                                             .font(.system(size: 10.5, design: .monospaced))
-                                            .foregroundStyle(Theme.ink)
+                                            .foregroundStyle(Theme.textPrimary)
                                             .lineLimit(1)
                                     }
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.border, lineWidth: 0.75))
+                                    .overlay(RoundedRectangle(cornerRadius: 999).stroke(Theme.borderLight, lineWidth: 0.75))
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -1076,9 +1070,7 @@ struct NoteGraphView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity)
-        .background(Theme.panel.opacity(0.85))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
-        .background(VisualEffectView(material: .hudWindow, blendingMode: .withinWindow).clipShape(RoundedRectangle(cornerRadius: 8)))
+        .liquidGlass(cornerRadius: 8)
         .padding(.horizontal, 20)
         .padding(.bottom, 20)
     }

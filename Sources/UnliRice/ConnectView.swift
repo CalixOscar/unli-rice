@@ -18,25 +18,7 @@ struct ConnectView: View {
                         ConnectorRow(target: target)
                     }
                 }
-                .background(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.06), Color.white.opacity(0.01)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                .liquidGlass(cornerRadius: 8)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
 
@@ -46,7 +28,7 @@ struct ConnectView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.background)
+        .background(Theme.bgMain)
     }
 
     private var header: some View {
@@ -54,21 +36,20 @@ struct ConnectView: View {
             HStack {
                 Text("Connect")
                     .font(.system(size: 26, weight: .bold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Button("Add a tool…") { store.addCustomTarget() }
                     .buttonStyle(.plain)
                     .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                     .padding(.horizontal, 11)
                     .padding(.vertical, 5)
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                    .foregroundStyle(Theme.onSolidFill)
+                    .solidControl(cornerRadius: 6)
             }
 
             Text("Unli Rice is memory your AI tools share. Copy a configuration block, paste it into your tool yourself, and restart that tool to connect.")
                 .font(.system(size: 12.5))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 24)
@@ -89,7 +70,7 @@ struct ConnectView: View {
                     HStack(spacing: 6) {
                         Text("All \(store.notes.count + store.archivedNotes.count) notes are stored at:")
                             .font(.system(size: 11))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                         if !store.usingDefaultDataFolder {
                             Text("custom folder")
                                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -102,11 +83,11 @@ struct ConnectView: View {
                     
                     Text(store.dataURL.path)
                         .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.head)
                         .padding(8)
-                        .background(Color.black.opacity(0.25))
+                        .background(Theme.bgField)
                         .cornerRadius(4)
                     
                     HStack(spacing: 12) {
@@ -114,7 +95,7 @@ struct ConnectView: View {
                             Button("Use Default Location") { store.useDefaultDataFolder() }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(Theme.accent)
+                                .foregroundStyle(Theme.accentColor)
                         }
                         
                         Button("Switch Store…") { store.chooseExistingVault() }
@@ -152,7 +133,7 @@ private struct HouseRulesEditor: View {
                 HStack(spacing: 10) {
                     Text(statusLine)
                         .font(.system(size: 11))
-                        .foregroundStyle(store.houseRulesNote == nil ? Theme.inkDim : Theme.emerald)
+                        .foregroundStyle(store.houseRulesNote == nil ? Theme.textSecondary : Theme.emerald)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Spacer()
@@ -163,17 +144,15 @@ private struct HouseRulesEditor: View {
                         .padding(.horizontal, 11)
                         .padding(.vertical, 5)
                         .foregroundStyle(Theme.brass)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                        .solidControl(cornerRadius: 6)
 
                     Button(expanded ? "Hide" : "Edit") { expanded.toggle() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11))
                         .padding(.horizontal, 11)
                         .padding(.vertical, 5)
-                        .foregroundStyle(Theme.ink)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                        .foregroundStyle(Theme.onSolidFill)
+                        .solidControl(cornerRadius: 6)
 
                     Button(saveButtonTitle) {
                         store.saveHouseRules()
@@ -182,11 +161,11 @@ private struct HouseRulesEditor: View {
                     .font(.system(size: 11.5, weight: .medium))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
-                    .foregroundStyle(saveDisabled ? Theme.inkDim : Theme.onAccent)
-                    .background(saveDisabled ? Color.clear : Theme.accent)
+                    .foregroundStyle(saveDisabled ? Theme.textSecondary : Theme.onAccent)
+                    .background(saveDisabled ? Color.clear : Theme.accentColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
-                            .stroke(saveDisabled ? Theme.border : Color.clear, lineWidth: 1)
+                            .stroke(saveDisabled ? Theme.borderLight : Color.clear, lineWidth: 1)
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .disabled(saveDisabled)
@@ -196,19 +175,19 @@ private struct HouseRulesEditor: View {
                     TextEditor(text: $store.houseRulesText)
                         .font(.system(size: 11, design: .monospaced))
                         .scrollContentBackground(.hidden)
-                        .background(Color.black.opacity(0.25))
+                        .background(Theme.bgField)
                         .frame(height: 220)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.borderLight, lineWidth: 1))
 
                     HStack {
                         Text("Written to a note your assistant reads. Edit freely — these are your conventions.")
                             .font(.system(size: 10.5))
-                            .foregroundStyle(Theme.inkDim.opacity(0.85))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.85))
                         Spacer()
                         Button("Reset to default") { store.resetHouseRules() }
                             .buttonStyle(.plain)
                             .font(.system(size: 10.5))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
 
@@ -270,10 +249,10 @@ private struct ConnectorRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(target.displayName)
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(target.detail)
                         .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
@@ -287,9 +266,8 @@ private struct ConnectorRow: View {
                 .font(.system(size: 11.5, weight: .semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
-                .foregroundStyle(Theme.ink)
-                .background(Theme.panel)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                .foregroundStyle(Theme.onSolidFill)
+                .solidControl(cornerRadius: 6)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
@@ -300,7 +278,7 @@ private struct ConnectorRow: View {
 
             Text("Unli Rice never opens or edits this file. Merge the copied block manually, keeping any servers already there.")
                 .font(.system(size: 10.5))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 10)
         }
@@ -313,22 +291,22 @@ private struct ConnectorRow: View {
                 Spacer()
                 Button("Hide") { showingSnippet = false }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
                 .font(.system(size: 10.5))
                 .foregroundStyle(Theme.brass)
             ScrollView {
                 Text(store.snippet(for: target))
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(10)
             }
             .frame(maxHeight: 160)
-            .background(Color.black.opacity(0.25))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .background(Theme.bgField)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
@@ -347,38 +325,20 @@ private struct Card<Content: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title.uppercased())
                         .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(subtitle)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
                 }
             }
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color.white.opacity(0.06), Color.white.opacity(0.01)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .liquidGlass(cornerRadius: 8)
     }
 }

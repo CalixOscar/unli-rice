@@ -27,10 +27,10 @@ struct AutomationView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Automation")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("What Unli Rice does without being asked, and what it will only do when you press the button. Every structural change is queued for your approval either way — there is no delete.")
                     .font(.system(size: 12.5))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.horizontal, 24)
@@ -71,39 +71,21 @@ private struct Card<Content: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title.uppercased())
                         .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(subtitle)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
                 }
             }
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color.white.opacity(0.06), Color.white.opacity(0.01)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .liquidGlass(cornerRadius: 8)
     }
 }
 
@@ -128,7 +110,7 @@ private struct AutonomyCard: View {
                     get: { Double(store.autonomyLevel) },
                     set: { store.autonomyLevel = Int($0.rounded()) }
                 ), in: 0...2, step: 1)
-                .tint(Theme.accent)
+                .tint(Theme.accentColor)
                 .frame(maxWidth: 420)
 
                 HStack {
@@ -137,7 +119,7 @@ private struct AutonomyCard: View {
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundStyle(
                                 labels.firstIndex(of: label) == store.autonomyLevel
-                                    ? Theme.accent : Theme.inkDim
+                                    ? Theme.accentColor : Theme.textSecondary
                             )
                         if label != labels.last { Spacer() }
                     }
@@ -146,10 +128,10 @@ private struct AutonomyCard: View {
 
                 Text(descriptions[store.autonomyLevel])
                     .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .overlay(alignment: .leading) {
-                        Rectangle().fill(Theme.accent).frame(width: 2)
+                        Rectangle().fill(Theme.accentColor).frame(width: 2)
                     }
                     .padding(.leading, 8)
             }
@@ -174,7 +156,7 @@ private struct ScheduleCard: View {
                     detail: routineStatus
                 )
 
-                Divider().overlay(Theme.border)
+                Divider().overlay(Theme.borderLight)
 
                 toggleRow(
                     isOn: Binding(
@@ -196,17 +178,17 @@ private struct ScheduleCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(detail)
                     .font(.system(size: 11))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
             Toggle("", isOn: isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .tint(Theme.accent)
+                .tint(Theme.accentColor)
                 .disabled(disabled)
         }
     }
@@ -257,7 +239,7 @@ private struct JanitorCard: View {
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    actionButton("Preview", color: Theme.accent) {
+                    actionButton("Preview", color: Theme.accentColor) {
                         Task { await store.previewJanitor() }
                     }
                     actionButton("Run now", color: Theme.brass) {
@@ -269,7 +251,7 @@ private struct JanitorCard: View {
                     Spacer()
                     Text("Similarity: \(store.similarityEngine.label)")
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
                 }
                 .disabled(store.janitorBusy)
 
@@ -278,7 +260,7 @@ private struct JanitorCard: View {
                 if let summary = store.janitorSummary {
                     Text(summary)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 // A preview is a claim about what would happen, so it has to be
@@ -292,11 +274,11 @@ private struct JanitorCard: View {
                                 HStack(alignment: .top, spacing: 8) {
                                     Text(proposal.risk == .cosmetic ? "AUTO" : "QUEUE")
                                         .font(.system(size: 8.5, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(proposal.risk == .cosmetic ? Theme.accent : Theme.brass)
+                                        .foregroundStyle(proposal.risk == .cosmetic ? Theme.accentColor : Theme.brass)
                                         .frame(width: 40, alignment: .leading)
                                     Text(proposal.rationale)
                                         .font(.system(size: 11))
-                                        .foregroundStyle(Theme.inkDim)
+                                        .foregroundStyle(Theme.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     Spacer(minLength: 0)
                                 }
@@ -316,7 +298,7 @@ private struct JanitorCard: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(Theme.inkDim.opacity(0.85))
+            .foregroundStyle(Theme.textSecondary.opacity(0.85))
 
             if showingModelConfig {
                 HStack(spacing: 8) {
@@ -324,7 +306,8 @@ private struct JanitorCard: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
                         .padding(6)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                        .background(Theme.bgField)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
 
                     TextField("embedding model name", text: Binding(
                         get: { store.embeddingModelName ?? "" },
@@ -333,13 +316,14 @@ private struct JanitorCard: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 11, design: .monospaced))
                     .padding(6)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .background(Theme.bgField)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
                 }
                 .frame(maxWidth: 520)
 
                 Text("LM Studio or Ollama. Localhost only — your note titles are sent to it. Leave blank to use word overlap.")
                     .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.inkDim.opacity(0.8))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -352,7 +336,7 @@ private struct JanitorCard: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .foregroundStyle(color)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .solidControl(cornerRadius: 4)
     }
 }
 
@@ -374,7 +358,7 @@ private struct IngestCard: View {
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    actionButton("Preview", color: Theme.accent) {
+                    actionButton("Preview", color: Theme.accentColor) {
                         Task { await store.previewIngest() }
                     }
                     actionButton("Ingest now", color: Theme.brass) {
@@ -387,7 +371,7 @@ private struct IngestCard: View {
                     Button("+ Add a folder to index") { store.chooseScanRoot() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentColor)
                 }
                 .disabled(store.ingestBusy)
 
@@ -410,10 +394,10 @@ private struct IngestCard: View {
                             Button("Grant Access") { store.chooseClaudeProjectsFolder() }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Theme.accent)
+                                .foregroundStyle(Theme.accentColor)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
-                                .background(Theme.accent.opacity(0.15))
+                                .background(Theme.accentColor.opacity(0.15))
                                 .cornerRadius(3)
                         }
                     } else {
@@ -424,7 +408,7 @@ private struct IngestCard: View {
                             Button("Remove Access") { store.removeClaudeProjectsFolder() }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim)
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
 
@@ -453,21 +437,21 @@ private struct IngestCard: View {
                         // realistic way to index the wrong one for months.
                         Text(root.path)
                             .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
                             .truncationMode(.head)
                         Spacer()
                         Button("remove") { store.removeScanRoot(root) }
                             .buttonStyle(.plain)
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim.opacity(0.7))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.7))
                     }
                 }
 
                 if let summary = store.ingestSummary {
                     Text(summary)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 // A preview has to be specific enough to disagree with, so it
@@ -479,7 +463,7 @@ private struct IngestCard: View {
                             ForEach(store.ingestPreview, id: \.title) { resource in
                                 Text(resource.title)
                                     .font(.system(size: 11))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
                                     .lineLimit(1)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -498,7 +482,7 @@ private struct IngestCard: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .foregroundStyle(color)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+            .solidControl(cornerRadius: 4)
     }
 }
 
@@ -514,7 +498,7 @@ private struct AdvancedModeToggleCard: View {
             HStack {
                 Text("Enable Advanced Mode")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Toggle("", isOn: $store.advancedModeEnabled)
                     .toggleStyle(.switch)
@@ -536,32 +520,32 @@ private struct SimpleScanRootsCard: View {
                 HStack {
                     Text("NOMINATED FOLDERS")
                         .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Button("+ Add Folder") { store.chooseScanRoot() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentColor)
                 }
 
                 if store.scanRoots.isEmpty {
                     Text("No folders added yet. Click '+ Add Folder' to begin importing documents.")
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
                         .padding(.vertical, 4)
                 } else {
                     ForEach(store.scanRoots, id: \.self) { root in
                         HStack(spacing: 8) {
                             Text(root.path)
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim)
+                                .foregroundStyle(Theme.textSecondary)
                                 .lineLimit(1)
                                 .truncationMode(.head)
                             Spacer()
                             Button("remove") { store.removeScanRoot(root) }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Theme.inkDim.opacity(0.7))
+                                .foregroundStyle(Theme.textSecondary.opacity(0.7))
                         }
                     }
                 }
@@ -569,7 +553,7 @@ private struct SimpleScanRootsCard: View {
                 if let summary = store.ingestSummary {
                     Text(summary)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                         .padding(.top, 4)
                 }
             }

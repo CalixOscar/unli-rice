@@ -13,10 +13,10 @@ struct NeedsYouView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Needs You")
                         .font(.system(size: 20, weight: .semibold, design: .serif))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("Proposals and notices that require your decision.")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 Spacer()
@@ -25,15 +25,13 @@ struct NeedsYouView: View {
                     AIReviewMenu()
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(Theme.panel)
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                        .solidControl(cornerRadius: 6)
                 }
 
                 CleanupMenu(prompts: CleanupPrompts.review)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+                    .solidControl(cornerRadius: 6)
             }
 
             // Quick triggers: Preview & Run Tidying
@@ -43,8 +41,8 @@ struct NeedsYouView: View {
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .foregroundStyle(Theme.accent)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .foregroundStyle(Theme.accentColor)
+                    .solidControl(cornerRadius: 4)
 
                 Button("Run Tidying Now") { Task { await store.runJanitorNow() } }
                     .buttonStyle(.plain)
@@ -52,7 +50,7 @@ struct NeedsYouView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .foregroundStyle(Theme.brass)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .solidControl(cornerRadius: 4)
 
                 if store.janitorBusy {
                     ProgressView().controlSize(.small).scaleEffect(0.7)
@@ -61,7 +59,7 @@ struct NeedsYouView: View {
                 if let summary = store.janitorSummary {
                     Text(summary)
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
             .disabled(store.janitorBusy)
@@ -74,10 +72,10 @@ struct NeedsYouView: View {
                         .foregroundStyle(Theme.emerald)
                     Text("All Clear — Nothing is waiting on you.")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text("The tidying pipeline checks for duplicates and contradictions on schedule.")
                         .font(.system(size: 12))
-                        .foregroundStyle(Theme.inkDim)
+                        .foregroundStyle(Theme.textSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -88,7 +86,7 @@ struct NeedsYouView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("NOTICES & ALERTS")
                                     .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
 
                                 ForEach(store.unreadNotices) { notice in
                                     noticeRow(notice)
@@ -101,7 +99,7 @@ struct NeedsYouView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("REVIEW PROPOSALS (\(store.pending.count))")
                                     .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
 
                                 ForEach(store.pendingClusters) { cluster in
                                     ReviewClusterCard(cluster: cluster)
@@ -121,16 +119,16 @@ struct NeedsYouView: View {
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: isProblem ? "exclamationmark.triangle.fill" : "bell.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(isProblem ? Theme.crit : Theme.accent)
+                .foregroundStyle(isProblem ? Theme.crit : Theme.accentColor)
                 .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(notice.title)
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text(notice.detail)
                     .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
             Button("Dismiss") {
@@ -138,10 +136,9 @@ struct NeedsYouView: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 10.5))
-            .foregroundStyle(Theme.inkDim)
+            .foregroundStyle(Theme.textSecondary)
         }
         .padding(10)
-        .background(Theme.panel)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
+        .liquidGlass(cornerRadius: 6)
     }
 }

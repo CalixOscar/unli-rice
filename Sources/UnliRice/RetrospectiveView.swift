@@ -36,7 +36,7 @@ struct RetrospectiveView: View {
                         tallySection(
                             "What it was about",
                             Array(digest.tags.prefix(12)),
-                            accent: Theme.accent,
+                            accent: Theme.accentColor,
                             icon: "tag.fill"
                         )
                     }
@@ -51,7 +51,7 @@ struct RetrospectiveView: View {
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.background)
+        .background(Theme.bgMain)
     }
 
     private var header: some View {
@@ -59,11 +59,11 @@ struct RetrospectiveView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(store.currentRetrospectivePeriod?.displayName() ?? "Your Review")
                     .font(.system(size: 26, weight: .bold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text("built from your active notes")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim.opacity(0.8))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
             }
 
             if store.retrospectivePeriods.count > 1 {
@@ -80,12 +80,12 @@ struct RetrospectiveView: View {
                                     ))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(selected ? Theme.accent : Color.white.opacity(0.04))
-                                    .foregroundStyle(selected ? Theme.onAccent : Theme.inkDim)
+                                    .background(selected ? Theme.accentColor : Color.white.opacity(0.04))
+                                    .foregroundStyle(selected ? Theme.onAccent : Theme.textSecondary)
                                     .clipShape(Capsule())
                                     .overlay(
                                         Capsule()
-                                            .stroke(selected ? Color.clear : Theme.border, lineWidth: 1)
+                                            .stroke(selected ? Color.clear : Theme.borderLight, lineWidth: 1)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -109,7 +109,7 @@ struct RetrospectiveView: View {
                 value: "\(digest.notesCreated)",
                 label: "Notes Written",
                 icon: "doc.text.fill",
-                color: Theme.accent
+                color: Theme.accentColor
             )
 
             statCard(
@@ -156,16 +156,15 @@ struct RetrospectiveView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .font(.system(size: 22, weight: .bold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Text(label.uppercased())
                     .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.inkDim.opacity(0.8))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
             }
         }
         .padding(14)
-        .background(Theme.panel.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+        .liquidGlass(cornerRadius: 8)
     }
 
     private func monthsSection(_ digest: RetrospectiveDigest) -> some View {
@@ -181,7 +180,7 @@ struct RetrospectiveView: View {
                         HStack(spacing: 14) {
                             Text(month.period.displayName().components(separatedBy: " ").first ?? "")
                                 .font(.system(size: 12, weight: .semibold, design: .serif))
-                                .foregroundStyle(month.noteCount > 0 ? Theme.ink : Theme.inkDim.opacity(0.4))
+                                .foregroundStyle(month.noteCount > 0 ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
                                 .frame(width: 70, alignment: .leading)
 
                             // Premium Capsule Progress Bar
@@ -191,7 +190,7 @@ struct RetrospectiveView: View {
                                     .frame(height: 6)
                                 GeometryReader { geo in
                                     Capsule()
-                                        .fill(Theme.accent.opacity(month.noteCount > 0 ? 0.8 : 0.0))
+                                        .fill(Theme.accentColor.opacity(month.noteCount > 0 ? 0.8 : 0.0))
                                         .frame(width: max(geo.size.width * CGFloat(month.noteCount) / CGFloat(peak), month.noteCount > 0 ? 4 : 0))
                                 }
                                 .frame(height: 6)
@@ -201,11 +200,11 @@ struct RetrospectiveView: View {
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(month.noteCount == 0 ? "Quiet" : "\(month.noteCount) note\(month.noteCount == 1 ? "" : "s")\(month.leadingProject.map { " · \($0)" } ?? "")")
                                     .font(.system(size: 11))
-                                    .foregroundStyle(Theme.inkDim)
+                                    .foregroundStyle(Theme.textSecondary)
                                 if let highlight = month.highlight {
                                     Text(highlight.title)
                                         .font(.system(size: 11))
-                                        .foregroundStyle(Theme.ink.opacity(0.8))
+                                        .foregroundStyle(Theme.textPrimary.opacity(0.8))
                                         .lineLimit(1)
                                 }
                             }
@@ -235,7 +234,7 @@ struct RetrospectiveView: View {
                     HStack(spacing: 14) {
                         Text(contributor.name)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                             .frame(width: 120, alignment: .leading)
 
                         // Premium Capsule Progress Bar
@@ -256,12 +255,12 @@ struct RetrospectiveView: View {
 
                         Text("\(contributor.notesCreated) created")
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                             .frame(width: 80, alignment: .leading)
 
                         Text(detail(contributor))
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim.opacity(0.7))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.7))
                             .lineLimit(1)
 
                         Spacer()
@@ -298,7 +297,7 @@ struct RetrospectiveView: View {
                     HStack(spacing: 14) {
                         Text(tally.name)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                             .frame(width: 120, alignment: .leading)
 
                         // Premium Capsule Progress Bar
@@ -317,7 +316,7 @@ struct RetrospectiveView: View {
 
                         Text("\(tally.count) note\(tally.count == 1 ? "" : "s")")
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
 
                         Spacer()
                     }
@@ -342,7 +341,7 @@ struct RetrospectiveView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(note.title)
                                 .font(.system(size: 13, weight: .semibold, design: .serif))
-                                .foregroundStyle(Theme.ink)
+                                .foregroundStyle(Theme.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .multilineTextAlignment(.leading)
 
@@ -356,13 +355,11 @@ struct RetrospectiveView: View {
                                 }
                             }
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim.opacity(0.8))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Theme.panel.opacity(0.4))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 1))
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .liquidGlass(cornerRadius: 6)
                     }
                     .buttonStyle(.plain)
                 }
@@ -374,13 +371,13 @@ struct RetrospectiveView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Nothing to look back on yet.")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(Theme.textPrimary)
             Text("""
                 This screen fills itself in from notes you already have — nothing \
                 extra to switch on or remember. Come back after a month of use.
                 """)
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.inkDim)
+                .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(20)
@@ -399,21 +396,20 @@ private struct Card<Content: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 13))
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title.uppercased())
                         .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Text(subtitle)
                         .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.inkDim.opacity(0.8))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
                 }
             }
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.panel.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+        .liquidGlass(cornerRadius: 8)
     }
 }

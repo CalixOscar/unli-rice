@@ -14,10 +14,10 @@ struct MirrorExportView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Mirror Export (Universal Read Channel)")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(Theme.textPrimary)
                 Text("A derived plain-markdown folder that any LLM or tool can read directly with zero setup.")
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             // Export Info Card
@@ -25,15 +25,15 @@ struct MirrorExportView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "folder.badge.gearshape")
                         .font(.system(size: 16))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(Theme.accentColor)
                     Text("Export Directory")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
+                        .foregroundStyle(Theme.textPrimary)
                     Spacer()
                     if let result = exportResult {
                         Text("Regenerated \(result.generatedAt.formatted(.relative(presentation: .named)))")
                             .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                 }
 
@@ -42,12 +42,12 @@ struct MirrorExportView: View {
                     .foregroundStyle(Theme.brass)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.4))
+                    .background(Theme.bgField)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
 
                 Text("Derived files automatically included:\n• 00_Index.md, 01_Identity.md, 02_Voice.md, 03_Principles.md, 04_Guardrails.md\n• 05+_Overlay_<Name>.md (one per overlay)\n• PROJECTS/ (one file per Project: note)\n• MEMORY.md (capsule ≤2,500 chars)\n• HOUSE_RULES.md (current active rules)\n• RAW/ (ingested raw transcripts & documents)")
                     .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.inkDim)
+                    .foregroundStyle(Theme.textSecondary)
 
                 if let result = exportResult {
                     HStack(spacing: 12) {
@@ -58,7 +58,7 @@ struct MirrorExportView: View {
                         if let len = result.memoryCapsuleLength {
                             Text("MEMORY.md: \(len) / 2,500 chars")
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(result.memoryCapsuleExceeded ? Theme.crit : Theme.inkDim)
+                                .foregroundStyle(result.memoryCapsuleExceeded ? Theme.crit : Theme.textSecondary)
                         }
                     }
                 }
@@ -78,7 +78,7 @@ struct MirrorExportView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .foregroundStyle(Theme.onAccent)
-                    .background(Theme.accent)
+                    .background(Theme.accentColor)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
 
                     Button("Open in Finder") {
@@ -88,15 +88,13 @@ struct MirrorExportView: View {
                     .font(.system(size: 11.5))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .foregroundStyle(Theme.ink)
-                    .background(Theme.panel)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.border, lineWidth: 1))
+                    .foregroundStyle(Theme.onSolidFill)
+                    .solidControl(cornerRadius: 4)
                 }
                 .padding(.top, 4)
             }
             .padding(16)
-            .background(Theme.panel)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 1))
+            .liquidGlass(cornerRadius: 8)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

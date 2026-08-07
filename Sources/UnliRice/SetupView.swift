@@ -25,10 +25,10 @@ struct SetupView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Setup")
                             .font(.system(size: 22, weight: .bold, design: .serif))
-                            .foregroundStyle(Theme.ink)
+                            .foregroundStyle(Theme.textPrimary)
                         Text("Configure how AI tools connect, your personal profiles, and automation rules.")
                             .font(.system(size: 12))
-                            .foregroundStyle(Theme.inkDim)
+                            .foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
                 }
@@ -41,10 +41,8 @@ struct SetupView: View {
                                 .font(.system(size: 11.5, weight: selectedTab == tab ? .bold : .regular))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(selectedTab == tab ? Theme.accentSoft : Theme.panel)
-                                .foregroundStyle(selectedTab == tab ? Theme.accent : Theme.inkDim)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(selectedTab == tab ? Theme.accent : Theme.border, lineWidth: 1))
+                                .foregroundStyle(selectedTab == tab ? Theme.accentColor : Theme.textSecondary)
+                                .selectedControl(cornerRadius: 6, accent: Theme.accentColor, selected: selectedTab == tab)
                         }
                         .buttonStyle(.plain)
                     }
@@ -53,7 +51,7 @@ struct SetupView: View {
             .padding(.horizontal, 20)
             .padding(.top, 18)
             .padding(.bottom, 12)
-            .background(Color.black.opacity(0.15))
+            .liquidGlass(cornerRadius: 0)
 
             Divider().opacity(0.2)
 
@@ -73,7 +71,7 @@ struct SetupView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .foregroundStyle(Theme.onAccent)
-                            .background(Theme.accent)
+                            .background(Theme.accentColor)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                             .padding(.leading, 20)
                             .padding(.top, 12)
@@ -88,7 +86,7 @@ struct SetupView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             Text("House Rules are standing instructions read by every connected assistant at session start.")
                                 .font(.system(size: 12))
-                                .foregroundStyle(Theme.inkDim)
+                                .foregroundStyle(Theme.textSecondary)
 
                             HouseRulesPresetGalleryView {
                                 store.reload()
@@ -105,6 +103,6 @@ struct SetupView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Theme.background)
+        .background(Theme.bgMain)
     }
 }
