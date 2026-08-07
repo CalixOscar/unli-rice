@@ -1,9 +1,15 @@
 import SwiftUI
 import UnliRiceCore
+import UniformTypeIdentifiers
 
 public struct CaptureView: View {
     @StateObject private var store: CaptureStore
     @State private var showSettings = false
+    @State private var showFileImporter = false
+    @State private var showNewTabAlert = false
+    @State private var newTabName = ""
+    @State private var tabToDelete: String? = nil
+    @State private var showDeleteTabAlert = false
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -13,6 +19,8 @@ public struct CaptureView: View {
     public var body: some View {
         VStack(spacing: 12) {
             header
+            tabBar
+
 
             if store.layoutPlacement == .micTopNotesBottom {
                 recordSection
@@ -28,6 +36,67 @@ public struct CaptureView: View {
         .sheet(isPresented: $showSettings) {
             settingsSheet
         }
+        .alert("New Project Tab", isPresented: $showNewTabAlert) {
+            TextField("Project Name", text: $newTabName)
+            Button("Cancel", role: .cancel) { newTabName = "" }
+            Button("Create") {
+                if !newTabName.isEmpty && !store.projectTabs.contains(newTabName) {
+                    store.projectTabs.append(newTabName)
+                    store.currentProjectTab = newTabName
+                }
+                newTabName = ""
+            }
+        }
+        .alert("Archive Tab?", isPresented: $showDeleteTabAlert, presenting: tabToDelete) { tab in
+            Button("Cancel", role: .cancel) { tabToDelete = nil }
+            Button("Archive", role: .destructive) {
+                if let idx = store.projectTabs.firstIndex(of: tab) {
+                    store.projectTabs.remove(at: idx)
+                    if store.projectTabs.isEmpty {
+                        store.projectTabs = ["Unli Thoughts"]
+                    }
+                    if store.currentProjectTab == tab {
+                        store.currentProjectTab = store.projectTabs[0]
+                    }
+                }
+                tabToDelete = nil
+            }
+        } message: { tab in
+            Text("Are you sure you want to archive '\(tab)'? Captures will remain in the vault.")
+        }
+    }
+
+    private var tabBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(store.projectTabs, id: \.self) { tab in
+                    Text(tab)
+                        .font(.system(size: 13, weight: store.currentProjectTab == tab ? .bold : .medium))
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(store.currentProjectTab == tab ? Color.accentColor : Color.secondary.opacity(0.1))
+                        .foregroundColor(store.currentProjectTab == tab ? .white : .primary)
+                        .cornerRadius(16)
+                        .onTapGesture {
+                            store.currentProjectTab = tab
+                        }
+                        .onLongPressGesture {
+                            tabToDelete = tab
+                            showDeleteTabAlert = true
+                        }
+                }
+                
+                Button(action: { showNewTabAlert = true }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.accentColor)
+                        .padding(8)
+                        .background(Color.accentColor.opacity(0.1))
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .padding(.bottom, 4)
     }
 
     private var header: some View {
@@ -156,7 +225,7 @@ public struct CaptureView: View {
     private var pulledNotesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Synced Vault Notes (\(store.pulledNotes.count))")
+                Text("Synced with Vault Notes (\(store.pulledNotes.count))")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.secondary)
                 Spacer()
@@ -246,6 +315,25 @@ public struct CaptureView: View {
     private var settingsSheet: some View {
         NavigationView {
             Form {
+                Section(header: Text("Sync Configuration")) {
+                    Button(action: { showFileImporter = true }) {
+                        HStack {
+                            Text("Select Sync Folder")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if store.sharedFolderURL != nil {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                    if let url = store.sharedFolderURL {
+                        Text(url.lastPathComponent)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
                 Section(header: Text("Recording Behavior")) {
                     Picker("Recording Mode", selection: $store.recordingMode) {
                         ForEach(RecordingMode.allCases) { mode in
@@ -272,6 +360,15 @@ public struct CaptureView: View {
                         showSettings = false
                     }
                 }
+            }
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                store.setSharedFolder(url)
             }
         }
     }

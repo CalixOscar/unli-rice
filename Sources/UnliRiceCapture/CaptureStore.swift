@@ -40,6 +40,8 @@ public final class CaptureStore: ObservableObject {
 
     private static let recordingModeKey = "UnliRiceCapture_recordingMode"
     private static let layoutPlacementKey = "UnliRiceCapture_layoutPlacement"
+    private static let projectTabsKey = "UnliRiceCapture_projectTabs"
+    private static let currentProjectTabKey = "UnliRiceCapture_currentProjectTab"
 
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
@@ -56,6 +58,20 @@ public final class CaptureStore: ObservableObject {
     @Published public var layoutPlacement: LayoutPlacement {
         didSet {
             UserDefaults.standard.set(layoutPlacement.rawValue, forKey: Self.layoutPlacementKey)
+        }
+    }
+
+    @Published public var projectTabs: [String] {
+        didSet {
+            UserDefaults.standard.set(projectTabs, forKey: Self.projectTabsKey)
+        }
+    }
+
+    @Published public var currentProjectTab: String {
+        didSet {
+            UserDefaults.standard.set(currentProjectTab, forKey: Self.currentProjectTabKey)
+            // Filter pulledNotes based on the current tab when switching
+            updatePulledNotesForCurrentTab()
         }
     }
 
@@ -76,6 +92,14 @@ public final class CaptureStore: ObservableObject {
 
         let savedLayoutRaw = UserDefaults.standard.string(forKey: Self.layoutPlacementKey) ?? ""
         self.layoutPlacement = LayoutPlacement(rawValue: savedLayoutRaw) ?? .micTopNotesBottom
+
+        let savedTabsRaw = UserDefaults.standard.stringArray(forKey: Self.projectTabsKey) ?? ["Unli Thoughts"]
+        let initialTabs = savedTabsRaw.isEmpty ? ["Unli Thoughts"] : savedTabsRaw
+        self.projectTabs = initialTabs
+
+        let savedCurrentTab = UserDefaults.standard.string(forKey: Self.currentProjectTabKey) ?? "Unli Thoughts"
+        self.currentProjectTab = initialTabs.contains(savedCurrentTab) ? savedCurrentTab : initialTabs[0]
+
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let baseDir = storageDir ?? docs.appendingPathComponent("UnliRiceCapture", isDirectory: true)
         self.storageDir = baseDir
@@ -118,6 +142,12 @@ public final class CaptureStore: ObservableObject {
         do {
             try SharedFolderManager.shared.saveBookmark(for: url)
             self.sharedFolderURL = url
+            
+            let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+            var syncState = SyncState.load(from: syncStateURL)
+            syncState.publishedCursor = nil
+            try? syncState.save(to: syncStateURL)
+            
             sync()
         } catch {
             state = .error("Failed to save shared folder bookmark: \(error.localizedDescription)")
@@ -140,7 +170,7 @@ public final class CaptureStore: ObservableObject {
         )
 
         noteService.rebuild()
-        pulledNotes = (try? noteService.listNotes()) ?? []
+        updatePulledNotesForCurrentTab()
 
         let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
         let ownDeviceLabel = deviceIdentity.label
@@ -155,6 +185,13 @@ public final class CaptureStore: ObservableObject {
                 event.device == ownDeviceLabel
             }
         )
+    }
+
+    public func updatePulledNotesForCurrentTab() {
+        let allNotes = (try? noteService.listNotes()) ?? []
+        self.pulledNotes = allNotes.filter { note in
+            note.tags.contains(currentProjectTab)
+        }
     }
 
     public func deleteCapture(id: UUID) {
@@ -231,7 +268,7 @@ public final class CaptureStore: ObservableObject {
         Task {
             do {
                 let transcript = try await transcriber.transcribe(audioURL: audioURL)
-                let event = try shardWriter.writeCapture(transcript: transcript)
+                let event = try shardWriter.writeCapture(transcript: transcript, tags: [currentProjectTab])
 
                 // Also append to local eventStore on phone
                 let jsonEncoder = JSONEncoder()

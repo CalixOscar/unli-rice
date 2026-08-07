@@ -9,7 +9,7 @@ public struct ShardWriter: Sendable {
         self.deviceLabel = deviceLabel
     }
 
-    public func writeCapture(transcript: String, date: Date = Date()) throws -> Event {
+    public func writeCapture(transcript: String, date: Date = Date(), tags: [String] = []) throws -> Event {
         let noteID = UUID()
         let eventID = UUID()
 
@@ -35,10 +35,23 @@ public struct ShardWriter: Sendable {
             device: deviceLabel
         )
 
+        var eventsToWrite = [event]
+        
+        for tag in tags {
+            eventsToWrite.append(Event(
+                id: UUID(),
+                noteId: noteID,
+                timestamp: date.addingTimeInterval(0.001),
+                source: "human",
+                kind: .tagged,
+                tag: tag,
+                device: deviceLabel
+            ))
+        }
+
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(event)
-
+        
         let fileManager = FileManager.default
         let directory = shardFileURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -49,10 +62,13 @@ public struct ShardWriter: Sendable {
 
         let handle = try FileHandle(forWritingTo: shardFileURL)
         defer { try? handle.close() }
-
         try handle.seekToEnd()
-        try handle.write(contentsOf: data)
-        try handle.write(contentsOf: Data("\n".utf8))
+
+        for e in eventsToWrite {
+            let data = try encoder.encode(e)
+            try handle.write(contentsOf: data)
+            try handle.write(contentsOf: Data("\n".utf8))
+        }
 
         return event
     }

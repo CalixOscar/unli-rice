@@ -482,12 +482,33 @@ struct ProfileBuilderView: View {
                 .liquidGlass(cornerRadius: 6)
             }
 
-            Button("+ Add Overlay") {
-                input.overlays.append(ProfileBuilderInput.OverlayEntry())
+            HStack(spacing: 14) {
+                Button("+ Add Overlay") {
+                    input.overlays.append(ProfileBuilderInput.OverlayEntry())
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.accentColor)
+
+                Menu {
+                    ForEach(OverlayTemplate.builtIn) { template in
+                        Button {
+                            input.overlays.append(template.makeEntry())
+                        } label: {
+                            Text(template.title)
+                            Text(template.summary)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.and.pencil")
+                        Text("Load Overlay Template…")
+                    }
+                    .font(.system(size: 11.5))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(Theme.accentColor)
         }
     }
 
