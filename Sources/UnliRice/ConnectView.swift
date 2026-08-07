@@ -35,7 +35,7 @@ struct ConnectView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Connect")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Button("Add a tool…") { store.addCustomTarget() }
@@ -240,9 +240,9 @@ private struct ConnectorRow: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Text(String(target.displayName.prefix(1)))
-                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .font(.system(size: 13, weight: .bold))
                     .frame(width: 26, height: 26)
-                    .foregroundStyle(Theme.brass)
+                    .foregroundStyle(Theme.accentColor)
                     .background(Theme.brass.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 

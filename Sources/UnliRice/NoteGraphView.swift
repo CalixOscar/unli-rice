@@ -15,6 +15,8 @@ import UnliRiceCore
 /// present, so the legend can never again describe a vocabulary the corpus
 /// doesn't use.
 enum GraphGrouping: String, CaseIterable, Identifiable {
+    case project
+    case category
     case tag
     case author
     case period
@@ -23,6 +25,8 @@ enum GraphGrouping: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
+        case .project: return "Project"
+        case .category: return "Category"
         case .tag: return "Tag"
         case .author: return "Author"
         case .period: return "Year/Month"
@@ -32,13 +36,39 @@ enum GraphGrouping: String, CaseIterable, Identifiable {
     /// The group one note belongs to, or nil for "ungrouped".
     func key(for note: Note) -> String? {
         switch self {
+        case .project:
+            if let proj = Retrospective.project(of: note) {
+                return proj
+            }
+            if note.title.hasPrefix("Doc: ") {
+                let parts = note.title.dropFirst(5).split(separator: "/")
+                if parts.count > 1 {
+                    return String(parts[0])
+                }
+            }
+            if note.title.hasPrefix("Profile:") { return "Profiles" }
+            if note.title.hasPrefix("Wiki:") { return "Wiki" }
+            if note.title.hasPrefix("Session:") { return "Sessions" }
+            if note.tags.contains("document") { return "Ingested Docs" }
+            return "General Notes"
+
+        case .category:
+            let title = note.title
+            if title.hasPrefix("Profile:") || title.hasPrefix("House Rules") { return "Profiles & Rules" }
+            if title.hasPrefix("Wiki:") { return "Wiki Hubs" }
+            if title.hasPrefix("Session:") { return "AI Sessions" }
+            if title.hasPrefix("Doc:") || note.tags.contains("document") { return "Raw Notes & Docs" }
+            if title.hasPrefix("Project:") || note.tags.contains("project") { return "Projects" }
+            return "User Notes"
+
         case .tag:
-            // Alphabetically first, so a note with the same tag set always lands
-            // in the same group no matter what order Set iteration hands them
-            // over in — otherwise nodes would swap colours between launches.
-            return note.tags.sorted().first
+            // Prefer specific meaningful tags over generic machine tags like "document" or "ingested"
+            let specific = note.tags.filter { $0 != "document" && $0 != "ingested" }.sorted()
+            return specific.first ?? note.tags.sorted().first
+
         case .author:
             return note.creator
+
         case .period:
             return GraphGrouping.periodFormatter.string(from: note.createdAt)
         }
@@ -108,7 +138,7 @@ struct NoteGraphView: View {
     @State private var draggedNodeID: UUID? = nil
     @State private var filterGroup: String? = nil
 
-    @State private var grouping: GraphGrouping = .tag
+    @State private var grouping: GraphGrouping = .project
     /// Every group present, in a fixed order. Colour and cluster position are
     /// both derived from a group's index here, so both stay stable while the
     /// simulation runs — recomputing either from a `Set` would make nodes
@@ -136,13 +166,13 @@ struct NoteGraphView: View {
         revealedIDs?.contains(id) ?? true
     }
     
-    // Physics constants
-    private let charge: Double = -450.0       // repulsion force
-    private let springStrength: Double = 0.05  // link attraction force
-    private let restLength: Double = 130.0     // desired link length
-    private let centerGravity: Double = 0.01   // pull to (0,0)
-    private let clusterGravity: Double = 0.04  // pull to cluster centers
-    private let friction: Double = 0.88
+    // Physics constants for Star Map Constellation layout
+    private let charge: Double = -180.0        // Repulsion force (mild so nodes don't blow past their cluster)
+    private let springStrength: Double = 0.08  // Link attraction force
+    private let restLength: Double = 85.0      // Desired link length
+    private let centerGravity: Double = 0.003  // Slight global pull
+    private let clusterGravity: Double = 0.28  // Strong pull to constellation sector centers
+    private let friction: Double = 0.80        // High friction for fast settling
 
     /// How many nodes can carry a permanent label before the labels stop being
     /// readable. Eyeballed against the real store, where 190 of them cover the
@@ -166,6 +196,9 @@ struct NoteGraphView: View {
                     context.translateBy(x: center.x + pan.width, y: center.y + pan.height)
                     context.scaleBy(x: zoom, y: zoom)
                     
+                    // Draw Star Map Constellation Sectors & Nebulae
+                    drawConstellationBackground(in: context)
+
                     // Draw edges (lines)
                     drawEdges(in: context)
                     
@@ -188,16 +221,13 @@ struct NoteGraphView: View {
                             }
                             
                             // 2. Perform drag operation
-                            if let nodeID = draggedNodeID {
-                                // Dragging a node
-                                if let idx = nodes.firstIndex(where: { $0.id == nodeID }) {
-                                    let canvasX = (value.location.x - center.x - accumulatedPan.width) / zoom
-                                    let canvasY = (value.location.y - center.y - accumulatedPan.height) / zoom
+                            if let draggedNodeID {
+                                let canvasX = (value.location.x - center.x - accumulatedPan.width) / zoom
+                                let canvasY = (value.location.y - center.y - accumulatedPan.height) / zoom
+                                if let idx = nodes.firstIndex(where: { $0.id == draggedNodeID }) {
                                     nodes[idx].x = canvasX
                                     nodes[idx].y = canvasY
-                                    nodes[idx].vx = 0
-                                    nodes[idx].vy = 0
-                                    alpha = 1.0  // Re-heat simulation
+                                    alpha = max(alpha, 0.3)  // Gentle re-heat during drag
                                 }
                             } else {
                                 // Panning the background
@@ -235,12 +265,11 @@ struct NoteGraphView: View {
                             }
                         }
                 )
-                // Pinch-to-zoom support (combines zoom gestures)
+                // Pinch-to-zoom support (pure view transform, no physics re-heat)
                 .gesture(
                     MagnificationGesture()
                         .onChanged { value in
                             zoom = max(0.15, min(4.0, value))
-                            alpha = 0.5  // Gentle re-heat to adjust labels
                         }
                 )
                 .onContinuousHover { phase in
@@ -281,7 +310,7 @@ struct NoteGraphView: View {
                     if isReplaying, let replayDate {
                         VStack(spacing: 3) {
                             Text(Self.replayCaptionFormatter.string(from: replayDate))
-                                .font(.system(size: 16, weight: .semibold, design: .serif))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                             Text("\(revealedIDs?.count ?? 0) of \(nodes.count) notes")
                                 .font(.system(size: 10, design: .monospaced))
@@ -301,14 +330,25 @@ struct NoteGraphView: View {
                 }
 
                 if nodes.isEmpty {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 12) {
                         Text("Your brain map is empty")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Theme.textPrimary)
                         Text("Every note becomes a dot here, and every [[link]] between notes becomes a line.\nAs your AI tools write and cross-link notes, this grows into a map of what they know.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)
+
+                        Button("+ Add Folder of .md Files or Projects") {
+                            store.chooseScanRoot()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .foregroundStyle(Theme.onAccent)
+                        .background(Theme.accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                     .padding(24)
                 }
@@ -343,6 +383,9 @@ struct NoteGraphView: View {
         .background(Theme.bgMain)
         .onChange(of: grouping) { _ in
             withAnimation { applyGrouping() }
+        }
+        .onChange(of: store.notes.count) { _ in
+            initializeGraph()
         }
         .onReceive(timer) { _ in
             advanceReplay()
@@ -743,16 +786,63 @@ struct NoteGraphView: View {
         return Self.palette[index % Self.palette.count]
     }
 
-    /// Where a group's nodes are pulled towards. Evenly spaced on a circle, so
-    /// the clusters are visually distinct for any number of groups — the old
-    /// version had four hand-placed points and nowhere to put a fifth.
+    /// Star Map sector background rendering
+    private func drawConstellationBackground(in context: GraphicsContext) {
+        for group in groupOrder {
+            let center = clusterCenter(forGroup: group)
+            let color = color(forGroup: group)
+
+            // 1. Glowing Nebula Background
+            let nebulaRadius = 240.0
+            let nebulaRect = CGRect(x: center.x - nebulaRadius, y: center.y - nebulaRadius, width: nebulaRadius * 2, height: nebulaRadius * 2)
+            let shading = GraphicsContext.Shading.radialGradient(
+                Gradient(colors: [color.opacity(0.12), color.opacity(0.03), .clear]),
+                center: center,
+                startRadius: 0,
+                endRadius: nebulaRadius
+            )
+            context.fill(Path(ellipseIn: nebulaRect), with: shading)
+
+            // 2. Constellation Orbit Ring
+            var ringPath = Path()
+            ringPath.addEllipse(in: CGRect(x: center.x - 170.0, y: center.y - 170.0, width: 340.0, height: 340.0))
+            let strokeStyle = StrokeStyle(lineWidth: 1.0, dash: [4, 6])
+            context.stroke(ringPath, with: .color(color.opacity(0.18)), style: strokeStyle)
+
+            // 3. Sector Title Label
+            let titleText = Text("✨ \(group.uppercased()) SECTOR")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(color.opacity(0.85))
+            let resolved = context.resolve(titleText)
+            context.draw(resolved, at: CGPoint(x: center.x, y: center.y - 185.0), anchor: .bottom)
+        }
+    }
+
+    /// Sector centers for Star Map Constellation journey.
     private func clusterCenter(forGroup group: String?) -> CGPoint {
-        guard let group, let index = groupOrder.firstIndex(of: group), groupOrder.count > 1 else {
+        guard let group else { return .zero }
+
+        switch group {
+        case "Profiles & Rules", "Profiles":
+            return CGPoint(x: 0, y: 0) // Center core
+        case "Raw Notes & Docs", "Ingested Docs":
+            return CGPoint(x: -480, y: -290) // Top-Left Sector
+        case "Projects", "Unli Rice":
+            return CGPoint(x: 480, y: -290) // Top-Right Sector
+        case "AI Sessions", "Sessions":
+            return CGPoint(x: 480, y: 290) // Bottom-Right Sector
+        case "Wiki Hubs", "Wiki":
+            return CGPoint(x: -480, y: 290) // Bottom-Left Sector
+        case "User Notes", "General Notes":
+            return CGPoint(x: 0, y: 400) // South Sector
+        default:
+            if let index = groupOrder.firstIndex(of: group), groupOrder.count > 1 {
+                let angle = (Double(index) / Double(groupOrder.count)) * 2 * .pi
+                let radius = 450.0 + Double(index % 3) * 80.0
+                return CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+            }
             return .zero
         }
-        let angle = (Double(index) / Double(groupOrder.count)) * 2 * .pi
-        let radius = 90.0 + Double(groupOrder.count) * 12.0
-        return CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
     }
 
     /// Reassigns every node's group and colour without rebuilding the layout.
@@ -939,7 +1029,7 @@ struct NoteGraphView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(width: 210)
+            .frame(width: 330)
 
             // Grow replays the corpus being written note-by-note, oldest
             // first — the "watch the brain build itself" button.
@@ -962,6 +1052,10 @@ struct NoteGraphView: View {
                 fitToWindow(in: viewport)
             }
             controlButton("Recenter", icon: "gobackward", action: recenterGraph)
+
+            controlButton("Add Folder", icon: "folder.badge.plus") {
+                store.chooseScanRoot()
+            }
 
             Text("\(Int(zoom * 100))%")
                 .font(.system(size: 10, design: .monospaced))
@@ -997,7 +1091,7 @@ struct NoteGraphView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text(node.title)
-                    .font(.system(size: 14, weight: .semibold, design: .serif))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
 

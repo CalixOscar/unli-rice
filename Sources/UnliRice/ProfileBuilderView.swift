@@ -40,7 +40,7 @@ struct ProfileBuilderView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Profile Builder")
-                        .font(.system(size: 20, weight: .semibold, design: .serif))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("Step \(step.rawValue) of 6 — \(step.title)")
                         .font(.system(size: 12))

@@ -13,7 +13,7 @@ struct MirrorExportView: View {
             // Header
             VStack(alignment: .leading, spacing: 4) {
                 Text("Mirror Export (Universal Read Channel)")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Text("A derived plain-markdown folder that any LLM or tool can read directly with zero setup.")
                     .font(.system(size: 12))

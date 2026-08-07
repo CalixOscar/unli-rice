@@ -26,7 +26,7 @@ struct AutomationView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Automation")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Text("What Unli Rice does without being asked, and what it will only do when you press the button. Every structural change is queued for your approval either way — there is no delete.")
                     .font(.system(size: 12.5))

@@ -967,6 +967,22 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Resolves all pending review clusters with a single click.
+    func resolveAllPending(outcome: String = "accepted") {
+        do {
+            for cluster in pendingClusters {
+                for item in cluster.items {
+                    _ = try service.resolveReview(
+                        id: item.note.id, flagId: item.flag.id, source: "human", outcome: outcome
+                    )
+                }
+            }
+            reload()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
     /// "Keep this one" on a duplicate cluster: merges the others' content onto
     /// `keeper` and archives them, then clears every flag in the cluster.
     /// Nothing here runs unattended — this exists specifically because

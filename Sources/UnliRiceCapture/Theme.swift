@@ -1,12 +1,14 @@
-import AppKit
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
-/// Adaptive design tokens and control helpers, aligned with Unli Disk's design system
-/// while preserving Unli Rice's teal/indigo-space core identity.
+/// Adaptive design tokens and control helpers for Unli Rice Capture (iOS),
+/// aligned with Unli Rice Mac and Unli Disk design system tokens.
 public struct Theme {
     // MARK: - Core Adaptive Tokens
 
-    /// Main window background:
+    /// Main window / view background:
     /// - Dark Mode: Dark Indigo/Slate Space (`#0B0E17`)
     /// - Light Mode: Luminous Indigo-Slate (`#F0F4F9`)
     public static let bgMain: Color = adaptiveColor(
@@ -47,7 +49,7 @@ public struct Theme {
     )
 
     /// Accent Color:
-    /// - Dark Mode: Electric Cerulean Blue (`#0080FF` / `#0A84FF`) — Unli Disk Signature Accent
+    /// - Dark Mode: Electric Cerulean Blue (`#0484FF`) — Unli Disk Signature Accent
     /// - Light Mode: Deep Cerulean Blue (`#0066CC`)
     public static let accentColor: Color = adaptiveColor(
         light: Color(red: 0.0, green: 0.40, blue: 0.80),
@@ -98,7 +100,6 @@ public struct Theme {
 
     // MARK: - Domain / Status Colors
 
-    /// Text and icons drawn on top of an accent fill (White in Unli Disk style)
     public static let onAccent = Color.white
 
     public static let brass = Color(red: 0.96, green: 0.62, blue: 0.14)        // Amber/Gold
@@ -113,16 +114,8 @@ public struct Theme {
 
     // MARK: - Dynamic Color Engine
 
-    /// Creates a color that adapts to the current color scheme without needing
-    /// an asset catalog — essential for SwiftPM builds.
     fileprivate static func adaptiveColor(light: Color, dark: Color) -> Color {
-        #if canImport(AppKit)
-        return Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(dark)
-                : NSColor(light)
-        })
-        #elseif canImport(UIKit)
+        #if canImport(UIKit)
         return Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
                 ? UIColor(dark)
@@ -143,11 +136,18 @@ extension View {
                                         lineWidth: 1))
     }
 
-    /// Selected row or pill: a tint of the surface's accent.
-    public func selectedControl(cornerRadius: CGFloat, accent: Color, selected: Bool) -> some View {
+    /// Card container treatment: bgCard fill plus subtle border.
+    public func cardStyle(cornerRadius: CGFloat = 16) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        return background(shape.fill(selected ? Theme.selectionTint(accent) : Theme.borderLight))
-            .overlay(shape.strokeBorder(selected ? Theme.selectionStroke(accent) : .clear,
+        return background(shape.fill(Theme.bgCard))
+            .overlay(shape.strokeBorder(Theme.borderLight, lineWidth: 1))
+    }
+
+    /// Selected control or pill treatment.
+    public func selectedControl(cornerRadius: CGFloat, accent: Color = Theme.accentColor, selected: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return background(shape.fill(selected ? Theme.selectionTint(accent) : Theme.bgCard))
+            .overlay(shape.strokeBorder(selected ? Theme.selectionStroke(accent) : Theme.borderLight,
                                         lineWidth: 1))
     }
 }

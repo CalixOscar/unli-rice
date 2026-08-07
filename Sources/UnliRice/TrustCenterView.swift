@@ -26,7 +26,7 @@ struct TrustCenterView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Trust Center")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 if store.trustBusy {

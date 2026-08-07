@@ -15,7 +15,7 @@ struct ProfileManagerView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Profiles")
-                        .font(.system(size: 20, weight: .semibold, design: .serif))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("One profile = one vault folder. Switching profiles reopens memory against that vault.")
                         .font(.system(size: 12))

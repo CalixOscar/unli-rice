@@ -58,7 +58,7 @@ struct RetrospectiveView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(store.currentRetrospectivePeriod?.displayName() ?? "Your Review")
-                    .font(.system(size: 26, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text("built from your active notes")
@@ -155,7 +155,7 @@ struct RetrospectiveView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Text(label.uppercased())
@@ -179,7 +179,7 @@ struct RetrospectiveView: View {
                     Button(action: { store.selectRetrospective(month.period) }) {
                         HStack(spacing: 14) {
                             Text(month.period.displayName().components(separatedBy: " ").first ?? "")
-                                .font(.system(size: 12, weight: .semibold, design: .serif))
+                                .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(month.noteCount > 0 ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
                                 .frame(width: 70, alignment: .leading)
 
@@ -340,7 +340,7 @@ struct RetrospectiveView: View {
                     Button(action: { store.openHighlight(note) }) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(note.title)
-                                .font(.system(size: 13, weight: .semibold, design: .serif))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .multilineTextAlignment(.leading)

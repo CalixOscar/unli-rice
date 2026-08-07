@@ -51,8 +51,8 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 4) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("UNLI RICE")
-                    .font(.system(size: 15, weight: .bold, design: .serif))
-                    .foregroundStyle(Theme.brass)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.textPrimary)
                 Text("AI Notes & Memory")
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.textSecondary)
@@ -305,7 +305,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(store.showingArchived ? "Archived" : "All Notes")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 let total = store.showingArchived ? store.archivedNotes.count : store.notes.count
@@ -486,7 +486,7 @@ private struct ReviewQueueView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Text("Review Notes")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 Text("\(store.pending.count) item\(store.pending.count == 1 ? "" : "s")")
@@ -945,7 +945,7 @@ private struct NoteDetailView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(note.title)
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 if note.archived {

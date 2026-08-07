@@ -12,7 +12,7 @@ struct NeedsYouView: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Needs You")
-                        .font(.system(size: 20, weight: .semibold, design: .serif))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("Proposals and notices that require your decision.")
                         .font(.system(size: 12))
@@ -22,6 +22,17 @@ struct NeedsYouView: View {
                 Spacer()
 
                 if !store.pending.isEmpty {
+                    Button("Accept All Proposals") {
+                        store.resolveAllPending(outcome: "accepted")
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(Theme.onAccent)
+                    .background(Theme.accentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
                     AIReviewMenu()
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)

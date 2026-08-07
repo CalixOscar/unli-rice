@@ -24,7 +24,7 @@ struct SetupView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Setup")
-                            .font(.system(size: 22, weight: .bold, design: .serif))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
                         Text("Configure how AI tools connect, your personal profiles, and automation rules.")
                             .font(.system(size: 12))

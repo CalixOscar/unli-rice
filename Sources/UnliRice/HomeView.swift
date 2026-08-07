@@ -11,7 +11,7 @@ struct HomeView: View {
                 // Title and subtitle header
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Home")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
+                        .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("What Unli Rice is doing for you right now.")
                         .font(.system(size: 13))
@@ -21,10 +21,16 @@ struct HomeView: View {
                 // 1. Status Banner — "Memory is working" / "Not connected"
                 statusCard
 
+                // Quick Action Bar
+                quickActionsBar
+
                 // 2. Needs You Callout — if reviews or unread notices exist
                 if needsAttentionCount > 0 {
                     needsAttentionCard
                 }
+
+                // Memory Capsule Preview
+                memoryCapsuleCard
 
                 // 3. Profile Status / Builder Invitation
                 profileSection
@@ -35,6 +41,119 @@ struct HomeView: View {
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var quickActionsBar: some View {
+        HStack(spacing: 12) {
+            Button(action: {
+                store.createNote(title: "Untitled Note")
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                    Text("New Note")
+                }
+                .font(.system(size: 11.5, weight: .medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .foregroundStyle(Theme.onAccent)
+                .background(Theme.accentColor)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .buttonStyle(.plain)
+
+            Button(action: {
+                store.chooseScanRoot()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder.badge.plus")
+                    Text("Add Folder to Brain Map")
+                }
+                .font(.system(size: 11.5, weight: .medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .foregroundStyle(Theme.accentColor)
+                .solidControl(cornerRadius: 6)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: {
+                copyMemoryCapsuleToClipboard()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.on.clipboard")
+                    Text("Copy Memory for ChatGPT / Web")
+                }
+                .font(.system(size: 11.5, weight: .medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .foregroundStyle(Theme.brass)
+                .solidControl(cornerRadius: 6)
+            }
+            .buttonStyle(.plain)
+
+            Button(action: {
+                openMirrorFolderInFinder()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder")
+                    Text("Open Memory Folder")
+                }
+                .font(.system(size: 11.5, weight: .medium))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .foregroundStyle(Theme.textSecondary)
+                .solidControl(cornerRadius: 6)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+        }
+    }
+
+    private var memoryCapsuleCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("INSTANT MEMORY CAPSULE (MEMORY.MD)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text("≤ 2,500 chars")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            Text(capsulePreviewText)
+                .font(.system(size: 11.5, design: .monospaced))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(5)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.bgField)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .padding(16)
+        .liquidGlass(cornerRadius: 8)
+    }
+
+    private var capsulePreviewText: String {
+        if let capsuleNote = store.notes.first(where: { $0.title.lowercased() == "memory: capsule" }) {
+            return capsuleNote.body.isEmpty ? "Memory capsule note is empty." : capsuleNote.body
+        }
+        return "User Profile: \(store.activeProfileName)\nTotal Notes: \(store.notes.count)\nNo dedicated 'Memory: capsule' note yet. Connected AIs will summarize session context here automatically."
+    }
+
+    private func copyMemoryCapsuleToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(capsulePreviewText, forType: .string)
+        store.statusMessage = "Copied Instant Memory Capsule to clipboard — paste into ChatGPT or Claude Web!"
+    }
+
+    private func openMirrorFolderInFinder() {
+        let vaultFolderURL = store.dataURL.deletingLastPathComponent()
+        let safeName = store.activeProfileName.replacingOccurrences(of: "/", with: "_").trimmingCharacters(in: .whitespaces)
+        let exportFolderURL = vaultFolderURL.deletingLastPathComponent().appendingPathComponent("\(safeName) Export", isDirectory: true)
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: exportFolderURL.path)
     }
 
     private var needsAttentionCount: Int {
@@ -120,7 +239,7 @@ struct HomeView: View {
                 Spacer()
                 Text(store.activeProfileName)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.brass)
+                    .foregroundStyle(Theme.accentColor)
             }
 
             if hasProfileNotes {

@@ -14,7 +14,7 @@ struct NoticeCenterView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 Text("What's happened")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
                 if !store.notices.isEmpty {

@@ -17,22 +17,26 @@ public struct CaptureView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 12) {
-            header
-            tabBar
+        ZStack {
+            Theme.bgMain
+                .ignoresSafeArea()
 
+            VStack(spacing: 16) {
+                header
+                tabBar
 
-            if store.layoutPlacement == .micTopNotesBottom {
-                recordSection
-                Divider()
-                notesAndCapturesSection
-            } else {
-                notesAndCapturesSection
-                Divider()
-                recordSection
+                if store.layoutPlacement == .micTopNotesBottom {
+                    recordSection
+                    Divider().overlay(Theme.borderLight)
+                    notesAndCapturesSection
+                } else {
+                    notesAndCapturesSection
+                    Divider().overlay(Theme.borderLight)
+                    recordSection
+                }
             }
+            .padding(16)
         }
-        .padding(16)
         .sheet(isPresented: $showSettings) {
             settingsSheet
         }
@@ -68,15 +72,15 @@ public struct CaptureView: View {
 
     private var tabBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 ForEach(store.projectTabs, id: \.self) { tab in
+                    let isSelected = store.currentProjectTab == tab
                     Text(tab)
-                        .font(.system(size: 13, weight: store.currentProjectTab == tab ? .bold : .medium))
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 12)
-                        .background(store.currentProjectTab == tab ? Color.accentColor : Color.secondary.opacity(0.1))
-                        .foregroundColor(store.currentProjectTab == tab ? .white : .primary)
-                        .cornerRadius(16)
+                        .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                        .padding(.vertical, 7)
+                        .padding(.horizontal, 14)
+                        .foregroundStyle(isSelected ? Theme.onAccent : Theme.textSecondary)
+                        .selectedControl(cornerRadius: 20, accent: Theme.accentColor, selected: isSelected)
                         .onTapGesture {
                             store.currentProjectTab = tab
                         }
@@ -88,58 +92,78 @@ public struct CaptureView: View {
                 
                 Button(action: { showNewTabAlert = true }) {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.accentColor)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Theme.accentColor)
                         .padding(8)
-                        .background(Color.accentColor.opacity(0.1))
+                        .background(Theme.accentSoft)
                         .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(Theme.accentColor.opacity(0.3), lineWidth: 1))
                 }
             }
         }
-        .padding(.bottom, 4)
+        .padding(.bottom, 2)
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Unli Rice")
-                    .font(.system(size: 20, weight: .bold, design: .serif))
+                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .foregroundStyle(Theme.textPrimary)
                 Text("Voice Capture & Memory")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(Theme.textSecondary)
             }
             Spacer()
             Button(action: { store.sync() }) {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 38, height: 38)
+                    .solidControl(cornerRadius: 10)
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
 
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(width: 38, height: 38)
+                    .solidControl(cornerRadius: 10)
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .padding(.leading, 8)
+            .padding(.leading, 4)
         }
     }
 
     private var recordSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
             recordButton
             statusView
         }
-        .frame(maxHeight: 160)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+        .cardStyle(cornerRadius: 20)
     }
 
     private var recordButton: some View {
         ZStack {
+            // Ambient outer glow ring
             Circle()
-                .fill(isRecording ? Color.red : Color.accentColor)
+                .fill((isRecording ? Theme.crit : Theme.accentColor).opacity(isRecording ? 0.25 : 0.15))
+                .frame(width: 88, height: 88)
+
+            Circle()
+                .fill(isRecording ? Theme.crit : Theme.accentColor)
                 .frame(width: 68, height: 68)
+                .shadow(color: (isRecording ? Theme.crit : Theme.accentColor).opacity(0.4), radius: 10, x: 0, y: 4)
+
             Image(systemName: isRecording ? "square.fill" : "mic.fill")
                 .font(.system(size: 26))
-                .foregroundColor(.white)
+                .foregroundColor(Theme.onAccent)
         }
         .contentShape(Circle())
         .gesture(
@@ -170,40 +194,43 @@ public struct CaptureView: View {
     }
 
     private var statusView: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             switch store.state {
             case .idle:
                 Text(store.recordingMode == .holdToRecord ? "Press and hold mic to record" : "Tap mic to record a thought")
-                    .font(.system(size: 12.5))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textSecondary)
             case .recording:
                 Text(store.recordingMode == .holdToRecord ? "Recording… Release to finish" : "Recording… Tap to finish")
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundColor(.red)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.crit)
             case .transcribing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("Transcribing voice note…")
-                        .font(.system(size: 12.5))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.textPrimary)
                 }
             case .completed(let title):
                 Text("Saved: “\(title)”")
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundColor(.green)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.emerald)
             case .error(let msg):
                 Text(msg)
-                    .font(.system(size: 12))
-                    .foregroundColor(.red)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Theme.crit)
                     .multilineTextAlignment(.center)
             }
 
             if !store.partialTranscript.isEmpty && store.state != .idle {
                 Text(store.partialTranscript)
                     .font(.system(size: 12, design: .monospaced))
-                    .padding(8)
+                    .foregroundStyle(Theme.textPrimary)
+                    .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
+                    .background(Theme.bgField)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.borderLight, lineWidth: 1))
+                    .cornerRadius(10)
             }
         }
     }
@@ -213,7 +240,7 @@ public struct CaptureView: View {
             VStack(alignment: .leading, spacing: 16) {
                 pulledNotesSection
                 if !store.pulledNotes.isEmpty && !store.captures.isEmpty {
-                    Divider()
+                    Divider().overlay(Theme.borderLight)
                 }
                 capturesList
             }
@@ -223,30 +250,31 @@ public struct CaptureView: View {
     }
 
     private var pulledNotesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Synced with Vault Notes (\(store.pulledNotes.count))")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.secondary)
+                Text("SYNCED WITH VAULT NOTES (\(store.pulledNotes.count))")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Theme.textSecondary)
                 Spacer()
             }
 
             if store.pulledNotes.isEmpty {
                 Text("No synced notes found.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textLight)
             } else {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     ForEach(store.pulledNotes) { note in
                         HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 3) {
                                 Text(note.title)
-                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
                                     .lineLimit(2)
                                 if !note.body.isEmpty {
                                     Text(note.body)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
+                                        .font(.system(size: 11.5))
+                                        .foregroundStyle(Theme.textSecondary)
                                         .lineLimit(3)
                                 }
                             }
@@ -254,15 +282,14 @@ public struct CaptureView: View {
                             Button(action: { store.deleteCapture(id: note.id) }) {
                                 Image(systemName: "trash")
                                     .font(.system(size: 12))
-                                    .foregroundColor(.red.opacity(0.8))
+                                    .foregroundStyle(Theme.crit)
                                     .padding(6)
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(10)
+                        .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.secondary.opacity(0.06))
-                        .cornerRadius(8)
+                        .cardStyle(cornerRadius: 12)
                     }
                 }
             }
@@ -270,42 +297,42 @@ public struct CaptureView: View {
     }
 
     private var capturesList: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("On-Device Captures (\(store.captures.count))")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ON-DEVICE CAPTURES (\(store.captures.count))")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.textSecondary)
 
             if store.captures.isEmpty {
                 Text("No local captures recorded yet.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textLight)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     ForEach(store.captures) { item in
                         HStack {
                             Image(systemName: "waveform")
-                                .foregroundColor(.accentColor)
-                                .font(.system(size: 12))
+                                .foregroundStyle(Theme.accentColor)
+                                .font(.system(size: 13))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.title)
-                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Theme.textPrimary)
                                 Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .foregroundStyle(Theme.textSecondary)
                             }
                             Spacer()
                             Button(action: { store.deleteCapture(id: item.id) }) {
                                 Image(systemName: "trash")
                                     .font(.system(size: 12))
-                                    .foregroundColor(.red.opacity(0.8))
+                                    .foregroundStyle(Theme.crit)
                                     .padding(6)
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(10)
-                        .background(Color.secondary.opacity(0.08))
-                        .cornerRadius(8)
+                        .padding(12)
+                        .cardStyle(cornerRadius: 12)
                     }
                 }
             }
@@ -314,54 +341,62 @@ public struct CaptureView: View {
 
     private var settingsSheet: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Sync Configuration")) {
-                    Button(action: { showFileImporter = true }) {
-                        HStack {
-                            Text("Select Sync Folder")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            if store.sharedFolderURL != nil {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
+            ZStack {
+                Theme.bgMain
+                    .ignoresSafeArea()
+
+                Form {
+                    Section(header: Text("Sync Configuration").foregroundStyle(Theme.textSecondary)) {
+                        Button(action: { showFileImporter = true }) {
+                            HStack {
+                                Text("Select Sync Folder")
+                                    .foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                if store.sharedFolderURL != nil {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Theme.emerald)
+                                }
                             }
                         }
-                    }
-                    if let url = store.sharedFolderURL {
-                        Text(url.lastPathComponent)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Section(header: Text("Recording Behavior")) {
-                    Picker("Recording Mode", selection: $store.recordingMode) {
-                        ForEach(RecordingMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
+                        if let url = store.sharedFolderURL {
+                            Text(url.lastPathComponent)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Theme.textSecondary)
                         }
                     }
-                    .pickerStyle(.segmented)
-                }
 
-                Section(header: Text("Interface Layout")) {
-                    Picker("Layout Placement", selection: $store.layoutPlacement) {
-                        ForEach(LayoutPlacement.allCases) { placement in
-                            Text(placement.rawValue).tag(placement)
+                    Section(header: Text("Recording Behavior").foregroundStyle(Theme.textSecondary)) {
+                        Picker("Recording Mode", selection: $store.recordingMode) {
+                            ForEach(RecordingMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
                         }
+                        .pickerStyle(.segmented)
                     }
-                    .pickerStyle(.segmented)
+
+                    Section(header: Text("Interface Layout").foregroundStyle(Theme.textSecondary)) {
+                        Picker("Layout Placement", selection: $store.layoutPlacement) {
+                            ForEach(LayoutPlacement.allCases) { placement in
+                                Text(placement.rawValue).tag(placement)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Capture Settings")
-
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         showSettings = false
                     }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accentColor)
                 }
             }
         }
+        .navigationViewStyle(.stack)
         .fileImporter(
             isPresented: $showFileImporter,
             allowedContentTypes: [.folder],
@@ -373,3 +408,4 @@ public struct CaptureView: View {
         }
     }
 }
+

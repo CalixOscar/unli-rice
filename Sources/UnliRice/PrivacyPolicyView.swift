@@ -8,7 +8,7 @@ struct PrivacyPolicyView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Privacy")
-                    .font(.system(size: 24, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold))
 
                 policySection(
                     "No collection",
