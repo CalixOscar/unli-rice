@@ -36,6 +36,7 @@ struct ContentView: View {
 
             // Main structure
             if store.showingFirstRun {
+                
                 FirstRunView()
             } else {
                 HStack(spacing: 0) {
