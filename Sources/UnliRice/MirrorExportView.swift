@@ -15,7 +15,7 @@ struct MirrorExportView: View {
                 Text("The folder your AI can read")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("A plain Markdown folder (`~/Documents/Unli Rice/`) that any AI tool can read directly.")
+                Text("This folder is a copy. Delete it and nothing is lost — it gets rebuilt. Changing a file in here won't change your real notes.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
             }

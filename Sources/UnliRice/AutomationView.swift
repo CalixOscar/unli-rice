@@ -102,7 +102,7 @@ private struct AutonomyCard: View {
     var body: some View {
         Card(
             title: "Agent autonomy",
-            subtitle: "How eagerly the janitor acts. Read by the background agent too, not just this window.",
+            subtitle: "This changes how hard the helper looks. It never changes what it's allowed to do — which is only ever to suggest.",
             icon: "slider.horizontal.3"
         ) {
             VStack(alignment: .leading, spacing: 10) {

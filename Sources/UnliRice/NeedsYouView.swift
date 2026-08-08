@@ -14,7 +14,7 @@ struct NeedsYouView: View {
                     Text("Needs You")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("Proposals and notices that require your decision.")
+                    Text("The tidy-up helper can add labels and point out possible duplicates. It can't merge, change, or remove anything.")
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
                 }

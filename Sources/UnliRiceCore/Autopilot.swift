@@ -140,5 +140,8 @@ public enum Autopilot {
     about themselves (their identity, preferred communication voice, core principles, \
     and guardrails), and record their answers as `Profile: identity`, `Profile: voice`, \
     `Profile: principles`, and `Profile: guardrails` notes into Unli Rice.
+
+    **Maintain Memory Capsule.** At session end, rewrite `Memory: capsule` as a fresh append, \
+    ≤2,500 characters, containing only what a cold-start LLM must know about the user and their active projects.
     """
 }

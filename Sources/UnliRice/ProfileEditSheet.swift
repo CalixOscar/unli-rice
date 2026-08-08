@@ -39,16 +39,63 @@ struct ProfileEditSheet: View {
         ProfileRevision.noteContainsCurrentRevision(noteBody: originalBody, draftBody: draftText)
     }
 
+    var isCapsule: Bool {
+        selectedSection.title.lowercased() == MirrorExporter.memoryCapsuleTitle.lowercased()
+    }
+
+    enum CapsuleState {
+        case missing
+        case normal
+        case oversized
+    }
+
+    var capsuleState: CapsuleState {
+        if originalBody.isEmpty {
+            return .missing
+        } else if draftText.count > 2500 {
+            return .oversized
+        } else {
+            return .normal
+        }
+    }
+
+    var capsuleButtonTitle: String {
+        switch capsuleState {
+        case .missing:
+            return "Write my capsule"
+        case .normal:
+            return "Refresh my capsule"
+        case .oversized:
+            return "Condense this"
+        }
+    }
+
+    var sectionExplanation: String {
+        if isCapsule {
+            return "The short version of your memory. Your notes are too much to paste into a chat; this is the ~2,500-character summary worth pasting instead. Your AI writes it — press the button below."
+        }
+        switch selectedSection.id {
+        case "identity":
+            return "Who you are and what you're working on. Tells your AI how to introduce you."
+        case "voice":
+            return "How you prefer your AI to communicate (e.g. short answers, concise, no emoji)."
+        case "principles":
+            return "Standing rules and core principles your AI should always respect."
+        default:
+            return "Standing notes used by your connected AI tools."
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Edit What Your AI Knows")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("Standing profile notes used by your connected AI tools.")
-                        .font(.system(size: 12))
+                    Text("Saving adds a new version. Your old wording is kept — nothing is ever written over.")
+                        .font(.system(size: 11.5))
                         .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
@@ -71,6 +118,15 @@ struct ProfileEditSheet: View {
                 loadSection(newSec)
             }
 
+            // Section Explanation Banner
+            Text(sectionExplanation)
+                .font(.system(size: 12))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.bgField.opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
             // Text Editor Card
             VStack(alignment: .leading, spacing: 8) {
                 TextEditor(text: $draftText)
@@ -79,7 +135,7 @@ struct ProfileEditSheet: View {
                     .padding(8)
                     .background(Theme.bgField)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .frame(minHeight: 180, maxHeight: 260)
+                    .frame(minHeight: 160, maxHeight: 220)
             }
 
             // Feedback Toast if any
@@ -92,8 +148,8 @@ struct ProfileEditSheet: View {
 
             Divider().opacity(0.12)
 
-            // Buttons: Save & 2 LLM Affordances (R6.3)
-            HStack(spacing: 12) {
+            // Buttons: Save & State-Aware Capsule / LLM Buttons (R6.3 & R7.2)
+            HStack(spacing: 10) {
                 // Save Button (disabled when text is unchanged)
                 Button(action: saveCurrentSection) {
                     Text("Save Revision")
@@ -108,37 +164,53 @@ struct ProfileEditSheet: View {
 
                 Spacer()
 
-                // LLM Button 1 — Copy for my AI to edit
-                Button(action: copyForAIToEdit) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
-                        Text("Copy for AI to edit")
+                if isCapsule {
+                    // State-Aware Capsule Prompt Button (R7.2)
+                    Button(action: handleCapsulePromptAction) {
+                        HStack(spacing: 4) {
+                            Image(systemName: capsuleState == .oversized ? "scissors" : "sparkles")
+                            Text(capsuleButtonTitle)
+                        }
+                        .font(.system(size: 11.5, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(capsuleState == .oversized ? Theme.brass : Theme.accentColor)
+                        .solidControl(cornerRadius: 6)
                     }
-                    .font(.system(size: 11.5, weight: .medium))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .foregroundStyle(Theme.accentColor)
-                    .solidControl(cornerRadius: 6)
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(.plain)
+                } else {
+                    // LLM Button 1 — Copy for my AI to edit
+                    Button(action: copyForAIToEdit) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.on.doc")
+                            Text("Copy for AI to edit")
+                        }
+                        .font(.system(size: 11.5, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(Theme.accentColor)
+                        .solidControl(cornerRadius: 6)
+                    }
+                    .buttonStyle(.plain)
 
-                // LLM Button 2 — Ask my AI to interview me
-                Button(action: askAIToInterviewMe) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bubble.left.and.bubble.right")
-                        Text("Ask AI to interview me")
+                    // LLM Button 2 — Ask my AI to interview me
+                    Button(action: askAIToInterviewMe) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                            Text("Ask AI to interview me")
+                        }
+                        .font(.system(size: 11.5, weight: .medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(Theme.brass)
+                        .solidControl(cornerRadius: 6)
                     }
-                    .font(.system(size: 11.5, weight: .medium))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .foregroundStyle(Theme.brass)
-                    .solidControl(cornerRadius: 6)
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(22)
-        .frame(width: 620, height: 440)
+        .frame(width: 640, height: 460)
         .background(Theme.bgMain)
         .onAppear {
             loadSection(selectedSection)
@@ -160,6 +232,22 @@ struct ProfileEditSheet: View {
         store.saveProfileSection(title: selectedSection.title, body: draftText)
         loadSection(selectedSection)
         showFeedback("Saved new revision for \(selectedSection.displayName).")
+    }
+
+    private func handleCapsulePromptAction() {
+        let prompt: String
+        switch capsuleState {
+        case .missing:
+            prompt = "Read my Unli Rice notes and write a ≤2,500-character summary of what a new AI would need to know about me. Save it with `create_note` titled `Memory: capsule`."
+        case .normal:
+            prompt = "Read my Unli Rice notes and write a ≤2,500-character summary of what a new AI would need to know about me. Append the result to `Memory: capsule`."
+        case .oversized:
+            prompt = "This is over 2,500 characters. Rewrite it shorter, keeping only what a cold-start AI must know, and append the result to `Memory: capsule`."
+        }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(prompt, forType: .string)
+        showFeedback("Copied prompt for your AI to clipboard.")
     }
 
     private func copyForAIToEdit() {

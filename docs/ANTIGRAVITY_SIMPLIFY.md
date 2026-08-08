@@ -819,3 +819,189 @@ dependency, and the package's no-external-dependencies rule holds. ~2 hours.
 Constraints unchanged: nothing deleted; no new write capability beyond
 appending a profile revision, which `ProfileBuilder` already does; explicit
 save only, never autosave.
+
+---
+
+# Round 7 — The Memory Capsule nobody writes
+
+**Added 2026-08-09, after Round 6 shipped (`bb155a4`).** The founder opened
+the new edit sheet, selected the Memory Capsule tab, found an empty box, and
+asked: *"What is this memory capsule?"*
+
+Both halves of that are findings. The box is empty because **nothing in the
+system has ever asked an agent to write one**, and the founder — the app's
+own author — could not tell what the section was for from the UI.
+
+## R7.1 — Nothing asks for the capsule. Add the instruction.
+
+The capsule is well-supported everywhere except where it counts:
+
+- `MirrorExporter` reads a note titled `Memory: capsule` and writes it out as
+  `MEMORY.md` (`MirrorExporter.swift:93`)
+- `NoticeFactory` raises a notice when it exceeds
+  `maxMemoryCapsuleChars` (2,500)
+- Round 6's `ProfileEditSheet` lists it as an editable section
+  (`ProfileEditSheet.swift:19`)
+- `docs/USER_GUIDE.md §5` tells the user to *"ask your assistant to maintain
+  that note"*
+
+**But `Autopilot.swift`, `HouseRulesPreset.swift`, and the MCP `instructions`
+string contain no mention of the capsule at all.** Verified by grep on
+2026-08-09, after Round 6.
+
+The 2026-07-24 battleplan specified exactly this and it was never
+implemented — *"the House Rules text instructs connected agents to maintain
+it: 'At session end, rewrite `Memory: capsule` as a fresh append, ≤2,500
+characters, containing only what a cold-start LLM must know.'"*
+
+Add that paragraph to the default House Rules preset. **Text only, no code.**
+Round 4 established that agents don't reliably act on standing instructions —
+so this is worth doing, but it is not the fix on its own. R7.2 is.
+
+## R7.2 — One state-aware button in the capsule tab
+
+Round 6's sheet already has the right pattern. The capsule needs its own
+variant, and **what it should say depends on the note's state**:
+
+| Capsule state | Button | Prompt it copies |
+| --- | --- | --- |
+| Doesn't exist | **Write my capsule** | *"Read my Unli Rice notes and write a ≤2,500-character summary of what a new AI would need to know about me. Save it with `create_note` titled `Memory: capsule`."* |
+| Exists, ≤ 2,500 chars | **Refresh my capsule** | Same, but `append_to_note` on the existing note |
+| Exists, > 2,500 chars | **Condense this** | *"This is over 2,500 characters. Rewrite it shorter, keeping only what a cold-start AI must know, and append the result."* |
+
+The third row closes a gap open since the capsule shipped: the app has always
+detected `memoryCapsuleExceeded` and raised a notice telling the user to ask
+their assistant to condense it — while shipping no mechanism to do so.
+
+One button, three prompts, chosen from note state the app already has.
+
+## R7.3 — Empty sections must explain themselves
+
+An empty text box labeled "Memory Capsule" tells a stranger nothing — and it
+told the app's author nothing either. Every section in the edit sheet needs a
+one-line explanation when empty, in the same plain voice as R2.1's purpose
+statement. For the capsule:
+
+> **The short version of your memory.** Your notes are too much to paste into
+> a chat; this is the ~2,500-character summary worth pasting instead. Your AI
+> writes it — press the button below.
+
+Apply the same to Identity, Voice, and Principles when those are unset.
+
+## R7.4 — Explicit non-goal: do not compress what Unli Rice injects
+
+The founder asked whether Caveman's token-compression approach
+(`github.com/JuliusBrussee/caveman`) applies here. **It doesn't — do not
+build it.** Measured on 2026-08-09: Unli Rice injects ~1,500–1,800 tokens per
+session (tool descriptions, schemas, the `instructions` string, House Rules).
+At Opus 5 input pricing that is well under a cent per session, ~0.15% of a 1M
+context window, and it sits in the `tools` block, which caches. Compressing it
+saves nothing worth a project.
+
+**And compressing the tool descriptions would actively hurt.** Anthropic's own
+prompt-audit guidance is explicit that tool descriptions are the place a
+"trim it" instinct most often points the wrong way — detailed descriptions are
+the biggest single factor in whether a model calls a tool correctly, and the
+common failure is *under*-description. Round 4 already showed this app's
+write path is fragile; shortening `ToolCatalog` would make it more so.
+
+The one idea worth keeping from that direction is the condense prompt in
+R7.2 — and its justification is **readability, not cost**: a 5,000-character
+capsule is worse memory than a 2,000-character one at any price.
+
+## R7.5 — Order
+
+1. **R7.2** — the state-aware button. It is the only item that will actually
+   produce a capsule. Hours.
+2. **R7.3** — empty-state copy. An hour, and it is what the founder actually
+   hit.
+3. **R7.1** — the House Rules paragraph. Text only; keeps the capsule current
+   without the user asking.
+
+Constraints unchanged: nothing deleted; no new write capability; the capsule
+is a note, so every write to it is an append and its history survives.
+
+---
+
+# Round 8 — Explain every quirk, at a nine-year-old's reading level
+
+**Added 2026-08-09.** R7.3 asked for a line of explanation on empty sections.
+The founder's correction generalizes it: **every quirk this app has needs
+explaining, as if to a nine-year-old.**
+
+That is the right instinct, and this app needs it more than most. Unli Rice is
+full of deliberate, unusual behavior — no delete, permanent titles, edits that
+append instead of replace, a helper that may only suggest. Each one is a good
+decision with a real reason, and **none of them are explained anywhere the
+user will look.** A rule you can't explain reads as a bug.
+
+## R8.1 — The writing standard
+
+"For a nine-year-old" is a reading level, not a tone. It means: short
+sentences, no internal names, concrete over abstract, and **say why, not just
+what.** The "why" is what turns a limitation into a feature.
+
+| Instead of | Write |
+| --- | --- |
+| "Archiving is soft and reversible." | "Hiding a note doesn't erase it. You can always get it back." |
+| "The janitor may only tag and flag." | "The tidy-up helper can add labels and point things out. It can't change or delete anything you wrote." |
+| "Autonomy controls what it notices, never what it may do." | "This changes how hard the helper looks. It never changes what it's allowed to do — which is only ever to suggest." |
+| "Titles are permanent." | "A note's name can't be changed later, because your other notes link to it by name." |
+| "Mirror Export is a derived artifact." | "This folder is a copy. Delete it and nothing is lost — it gets rebuilt. Changing a file in here won't change your real notes." |
+
+Never use these words in user-facing copy: *janitor, ingest, projection,
+event log, append-only, derived, artifact, MCP* (outside the connector
+table), *source, corpus, vault* (say "your notes").
+
+## R8.2 — Where the explanations go, without re-cluttering
+
+Rounds 2–6 were spent *removing* text from the screen. Do not undo that by
+pasting explanations everywhere. Two rules:
+
+1. **Explain at the point of confusion, not in a manual.** The sentence lives
+   next to the thing it describes, not on a help page nobody opens.
+2. **First encounter shows it; after that it collapses to a `?`.** The
+   explanation appears automatically the first time a user meets the quirk,
+   then becomes a small `?` they can tap forever after. This is Round 3's
+   progressive-unlock idea applied to explanation rather than to features —
+   reuse the same stage state, don't build a second mechanism.
+
+A short glossary in **More** is a fine backstop, but it is not the fix. If the
+only place a rule is explained is a glossary, it isn't explained.
+
+## R8.3 — The inventory
+
+Every item below is a real, verified behavior of this app that will confuse
+someone. Each needs one plain sentence at the point it appears. Ordered by how
+likely it is to be hit.
+
+| # | Quirk | Where it shows up | What to say |
+| --- | --- | --- | --- |
+| 1 | **There is no delete.** No agent can remove a note; archiving hides it and is reversible | Note detail, Archived | "Nothing here can be deleted by an AI. Hiding a note just takes it off the list — it's always recoverable." |
+| 2 | **Edits append; nothing is overwritten** | The Round 6 edit sheet, note history | "Saving adds a new version. Your old wording is kept — nothing is ever written over." |
+| 3 | **Note names are permanent** | New note, note detail | "Names can't be changed later, because your other notes link to this one by name." |
+| 4 | **Every note is signed** — six different writer names (`claude`, `codex`, `antigravity`, `ingest`, `janitor`, `unlirice`) | Note detail, activity log | "Every line records who wrote it — you, one of your AI tools, or Unli Rice itself." Never show the raw source string; map to friendly names |
+| 5 | **The tidy-up helper only suggests** | Needs you, More → automation | "It can add labels and point out possible duplicates. It can't merge, change, or remove anything." |
+| 6 | **The autonomy slider changes noticing, not permissions** | More → automation | Per R8.1. This is the subtlest one in the app — it reads like a danger dial and isn't |
+| 7 | **The folder is a copy, not the original** | The Unli Rice folder screen, `READ ME FIRST.md` | Per R8.1. Users will otherwise edit files in it and wonder why nothing changed |
+| 8 | **Labels are freeform, and the helper only reuses one it's seen a few times** | Tags on note detail | "Labels are any word you like. The helper only suggests one it's already seen on a few other notes." |
+| 9 | **`[[Double brackets]]` link notes, and work before the note exists** | Note editor | "Write `[[a note's name]]` to link to it. It works even if that note doesn't exist yet." |
+| 10 | **Collecting is deliberately slow** — 40 notes per run | Activity log, More | "New documents come in a few dozen at a time, on purpose — so you're never handed hundreds of notes at once." |
+| 11 | **Separate memories don't share anything** | More → separate memories | "Each one is a completely separate set of notes. Nothing crosses between them." |
+| 12 | **The capsule has a length limit** | The capsule tab (R7.3) | "Keep it short enough to paste into a chat. Past about 2,500 characters it stops being a summary." |
+| 13 | **Permanent removal exists, for you only, with a backup** | Archived → remove | "You can remove something for good here. No AI can do this, and Unli Rice makes a backup first." |
+| 14 | **Switching stores changes which notes you see, and can start an empty one** | More → advanced | The existing warning dialog is good — keep it, and put a plain sentence on the button itself |
+
+## R8.4 — Order
+
+1. **R8.1** — agree the vocabulary and register first; every item below
+   depends on it. An hour.
+2. **Items 1, 2, 3, 5, 7** — the ones a first-week user hits, and the ones
+   that read as bugs when unexplained. Half a day.
+3. **R8.2 mechanism** — first-encounter-then-`?`, on the existing stage state.
+   ~1 day.
+4. **The rest of R8.3**, folded in as each screen is touched.
+
+Constraints: no new screens; explanations attach to what already exists.
+Nothing gets a permanent block of instructional text on Home — Round 2's three
+blocks stay three blocks.
