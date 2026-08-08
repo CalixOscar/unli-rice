@@ -35,13 +35,14 @@ struct ContentView: View {
             }
 
             // Main structure
-            // Two columns, not three. The third was `AutonomyPanel`, 260pt of
-            // settings and manual triggers pinned to every screen — see
-            // `AutomationView`, which is where all of it went.
-            HStack(spacing: 0) {
-                sidebar
-                Divider().opacity(0.3)
-                mainColumn
+            if store.showingFirstRun {
+                FirstRunView()
+            } else {
+                HStack(spacing: 0) {
+                    sidebar
+                    Divider().opacity(0.3)
+                    mainColumn
+                }
             }
         }
         .onAppear { store.reload() }
@@ -63,103 +64,47 @@ struct ContentView: View {
 
             sidebarRow(
                 "Home",
-                active: store.showingHome || (store.selectedNoteID == nil && !store.showingArchived
-                    && !store.showingGraph && !store.showingGetStarted && !store.showingNeedsYou && !store.showingSetup
-                    && !store.showingReviewQueue && !store.showingRetrospective
-                    && !store.showingNotices && !store.showingAutomation && !store.showingProfileBuilder
-                    && !store.showingProfileManager && !store.showingTrustCenter && store.notes.isEmpty)
+                active: store.showingHome
             ) {
                 store.selectNote(nil)
                 store.showHome()
             }
 
             sidebarRow(
-                "Needs you",
-                active: store.selectedNoteID == nil && (store.showingNeedsYou || store.showingReviewQueue),
-                badge: store.pending.count + store.unreadNoticeCount
-            ) {
-                store.selectNote(nil)
-                store.showNeedsYou()
-            }
-
-            sidebarRow(
                 "Notes",
-                active: store.selectedNoteID == nil && !store.showingHome && !store.showingNeedsYou
-                    && !store.showingSetup && !store.showingGetStarted && !store.showingRetrospective
-                    && !store.showingAutomation && !store.showingTrustCenter && !store.showingNotices
-                    && !store.showingProfileBuilder && !store.showingProfileManager
-                    && !store.showingGraph && !store.showingArchived && !store.showingReviewQueue
+                active: !store.showingHome && !store.showingNeedsYou && !store.showingMore
+                    && !store.showingSetup && !store.showingProfileBuilder && !store.showingProfileManager
+                    && !store.showingGraph && !store.showingRetrospective && !store.showingTrustCenter
+                    && !store.showingNotices && !store.showingArchived && !store.showingAutomation
             ) {
                 store.selectNote(nil)
                 store.showAllNotes()
             }
 
-            sidebarRow(
-                "Brain map",
-                active: store.selectedNoteID == nil && store.showingGraph
-            ) {
-                store.selectNote(nil)
-                store.showGraph()
-            }
-
-            sidebarRow(
-                "Setup",
-                active: store.selectedNoteID == nil && (store.showingSetup || store.showingGetStarted || store.showingProfileBuilder || store.showingProfileManager)
-            ) {
-                store.selectNote(nil)
-                store.showSetup()
+            let needsYouBadge = store.pending.count + store.unreadNoticeCount
+            if needsYouBadge > 0 {
+                sidebarRow(
+                    "Needs you",
+                    active: store.selectedNoteID == nil && (store.showingNeedsYou || store.showingReviewQueue),
+                    badge: needsYouBadge
+                ) {
+                    store.selectNote(nil)
+                    store.showNeedsYou()
+                }
             }
 
             sidebarRow(
-                "Looking back",
-                active: store.selectedNoteID == nil && store.showingRetrospective
+                "More",
+                active: store.showingMore || store.showingSetup || store.showingProfileBuilder
+                    || store.showingProfileManager || store.showingGraph || store.showingRetrospective
+                    || store.showingTrustCenter || store.showingNotices || store.showingArchived
+                    || store.showingAutomation
             ) {
                 store.selectNote(nil)
-                store.showRetrospective()
+                store.showMore()
             }
 
-            if store.advancedModeEnabled {
-                Divider().opacity(0.15).padding(.horizontal, 14).padding(.vertical, 6)
-
-                sidebarRow(
-                    "Trust Center",
-                    active: store.selectedNoteID == nil && store.showingTrustCenter
-                ) {
-                    store.selectNote(nil)
-                    store.showTrustCenter()
-                }
-                sidebarRow(
-                    "Notifications",
-                    active: store.selectedNoteID == nil && store.showingNotices,
-                    badge: store.unreadNoticeCount
-                ) {
-                    store.selectNote(nil)
-                    store.showNotices()
-                }
-                sidebarRow(
-                    "Archived",
-                    active: store.selectedNoteID == nil && store.showingArchived,
-                    badge: store.archivedNotes.count
-                ) {
-                    store.selectNote(nil)
-                    store.showArchived()
-                }
-            }
             Spacer()
-
-            Menu {
-                ForEach(ExportFormat.allCases, id: \.self) { format in
-                    Button("as \(format.displayName)…") {
-                        store.exportNotes(as: format)
-                    }
-                }
-            } label: {
-                Text("Export Notes…")
-                    .font(.system(size: 11.5))
-            }
-            .menuStyle(.borderlessButton)
-            .padding(.horizontal, 14)
-            .padding(.bottom, 16)
         }
         .frame(width: 190, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
@@ -189,30 +134,16 @@ struct ContentView: View {
 
     private var mainColumn: some View {
         Group {
-            if store.showingProfileBuilder {
-                ProfileBuilderView()
-            } else if store.showingProfileManager {
-                ProfileManagerView()
-            } else if store.showingNeedsYou {
+            if store.showingFirstRun {
+                FirstRunView()
+            } else if store.showingMore || store.showingSetup || store.showingProfileBuilder || store.showingProfileManager || store.showingGraph || store.showingRetrospective || store.showingTrustCenter || store.showingNotices || store.showingArchived || store.showingAutomation {
+                MoreView()
+            } else if store.showingNeedsYou || store.showingReviewQueue {
                 NeedsYouView()
-            } else if store.showingSetup || store.showingGetStarted {
-                SetupView()
             } else if store.showingHome {
                 HomeView()
             } else if let note = store.selectedNote {
                 NoteDetailView(note: note)
-            } else if store.showingReviewQueue {
-                NeedsYouView()
-            } else if store.showingNotices {
-                NoticeCenterView()
-            } else if store.showingRetrospective {
-                RetrospectiveView()
-            } else if store.showingGraph {
-                NoteGraphView()
-            } else if store.showingAutomation {
-                AutomationView()
-            } else if store.showingTrustCenter {
-                TrustCenterView()
             } else {
                 noteListColumn
             }

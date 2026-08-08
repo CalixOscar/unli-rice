@@ -10,6 +10,13 @@ about the architecture), read `AGENTS.md` too — it has the actual behavioral
 conventions (title discipline, tagging, when to flag vs. resolve) for keeping
 multi-agent notes coherent.
 
+> Before writing a new technical claim into these notes — or repeating one
+> already here — verify it against the current repo (git log, grep, actual
+> code), not just against what a prior note says. Notes can be wrong; code is
+> ground truth. If a claim can't be verified from this repo (e.g. App Store
+> Connect status), mark it explicitly as unverified instead of stating it as
+> fact.
+
 ## What this is
 
 A persistent memory layer whose primary users are autonomous LLM agents
@@ -1545,12 +1552,16 @@ text), corrupt-state preservation, round trips, and two-vault isolation.
 
 ## Repo/environment notes
 
-- Git repo is scoped to this project folder only (`Documents/Projects/Second
-  brain`). The user's home directory (`~`) separately has an unrelated, empty
-  git repo at `~/.git` — not connected to this project, left untouched,
-  don't let the two get confused.
+- Git repo is scoped to this project folder only (`Documents/Projects/Unli
+  Rice` — the folder name was `Second brain` pre-rename; this line went stale
+  when the folder was renamed and is corrected here). The user's home
+  directory (`~`) separately has an unrelated, empty git repo at `~/.git` —
+  not connected to this project, left untouched, don't let the two get
+  confused.
 - Remote configured: origin is https://github.com/CalixOscar/unli-rice.git.
-- Active branch: feature/unli-rice-animation.
+- Active branch, verified via `git branch --show-current` on 2026-08-08:
+  `main`. (This line previously said `feature/unli-rice-animation`, a branch
+  that still exists but isn't checked out — stale.)
 
 ## Battleplan: Profiles, Profile Builder, and Mirror Export Layer (2026-07-24)
 
@@ -1616,7 +1627,10 @@ real group-container corpus was never touched.
 
 ## Live on Mac App Store (2026-08-01)
 
-- App is live on the Mac App Store.
+- App is live on the Mac App Store. `[UNVERIFIED — confirm with founder]` (App
+  Store Connect status can't be checked from this repo; the README/USER_GUIDE
+  Mac App Store links this entry also claims were added are confirmed present
+  in the repo.)
 - Updated `README.md` and `docs/USER_GUIDE.md` with Mac App Store links and installation details.
 - Updated calmdownoscar.com (`/apps/` page and root `index.html`) to reflect Mac App Store availability.
 
@@ -1680,3 +1694,66 @@ brake; `_AI Context/08_AI_Failure_Modes.md` and the docs alone are the weakest t
 
 Deliberately *not* built: a `new_case.py` scaffolder. Writing a 15-line YAML file is
 not the bottleneck, and an anti-rabbit-hole toolkit that grows is self-refuting.
+
+## Fact-check pass and a documentation gap found (2026-08-08)
+
+Audited this file against `git log`, `git status`, and the current code (no commits
+or pushes made). Two stale factual claims fixed in place above: the repo/environment
+note still named the pre-rename folder `Second brain` and listed the active branch as
+`feature/unli-rice-animation`; `git branch --show-current` is actually `main` as of
+this pass (that feature branch still exists, just isn't checked out).
+
+**Bigger finding: this file has no entries at all for the last 10 commits**
+(`2d009c3` through `5d06e32`) — the iOS companion app (`Sources/UnliRiceCapture/`,
+real `SpeechAnalyzer` transcription, Action Button `AppIntents`, mic permission),
+bidirectional per-device shard sync with loop prevention (`Sources/UnliRiceCore/`
+sync code), and a design-system port from Unli Disk (adaptive tokens, liquid glass).
+That work was planned via Antigravity battleplans — `docs/ANTIGRAVITY_IOS_CAPTURE.md`
+and `docs/ANTIGRAVITY_DESIGN_SYSTEM.md` — but nothing summarizing what actually
+shipped from those plans was ever written back into this living-status doc. Everything
+in the sections above this one predates that work and should not be read as covering
+it. A follow-up session should read those two docs plus the actual diffs in that
+commit range and write a proper session-log entry; this pass intentionally didn't do
+that reconstruction (it's a multi-feature build-out, not a fact-check fix).
+
+Everything else checked — the locked-in architecture decisions, the MLX
+removal (`Sources/UnliRiceMLX` and `Scripts/mlx-run` both confirmed absent), the
+14-tool MCP catalog, the no-external-dependencies claim, `TrashService`'s
+carve-out, `RemoteSimilarity`'s loopback-only rule — matched the current code as
+read on this pass.
+
+## Unli Rice Folder & MCP Independence Initiative (2026-08-08)
+
+Branch: `feature/folder-first` off `main`. Executed by Antigravity under approved battleplan. `source: "antigravity"`.
+
+- **Item 1 (The Unli Rice Folder)**:
+  - `MirrorExporter` exports derived context (`00_Index.md`..`04_Guardrails.md`, `PROJECTS/`, `MEMORY.md`, `HOUSE_RULES.md`, `RAW/`) into `Context/` subdirectory, keeping top-level `AGENTS.md`, `CLAUDE.md`, `READ ME FIRST.md` and write-inbox `Notes for Unli Rice/` separate.
+  - Security-scoped bookmark and path (`exportFolderBookmark`, `exportFolderPath`) added to `AgentSettings` and `AppStore`.
+  - `RoutineDriver.tick` automatically ingests `Notes for Unli Rice/` inbox on every routine tick (~5 min) with custom `minimumBytes: 0` floor and regenerates `Context/` derived context files.
+- **Item 2 ("Is it actually working?" Connection & Folder Status)**:
+  - `ConnectView` surfaces real-time connection status badges and relative last-seen times for available MCP targets based on `AppStore.connectionActivities`.
+  - Added unconnected helper banner with manual "Check status again" trigger.
+  - Added Unli Rice Folder status card.
+- **Item 3 ("Copy context for…" Clipboard Action)**:
+  - Added "Copy context for..." action and project selector in `MirrorExportView`, assembling `Profile: guardrails` + selected `Project: <name>` + `Memory: capsule` into `NSPasteboard.general`.
+- **Item 4 & 5 (`unlirice` CLI and `unlirice project init`)**:
+  - Added `Sources/unlirice-cli` executable target producing `unlirice` binary with hand-rolled argument parsing. Helper embedded as `unlirice-cli` inside `Contents/MacOS/` to avoid filename collision with main app executable `UnliRice` on case-insensitive APFS filesystems.
+  - Exposes 14 subcommands matching `ToolDispatcher` 1:1 (`note add|append|get|list|search`, `tag|untag`, `archive|unarchive`, `flag|reviews|resolve`, `log`).
+  - Added `unlirice project init <name>` command that creates project directory, stamps `AGENTS.md`, `CLAUDE.md`, and `PROJECT_NOTES.md` (with the six Handoff fields), runs `git init`, and registers `Project: <name>` note in the vault.
+
+## Battleplan: Make Unli Rice a One-Button App (2026-08-08)
+
+Branch: `feature/folder-first` off `main`. Executed by Antigravity under approved battleplan (`implementation_plan.md`). `source: "antigravity"`.
+
+- **Item 1 & 2 (1-Question First Run & Collapsed Sidebar)**:
+  - Created `FirstRunView.swift` implementing State 1 (One-question onboarding: *"Which AI do you use?"* with Claude/Cursor/ChatGPT/Something else options + live `✓ Connected!` status dot) and State 2 (Connected, waiting for first note).
+  - Collapsed `ContentView.swift` sidebar to 2 main rows (**Home** and **Notes**) + conditional **Needs you** (visible when `badge > 0`) + **More**.
+  - Created `MoreView.swift` as central hub for all relocated tools (Setup, Profiles, House Rules, Folder Export, Automation, Map, Year So Far, Trust Center, Notifications, Archived Notes).
+- **Item 3, 4, 5 (The Folder, Copy Context, AI-Led Profile)**:
+  - Derived context/inbox split (`Context/` vs `Notes for Unli Rice/`) and `RoutineDriver` tick auto-regeneration/ingest verified and linked to State 1 ChatGPT onboarding option.
+  - Added `copyContextToClipboard()` helper for instant ChatGPT chat context formatting.
+  - Added AI-led profile setup directive to `Autopilot.noteBody` in default House Rules preset.
+- **Item 6 & 7 (`unlirice` CLI & `project init`)**:
+  - `unlirice-cli` target and `unlirice project init` subcommand confirmed and integrated into app bundle via `project.yml`.
+
+

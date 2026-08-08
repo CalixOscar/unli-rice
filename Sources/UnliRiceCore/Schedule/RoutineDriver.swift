@@ -121,6 +121,36 @@ public final class RoutineDriver {
 
         var state = RoutineState.load(from: stateURL)
 
+        // Automatically ingest inbox notes and regenerate export mirror if Unli Rice export folder exists
+        let exportURL = settings.exportFolderURL ?? {
+            let defaultPath = NSString(string: "~/Documents/Unli Rice").expandingTildeInPath
+            let url = URL(fileURLWithPath: defaultPath, isDirectory: true)
+            return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        }()
+
+        if let exportURL = exportURL {
+            let isScoped = exportURL.startAccessingSecurityScopedResource()
+            let inboxURL = exportURL.appendingPathComponent("Notes for Unli Rice", isDirectory: true)
+            if FileManager.default.fileExists(atPath: inboxURL.path) {
+                let inboxImporter = LocalFileImporter(
+                    roots: [inboxURL],
+                    maximumDepth: 5,
+                    maximumFilesPerRoot: 1000,
+                    minimumBytes: 0
+                )
+                let runner = IngestRunner(service: service, rawStore: rawStore)
+                _ = try? runner.run(importer: inboxImporter)
+            }
+
+            try? MirrorExporter.exportMirror(
+                profileName: "Unli Rice",
+                vaultFolderURL: eventLogURL.deletingLastPathComponent(),
+                noteService: service,
+                customExportDirectory: exportURL
+            )
+            if isScoped { exportURL.stopAccessingSecurityScopedResource() }
+        }
+
         if settings.routinesEnabled {
             for kind in RoutineKind.allCases {
                 let decision = RoutineScheduler.decide(

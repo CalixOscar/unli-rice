@@ -95,6 +95,69 @@ struct MirrorExportView: View {
             }
             .padding(16)
             .liquidGlass(cornerRadius: 8)
+
+            // Copy Context Card for ChatGPT web
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "doc.on.clipboard")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Copy Context for ChatGPT & Web LLMs")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text("One click to copy your guardrails, project context, and memory capsule for browser chats.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    if projectNotes.isEmpty {
+                        Button("Copy Context to Clipboard") {
+                            copyContext(projectNote: nil)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(Theme.onSolidFill)
+                        .solidControl(cornerRadius: 4)
+                    } else {
+                        Menu {
+                            Button("Copy Guardrails + Memory (No Project)") {
+                                copyContext(projectNote: nil)
+                            }
+                            Divider()
+                            ForEach(projectNotes, id: \.id) { note in
+                                Button("Copy Context for \(note.title)") {
+                                    copyContext(projectNote: note)
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text("Copy Context for…")
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 9))
+                            }
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(Theme.onSolidFill)
+                        }
+                        .menuStyle(.borderlessButton)
+                        .solidControl(cornerRadius: 4)
+                    }
+
+                    if let notice = copiedNotice {
+                        Text(notice)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.emerald)
+                    }
+                }
+            }
+            .padding(16)
+            .liquidGlass(cornerRadius: 8)
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -103,7 +166,44 @@ struct MirrorExportView: View {
         }
     }
 
+    @State private var copiedNotice: String?
+
+    private var projectNotes: [Note] {
+        let prefix = "project: "
+        return store.notes
+            .filter { $0.title.lowercased().hasPrefix(prefix) }
+            .sorted { $0.title.lowercased() < $1.title.lowercased() }
+    }
+
+    private func copyContext(projectNote: Note?) {
+        var sections: [String] = []
+
+        if let guardrails = store.notes.first(where: { $0.title.lowercased() == "profile: guardrails" }) {
+            sections.append("## Guardrails & Memory Conventions\n\n\(guardrails.body)")
+        }
+
+        if let proj = projectNote {
+            sections.append("## Project Context (\(proj.title))\n\n\(proj.body)")
+        }
+
+        if let capsule = store.notes.first(where: { $0.title.lowercased() == "memory: capsule" }) {
+            sections.append("## Memory Capsule\n\n\(capsule.body)")
+        }
+
+        let fullText = sections.joined(separator: "\n\n---\n\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(fullText, forType: .string)
+
+        copiedNotice = "✓ Copied context to clipboard"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            copiedNotice = nil
+        }
+    }
+
     private var exportFolderURL: URL {
+        if let custom = store.exportFolderURL {
+            return custom
+        }
         let vaultFolderURL = store.dataURL.deletingLastPathComponent()
         let safeName = store.activeProfileName.replacingOccurrences(of: "/", with: "_").trimmingCharacters(in: .whitespaces)
         return vaultFolderURL.deletingLastPathComponent().appendingPathComponent("\(safeName) Export", isDirectory: true)
@@ -116,7 +216,8 @@ struct MirrorExportView: View {
                 profileName: store.activeProfileName,
                 vaultFolderURL: vaultFolderURL,
                 noteService: store.service,
-                houseRulesText: store.houseRulesText
+                houseRulesText: store.houseRulesText,
+                customExportDirectory: store.exportFolderURL
             )
             exportResult = res
             exportError = nil

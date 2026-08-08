@@ -13,6 +13,13 @@ log, no delete, propose-don't-apply for structural changes), see
 `PROJECT_NOTES.md` — that's the authoritative technical record, not repeated
 here.
 
+> Before writing a new technical claim into these notes — or repeating one
+> already here — verify it against the current repo (git log, grep, actual
+> code), not just against what a prior note says. Notes can be wrong; code is
+> ground truth. If a claim can't be verified from this repo (e.g. App Store
+> Connect status), mark it explicitly as unverified instead of stating it as
+> fact.
+
 ## Before you start
 
 Read the note titled **`Wiki: index`** first — not `list_notes`. It is the top of

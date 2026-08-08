@@ -19,6 +19,7 @@ let package = Package(
         .executable(name: "unlirice-mcp", targets: ["unlirice-mcp"]),
         .executable(name: "janitor-calibrate", targets: ["janitor-calibrate"]),
         .executable(name: "unlirice-agent", targets: ["unlirice-agent"]),
+        .executable(name: "unlirice", targets: ["unlirice-cli"]),
         .executable(name: "UnliRice", targets: ["UnliRice"])
     ],
     // No external dependencies, on purpose. The whole package now builds and
@@ -46,6 +47,10 @@ let package = Package(
         .executableTarget(
             name: "unlirice-mcp",
             dependencies: ["UnliRiceCore"]
+        ),
+        .executableTarget(
+            name: "unlirice-cli",
+            dependencies: ["UnliRiceCore", "UnliRiceHost"]
         ),
         // The routines, with the window closed. launchd runs this; it does one
         // tick and exits.

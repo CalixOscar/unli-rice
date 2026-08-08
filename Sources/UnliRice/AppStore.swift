@@ -58,6 +58,8 @@ final class AppStore: ObservableObject {
     @Published var showingSetup: Bool = false
     @Published var showingProfileBuilder: Bool = false
     @Published var showingProfileManager: Bool = false
+    @Published var showingFirstRun: Bool = false
+    @Published var showingMore: Bool = false
 
     @Published public private(set) var profileRegistry = ProfileRegistry()
 
@@ -67,6 +69,11 @@ final class AppStore: ObservableObject {
 
     var unreadNotices: [Notice] {
         notices.filter { !$0.isRead }
+    }
+
+    /// Connected client name from ConnectionActivities evidence, if any.
+    var connectedClientName: String? {
+        connectionActivities.first?.clientName
     }
 
     @Published var showingArchived: Bool = false
@@ -196,6 +203,22 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// User's designated Unli Rice export folder ("~/Documents/Unli Rice/").
+    @Published var exportFolderURL: URL? = nil {
+        didSet {
+            if let url = exportFolderURL {
+                UserDefaults.standard.set(url.path, forKey: Self.exportFolderKey)
+                if let bookmarkData = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) {
+                    UserDefaults.standard.set(bookmarkData, forKey: "unliRice.exportFolderBookmark")
+                }
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.exportFolderKey)
+                UserDefaults.standard.removeObject(forKey: "unliRice.exportFolderBookmark")
+            }
+            syncAgentSettings()
+        }
+    }
+
     private var dataFolderAccessStarted: Bool = false
     private var activeDataFolderURL: URL? = nil
 
@@ -245,6 +268,7 @@ final class AppStore: ObservableObject {
     /// Store build this is display/fallback metadata only; the bookmark is the
     /// authority that grants access.
     static let dataFolderKey = "unliRice.dataFolderPath"
+    static let exportFolderKey = "unliRice.exportFolderPath"
 
     /// Set once the user has finished, skipped, or otherwise dealt with Get
     /// Started. Without it, someone who generates a setup prompt but doesn't
@@ -362,6 +386,14 @@ final class AppStore: ObservableObject {
         // only one of them would be the one the routines post through.
         noticeStore = driver.noticeStore
 
+        if let exportBookmark = UserDefaults.standard.data(forKey: "unliRice.exportFolderBookmark") {
+            var isStale = false
+            exportFolderURL = try? URL(resolvingBookmarkData: exportBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+        }
+        if exportFolderURL == nil, let exportPath = UserDefaults.standard.string(forKey: Self.exportFolderKey) {
+            exportFolderURL = URL(fileURLWithPath: exportPath, isDirectory: true)
+        }
+
         // GUI-only, deliberately: an agent connecting over MCP before any human
         // has ever opened the app should never find two mystery notes it didn't
         // write. Onboarding is a first-*window* concern, not a first-*write*
@@ -378,14 +410,12 @@ final class AppStore: ObservableObject {
         }
 
         reload()
+        refreshTrustCenter()
 
-        // Open on Get Started for someone who has nothing of their own yet —
-        // the seeded guides don't count, since they arrived without the user
-        // doing anything. Suppressed once they've dealt with the wizard, so
-        // generating a setup prompt and closing the app doesn't bring it back.
-        showingGetStarted = !hasUserAuthoredNotes
-            && !UserDefaults.standard.bool(forKey: Self.getStartedDoneKey)
-        if !showingGetStarted {
+        // State 1 & State 2: Open on FirstRun for someone who has no user-authored notes yet
+        if !hasUserAuthoredNotes {
+            showingFirstRun = true
+        } else {
             showingHome = true
         }
 
@@ -577,18 +607,80 @@ final class AppStore: ObservableObject {
         let scanBookmarks = UserDefaults.standard.dictionary(forKey: "unliRice.scanRootBookmarks") as? [String: Data] ?? [:]
         let dataBookmark = UserDefaults.standard.data(forKey: "unliRice.dataFolderBookmark")
         let claudeBookmark = UserDefaults.standard.data(forKey: "unliRice.claudeProjectsBookmark")
+        let exportBookmark = UserDefaults.standard.data(forKey: "unliRice.exportFolderBookmark")
 
         return AgentSettings(
             routinesEnabled: routinesEnabled,
             autonomyLevel: autonomyLevel,
             dataFolderPath: UserDefaults.standard.string(forKey: Self.dataFolderKey),
             scanRootPaths: scanRoots.map(\.path),
-            // Monthly retrospectives are part of the product rather than a
-            // hidden preference: the old key had no UI and was always true.
             monthlyReviewEnabled: true,
             scanRootBookmarks: scanBookmarks,
             dataFolderBookmark: dataBookmark,
-            claudeProjectsBookmark: claudeBookmark
+            claudeProjectsBookmark: claudeBookmark,
+            exportFolderPath: exportFolderURL?.path,
+            exportFolderBookmark: exportBookmark
+        )
+    }
+
+    @MainActor
+    func setupUnliRiceFolder(targetURL: URL? = nil) {
+        let folderURL: URL
+        if let target = targetURL {
+            folderURL = target
+        } else {
+            let defaultPath = NSString(string: "~/Documents/Unli Rice").expandingTildeInPath
+            folderURL = URL(fileURLWithPath: defaultPath, isDirectory: true)
+        }
+
+        let fileManager = FileManager.default
+        try? fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
+
+        exportFolderURL = folderURL
+
+        // Auto-nominate "Notes for Unli Rice" as a scan root
+        let inboxURL = folderURL.appendingPathComponent("Notes for Unli Rice", isDirectory: true)
+        try? fileManager.createDirectory(at: inboxURL, withIntermediateDirectories: true)
+        let change = ScanRoots.adding(inboxURL, to: scanRoots)
+        if change.didChange {
+            scanRoots = change.roots
+        }
+
+        // Export mirror immediately
+        triggerExportMirror()
+    }
+
+    @MainActor
+    func chooseExportFolderWithPanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.title = "Choose Unli Rice Folder"
+        panel.prompt = "Select Folder"
+        let defaultPath = NSString(string: "~/Documents/Unli Rice").expandingTildeInPath
+        panel.directoryURL = URL(fileURLWithPath: defaultPath, isDirectory: true)
+
+        if panel.runModal() == .OK, let selectedURL = panel.url {
+            setupUnliRiceFolder(targetURL: selectedURL)
+        }
+    }
+
+    @MainActor
+    func triggerExportMirror() {
+        guard let exportURL = exportFolderURL ?? {
+            let defaultPath = NSString(string: "~/Documents/Unli Rice").expandingTildeInPath
+            return URL(fileURLWithPath: defaultPath, isDirectory: true)
+        }() else { return }
+
+        let vaultFolderURL = dataURL.deletingLastPathComponent()
+        try? MirrorExporter.exportMirror(
+            profileName: activeProfileName,
+            vaultFolderURL: vaultFolderURL,
+            noteService: service,
+            houseRulesText: houseRulesText,
+            customExportDirectory: exportURL
         )
     }
 
@@ -704,6 +796,56 @@ final class AppStore: ObservableObject {
         showingNotices = false
         showingTrustCenter = false
         showingAutomation = false
+        showingFirstRun = false
+        showingMore = false
+    }
+
+    func showFirstRun() {
+        closeAllPanes()
+        showingFirstRun = true
+        statusMessage = "First Run — Connect your AI tool to start."
+    }
+
+    func showMore() {
+        closeAllPanes()
+        showingMore = true
+        statusMessage = "More — Tools, settings, map, retrospectives, and secondary views."
+    }
+
+    @MainActor
+    func copyContextToClipboard(projectTitle: String? = nil) {
+        let allNotes = (try? service.listNotes(includeArchived: false)) ?? notes
+        var contextBlocks: [String] = []
+
+        if let guardrails = allNotes.first(where: { $0.title.lowercased() == "profile: guardrails" }) {
+            contextBlocks.append("## Standing Guardrails & Preferences\n\n\(guardrails.body)")
+        } else if !houseRulesText.isEmpty {
+            contextBlocks.append("## Standing Guardrails & Preferences\n\n\(houseRulesText)")
+        }
+
+        if let capsule = allNotes.first(where: { $0.title.lowercased() == MirrorExporter.memoryCapsuleTitle.lowercased() }) {
+            contextBlocks.append("## Key Memory Capsule\n\n\(capsule.body)")
+        }
+
+        let projectNotes = allNotes.filter { $0.title.lowercased().hasPrefix("project: ") }
+        if let projectTitle {
+            if let specific = projectNotes.first(where: { $0.title.lowercased() == projectTitle.lowercased() }) {
+                contextBlocks.append("## Project Context: \(specific.title)\n\n\(specific.body)")
+            }
+        } else if let firstProject = projectNotes.first {
+            contextBlocks.append("## Project Context: \(firstProject.title)\n\n\(firstProject.body)")
+        }
+
+        let fullContext = """
+        # Unli Rice Context Snapshot
+        *(Copied for AI Assistant session at \(ISO8601DateFormatter().string(from: Date())))*
+
+        \(contextBlocks.joined(separator: "\n\n---\n\n"))
+        """
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(fullContext, forType: .string)
+        statusMessage = "Copied context snapshot to clipboard."
     }
 
     func showHome() {

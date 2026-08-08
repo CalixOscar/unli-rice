@@ -134,5 +134,11 @@ public enum Autopilot {
     these notes, ask whether it's a one-time exception or whether the note should \
     change. One-time → note the exception in the session; change → append the change \
     to the relevant note.
+
+    **AI-Led Profile Setup.** At the start of your first session with the user, \
+    if `Profile: identity` does not exist yet, ask the user a few brief questions \
+    about themselves (their identity, preferred communication voice, core principles, \
+    and guardrails), and record their answers as `Profile: identity`, `Profile: voice`, \
+    `Profile: principles`, and `Profile: guardrails` notes into Unli Rice.
     """
 }

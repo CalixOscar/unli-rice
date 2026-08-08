@@ -99,11 +99,16 @@ final class ProfileAndMirrorTests: XCTestCase {
             houseRulesText: "Sample house rules"
         )
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: result.exportDirectoryURL.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: result.exportDirectoryURL.appendingPathComponent("00_Index.md").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: result.exportDirectoryURL.appendingPathComponent("01_Identity.md").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: result.exportDirectoryURL.appendingPathComponent("MEMORY.md").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: result.exportDirectoryURL.appendingPathComponent("HOUSE_RULES.md").path))
+        let exportDir = result.exportDirectoryURL
+        let contextDir = exportDir.appendingPathComponent("Context", isDirectory: true)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: exportDir.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("00_Index.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("01_Identity.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("MEMORY.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("HOUSE_RULES.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: exportDir.appendingPathComponent("READ ME FIRST.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: exportDir.appendingPathComponent("Notes for Unli Rice").path))
 
         XCTAssertEqual(result.memoryCapsuleLength, 52)
         XCTAssertFalse(result.memoryCapsuleExceeded)
@@ -164,7 +169,8 @@ final class ProfileAndMirrorTests: XCTestCase {
             noteService: noteService
         )
 
-        let identity = try String(contentsOf: result.exportDirectoryURL.appendingPathComponent("01_Identity.md"), encoding: .utf8)
+        let contextDir = result.exportDirectoryURL.appendingPathComponent("Context", isDirectory: true)
+        let identity = try String(contentsOf: contextDir.appendingPathComponent("01_Identity.md"), encoding: .utf8)
         XCTAssertTrue(identity.contains("Real Identity"))
         XCTAssertFalse(identity.contains("STALE DRAFT"))
     }
@@ -186,12 +192,12 @@ final class ProfileAndMirrorTests: XCTestCase {
             noteService: noteService
         )
 
-        let dir = result.exportDirectoryURL
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("05_Overlay_Apple.md").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("06_Overlay_Web.md").path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent("PROJECTS/Alpha.md").path))
+        let contextDir = result.exportDirectoryURL.appendingPathComponent("Context", isDirectory: true)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("05_Overlay_Apple.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("06_Overlay_Web.md").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: contextDir.appendingPathComponent("PROJECTS/Alpha.md").path))
 
-        let project = try String(contentsOf: dir.appendingPathComponent("PROJECTS/Alpha.md"), encoding: .utf8)
+        let project = try String(contentsOf: contextDir.appendingPathComponent("PROJECTS/Alpha.md"), encoding: .utf8)
         XCTAssertTrue(project.contains("First project"))
     }
 

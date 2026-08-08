@@ -17,9 +17,11 @@ settings:
   configs:
     Debug:
       SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: YES
     Release:
       SWIFT_COMPILATION_MODE: wholemodule
       SWIFT_OPTIMIZATION_LEVEL: "-O"
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 
 targets:
   UnliRiceCore:
@@ -94,7 +96,6 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
-        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         GENERATE_INFOPLIST_FILE: YES
         OTHER_CODE_SIGN_FLAGS: "$(inherited) -i $(PRODUCT_BUNDLE_IDENTIFIER)"
@@ -115,7 +116,26 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
-        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        GENERATE_INFOPLIST_FILE: YES
+        OTHER_CODE_SIGN_FLAGS: "$(inherited) -i $(PRODUCT_BUNDLE_IDENTIFIER)"
+        SKIP_INSTALL: YES
+
+  unlirice-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - Sources/unlirice-cli
+    dependencies:
+      - target: UnliRiceCore
+      - target: UnliRiceHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.cli
+        CODE_SIGN_ENTITLEMENTS: UnliRiceHelper.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 22SNGN5JYD
+        ENABLE_APP_SANDBOX: YES
         CREATE_INFOPLIST_SECTION_IN_BINARY: YES
         GENERATE_INFOPLIST_FILE: YES
         OTHER_CODE_SIGN_FLAGS: "$(inherited) -i $(PRODUCT_BUNDLE_IDENTIFIER)"
@@ -137,6 +157,9 @@ targets:
         link: false
         embed: false
       - target: unlirice-agent
+        link: false
+        embed: false
+      - target: unlirice-cli
         link: false
         embed: false
     settings:
@@ -167,6 +190,7 @@ targets:
           mkdir -p "$app_macos" "$launch_agents"
           install -m 755 "$BUILT_PRODUCTS_DIR/unlirice-mcp" "$app_macos/unlirice-mcp"
           install -m 755 "$BUILT_PRODUCTS_DIR/unlirice-agent" "$app_macos/unlirice-agent"
+          install -m 755 "$BUILT_PRODUCTS_DIR/unlirice-cli" "$app_macos/unlirice-cli"
           install -m 644 "$SRCROOT/Config/LaunchAgents/com.calmdownoscar.unlirice.agent.plist" "$launch_agents/com.calmdownoscar.unlirice.agent.plist"
 
   UnliRiceCoreTests:

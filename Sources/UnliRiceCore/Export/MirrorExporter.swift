@@ -35,6 +35,22 @@ public enum MirrorExporter {
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: exportDir, withIntermediateDirectories: true)
 
+        let contextDir = exportDir.appendingPathComponent("Context", isDirectory: true)
+        try fileManager.createDirectory(at: contextDir, withIntermediateDirectories: true)
+
+        // Ensure write inbox directory exists and never overwrite existing files in it
+        let inboxDir = exportDir.appendingPathComponent("Notes for Unli Rice", isDirectory: true)
+        if !fileManager.fileExists(atPath: inboxDir.path) {
+            try fileManager.createDirectory(at: inboxDir, withIntermediateDirectories: true)
+            let inboxReadmeURL = inboxDir.appendingPathComponent("README.md")
+            let inboxReadmeContent = """
+            # Notes for Unli Rice
+
+            Drop Markdown notes (`.md`) into this folder. Unli Rice will automatically ingest them into your persistent vault memory.
+            """
+            try Data(inboxReadmeContent.utf8).write(to: inboxReadmeURL, options: .atomic)
+        }
+
         var exportedCount = 0
         let notes = try noteService.listNotes(includeArchived: false)
 
@@ -54,7 +70,7 @@ public enum MirrorExporter {
         ]
         for (filename, title) in numberedFiles {
             if let body = latestNoteBody(titled: title) {
-                try writeExportFile(filename: filename, content: body, in: exportDir)
+                try writeExportFile(filename: filename, content: body, in: contextDir)
                 exportedCount += 1
             }
         }
@@ -68,7 +84,7 @@ public enum MirrorExporter {
         for (index, note) in overlayNotes.enumerated() {
             let name = safeFilenameComponent(String(note.title.dropFirst(overlayPrefix.count))).capitalized
             let filename = String(format: "%02d_Overlay_%@.md", 5 + index, name)
-            try writeExportFile(filename: filename, content: note.body, in: exportDir)
+            try writeExportFile(filename: filename, content: note.body, in: contextDir)
             exportedCount += 1
         }
 
@@ -78,7 +94,7 @@ public enum MirrorExporter {
             .filter { $0.title.lowercased().hasPrefix(projectPrefix) }
             .sorted { $0.title.lowercased() < $1.title.lowercased() }
         if !projectNotes.isEmpty {
-            let projectsDir = exportDir.appendingPathComponent("PROJECTS", isDirectory: true)
+            let projectsDir = contextDir.appendingPathComponent("PROJECTS", isDirectory: true)
             try fileManager.createDirectory(at: projectsDir, withIntermediateDirectories: true)
             for note in projectNotes {
                 let name = safeFilenameComponent(String(note.title.dropFirst(projectPrefix.count)))
@@ -94,32 +110,48 @@ public enum MirrorExporter {
             let body = capsuleNote.body
             capsuleLen = body.count
             capsuleExceeded = body.count > maxMemoryCapsuleChars
-            try writeExportFile(filename: "MEMORY.md", content: body, in: exportDir)
+            try writeExportFile(filename: "MEMORY.md", content: body, in: contextDir)
             exportedCount += 1
         }
 
         // HOUSE_RULES.md
         if let houseRules = houseRulesText, !houseRules.isEmpty {
-            try writeExportFile(filename: "HOUSE_RULES.md", content: houseRules, in: exportDir)
+            try writeExportFile(filename: "HOUSE_RULES.md", content: houseRules, in: contextDir)
             exportedCount += 1
         }
 
         // RAW/ folder mirroring
         let rawSourceURL = vaultFolderURL.appendingPathComponent("raw", isDirectory: true)
-        let rawTargetURL = exportDir.appendingPathComponent("RAW", isDirectory: true)
+        let rawTargetURL = contextDir.appendingPathComponent("RAW", isDirectory: true)
         if fileManager.fileExists(atPath: rawSourceURL.path) {
             try? fileManager.removeItem(at: rawTargetURL)
             try? fileManager.copyItem(at: rawSourceURL, to: rawTargetURL)
         }
 
+        // READ ME FIRST.md — per-tool access instructions
+        let readmeFirstContent = """
+        # Connecting your AI tools to Unli Rice
+
+        Unli Rice maintains your persistent memory and context. Here is how to connect your preferred AI assistant:
+
+        | Tool | Instruction | Note |
+        | --- | --- | --- |
+        | **Claude Code** | `cd` into this folder, or add it to your project workspace | `AGENTS.md` auto-loads automatically |
+        | **Cursor / Antigravity** | Add this folder to your workspace | Auto-reads `AGENTS.md` and `Context/` |
+        | **Claude Desktop** | Use Filesystem MCP server or Unli Rice MCP server block | Config block in Unli Rice Setup |
+        | **ChatGPT web** | Upload `Context/` files into a Project | Or use "Copy context for..." in Unli Rice |
+
+        ## Folder Layout
+
+        - `Context/`: Derived context regenerated automatically by Unli Rice. (Safe to delete; safe to share with AI).
+        - `Notes for Unli Rice/`: Drop Markdown notes (`.md`) here to ingest them into your vault.
+        - `AGENTS.md` & `CLAUDE.md`: Auto-loaded context & instructions for coding assistants.
+        """
+        try writeExportFile(filename: "READ ME FIRST.md", content: readmeFirstContent, in: exportDir)
+        exportedCount += 1
+
         // CLAUDE.md and AGENTS.md — convention files for Vault Mode
         let noteCountStr = "\(notes.count) note\(notes.count == 1 ? "" : "s")"
-        // Ask about the folder the agent will actually open, not the exporting
-        // process's own location: `detectedPackageRoot()` walks up from
-        // `Bundle.main`, which answers "was this app launched from a package?"
-        // — a different question, and one whose answer changes between a Finder
-        // launch and `swift test`. Vault-has-project-notes isn't the same claim
-        // either, so it doesn't belong in this condition.
         let contextNote: String
         if Autopilot.packageRoot(startingAt: exportDir) != nil {
             contextNote = "Unli Rice notes supplement the instructions already in this project."
@@ -132,7 +164,7 @@ public enum MirrorExporter {
 
         You are connected to Unli Rice. These notes are the user's memory. \(contextNote)
 
-        Start here: `Wiki: index.md` (or `00_Index.md`), then grep this folder for the topic at hand.
+        Start here: `Context/00_Index.md`, then grep `Context/` for the topic at hand.
 
         Open your first reply with exactly:
         ✅ Unli Rice vault connected — \(noteCountStr), profile "\(profileName)".

@@ -10,6 +10,10 @@ struct ConnectView: View {
             header
 
             ScrollView {
+                unliRiceFolderCard
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(store.availableTargets.enumerated()), id: \.element.id) { index, target in
                         if index > 0 {
@@ -22,6 +26,10 @@ struct ConnectView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
 
+                if store.connectionActivities.isEmpty {
+                    unconnectedHelper
+                }
+
                 footer
                     .padding(.horizontal, 24)
                     .padding(.bottom, 24)
@@ -29,6 +37,9 @@ struct ConnectView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+        .onAppear {
+            store.refreshTrustCenter()
+        }
     }
 
     private var header: some View {
@@ -55,6 +66,79 @@ struct ConnectView: View {
         .padding(.horizontal, 24)
         .padding(.top, 22)
         .padding(.bottom, 18)
+    }
+
+    private var unliRiceFolderCard: some View {
+        Card(
+            title: "Unli Rice Folder",
+            subtitle: "Zero-config workspace folder (`~/Documents/Unli Rice/`) for AI tools that read local files.",
+            icon: "folder.fill"
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Text(store.exportFolderURL?.path ?? NSString(string: "~/Documents/Unli Rice").expandingTildeInPath)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .padding(8)
+                        .background(Theme.bgField)
+                        .cornerRadius(4)
+
+                    Button("Choose Folder…") {
+                        store.chooseExportFolderWithPanel()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(Theme.onSolidFill)
+                    .solidControl(cornerRadius: 6)
+                }
+
+                HStack(spacing: 16) {
+                    Label("Derived Context: `Context/`", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textSecondary)
+
+                    Label("Write Inbox: `Notes for Unli Rice/`", systemImage: "tray.and.arrow.down.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.accentColor)
+                }
+            }
+        }
+    }
+
+    private var unconnectedHelper: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Theme.brass)
+                Text("No AI tools connected yet?")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Button("Check status again") {
+                    store.refreshTrustCenter()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Theme.accentColor)
+            }
+            Text("If you pasted the configuration block but don't see status update above:")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("1. Restart your AI tool completely so it reloads its configuration.")
+                Text("2. Check that the JSON block was placed inside the `mcpServers` object in the correct config file.")
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(Theme.textSecondary)
+        }
+        .padding(14)
+        .background(Theme.brass.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.brass.opacity(0.3), lineWidth: 1))
     }
 
     private var footer: some View {
@@ -236,6 +320,15 @@ private struct ConnectorRow: View {
 
     @State private var showingSnippet = false
 
+    private var matchingActivity: MCPConnectionActivity? {
+        let name = target.id.lowercased()
+        let display = target.displayName.lowercased()
+        return store.connectionActivities.first { activity in
+            let client = activity.clientName.lowercased()
+            return client.contains(name) || name.contains(client) || client.contains(display) || display.contains(client)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -247,9 +340,36 @@ private struct ConnectorRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(target.displayName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
+                    HStack(spacing: 6) {
+                        Text(target.displayName)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+
+                        if let activity = matchingActivity {
+                            HStack(spacing: 3) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(Theme.emerald)
+                                Text("Connected \(activity.lastSeenAt.formatted(.relative(presentation: .named)))")
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundStyle(Theme.emerald)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1.5)
+                            .background(Theme.emerald.opacity(0.12))
+                            .clipShape(Capsule())
+                        } else {
+                            HStack(spacing: 3) {
+                                Circle()
+                                    .fill(Theme.textSecondary.opacity(0.4))
+                                    .frame(width: 5, height: 5)
+                                Text("Not connected yet")
+                                    .font(.system(size: 10.5))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                    }
+
                     Text(target.detail)
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)

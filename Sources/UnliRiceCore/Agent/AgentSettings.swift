@@ -47,6 +47,10 @@ public struct AgentSettings: Codable, Equatable, Sendable {
     /// Security-scoped bookmark for Claude projects folder path.
     public var claudeProjectsBookmark: Data?
 
+    /// Path and bookmark for custom export folder path ("~/Documents/Unli Rice/").
+    public var exportFolderPath: String?
+    public var exportFolderBookmark: Data?
+
     public init(
         routinesEnabled: Bool = false,
         autonomyLevel: Int = 1,
@@ -55,7 +59,9 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         monthlyReviewEnabled: Bool = true,
         scanRootBookmarks: [String: Data] = [:],
         dataFolderBookmark: Data? = nil,
-        claudeProjectsBookmark: Data? = nil
+        claudeProjectsBookmark: Data? = nil,
+        exportFolderPath: String? = nil,
+        exportFolderBookmark: Data? = nil
     ) {
         self.routinesEnabled = routinesEnabled
         self.autonomyLevel = autonomyLevel
@@ -65,12 +71,14 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         self.scanRootBookmarks = scanRootBookmarks
         self.dataFolderBookmark = dataFolderBookmark
         self.claudeProjectsBookmark = claudeProjectsBookmark
+        self.exportFolderPath = exportFolderPath
+        self.exportFolderBookmark = exportFolderBookmark
     }
 
     private enum CodingKeys: String, CodingKey {
         case routinesEnabled, autonomyLevel, dataFolderPath, scanRootPaths
         case monthlyReviewEnabled, scanRootBookmarks, dataFolderBookmark
-        case claudeProjectsBookmark
+        case claudeProjectsBookmark, exportFolderPath, exportFolderBookmark
     }
 
     /// Bookmark fields were added after the background settings format shipped.
@@ -86,6 +94,8 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         scanRootBookmarks = try container.decodeIfPresent([String: Data].self, forKey: .scanRootBookmarks) ?? [:]
         dataFolderBookmark = try container.decodeIfPresent(Data.self, forKey: .dataFolderBookmark)
         claudeProjectsBookmark = try container.decodeIfPresent(Data.self, forKey: .claudeProjectsBookmark)
+        exportFolderPath = try container.decodeIfPresent(String.self, forKey: .exportFolderPath)
+        exportFolderBookmark = try container.decodeIfPresent(Data.self, forKey: .exportFolderBookmark)
     }
 
     private static var bookmarkResolutionOptions: URL.BookmarkResolutionOptions {
@@ -128,6 +138,25 @@ public struct AgentSettings: Codable, Equatable, Sendable {
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         )
+    }
+
+    /// Resolves the Unli Rice export folder. Defaults to nil if not set.
+    public var exportFolderURL: URL? {
+        if let data = exportFolderBookmark {
+            var isStale = false
+            if let url = try? URL(
+                resolvingBookmarkData: data,
+                options: Self.bookmarkResolutionOptions,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ) {
+                return url
+            }
+        }
+        if let path = exportFolderPath {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return nil
     }
 
     public var autonomy: JanitorAutonomy {
