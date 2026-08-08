@@ -41,12 +41,12 @@ struct FirstRunView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Header
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Which AI do you use?")
-                        .font(.system(size: 26, weight: .bold))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your AI forgets you. Every single conversation.")
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
 
-                    Text("Unli Rice gives your AI tools long-term memory. Pick your primary tool to connect it in one step.")
+                    Text("You explain how you work to Claude. You explain it again to ChatGPT. Next week you explain it to Claude again, because it forgot.\n\nUnli Rice is one memory all of them read and write. Pick your primary tool to connect it in one step:")
                         .font(.system(size: 13))
                         .foregroundStyle(Theme.textSecondary)
                 }

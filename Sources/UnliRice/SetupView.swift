@@ -9,9 +9,9 @@ struct SetupView: View {
 
     enum Tab: String, CaseIterable, Identifiable {
         case connect = "AI Tools"
-        case profiles = "Who You Are & Profiles"
-        case houseRules = "House Rules"
-        case mirrorExport = "Mirror Export"
+        case profiles = "Separate memories"
+        case houseRules = "What your AI should always do"
+        case mirrorExport = "The folder your AI can read"
         case automation = "What Runs on Its Own"
 
         var id: String { rawValue }

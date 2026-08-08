@@ -239,6 +239,23 @@ struct ContentView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
+                if !store.showingArchived {
+                    Button(action: {
+                        store.createNote(title: "Untitled Note")
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "plus")
+                            Text("New Note")
+                        }
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .foregroundStyle(Theme.onAccent)
+                        .background(Theme.accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
                 let total = store.showingArchived ? store.archivedNotes.count : store.notes.count
                 Text("\(store.visibleNotes.count) of \(total) · append-only")
                     .font(.system(size: 10.5, design: .monospaced))

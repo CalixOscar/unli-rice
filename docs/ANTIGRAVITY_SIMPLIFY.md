@@ -208,3 +208,241 @@ Twenty-plus controls on first launch → **one**.
 
 Bring results back to the founder → Claude for review before merging to
 `main`. Update `PROJECT_NOTES.md` as each item lands — dated and terse.
+
+---
+
+# Round 2 — Home became the new junk drawer
+
+**Added 2026-08-08 after reviewing commit `fb8eec9`.**
+
+Round 1 landed and the structural work is good: `FirstRunView.swift`,
+`MoreView.swift`, the sidebar collapsed to Home / Notes / More, the CLI, the
+folder. Keep all of it.
+
+**But the sidebar's contents moved onto Home rather than going away.**
+`HomeView.swift` now renders six stacked sections plus a four-button toolbar
+(`HomeView.swift:21-39`). The founder's verdict on seeing it: still
+overwhelming. That is the correct verdict — relocation is not simplification.
+
+## R2.1 — The app never states its purpose. Fix this first.
+
+Home's subtitle is "What Unli Rice is doing for you right now"
+(`HomeView.swift:16`) — a status report. **Nothing anywhere in the app says
+what problem it solves.** A stranger can read the whole screen and not learn
+what the product is for.
+
+Ship this copy, permanently, at the top of Home — above the status card, not
+inside it:
+
+> **One memory your AI tools share.**
+> Tell something to Claude, and ChatGPT knows it too.
+
+And in the First Run view and the More → About screen, the longer form:
+
+> Every AI conversation starts from zero. You explain how you work to Claude.
+> You explain it again to ChatGPT. Next week you explain it to Claude again,
+> because it forgot.
+>
+> Unli Rice is one memory all of them read and write.
+
+This is not decoration. It is the highest-value change in this round — it
+costs nothing and it is the only thing on screen that answers "why do I have
+this app."
+
+## R2.2 — Home is exactly three blocks
+
+Delete everything else from `HomeView`. Nothing is removed from the app —
+each item below names where it goes.
+
+**Block 1 — What this is.** The two-line statement from R2.1. Always present,
+never changes, no controls.
+
+**Block 2 — Is it working, and the one action.**
+
+Replace `statusCard`'s subtitle (`HomeView.swift:178-180`). Current text is
+"135 notes stored · Default Profile active · 6 client interactions recorded"
+— three internal metrics and zero benefit. "Client interactions recorded" is
+telemetry language, not a sentence a person would say.
+
+Say who is connected and when they last wrote:
+
+> ● **Working** — Claude and Codex share this memory.
+> Last write: Claude, 4 minutes ago.
+
+Both facts are already available: client names from
+`store.connectionActivities`, last write from the newest event's `source` and
+`timestamp`. Below it, **one** button: **Copy memory for ChatGPT**. That is
+the only action a user takes from Home with any regularity.
+
+**Block 3 — What happened.**
+
+Keep `recentActivitySection` but change its source. It currently shows
+notices — the screenshot's only entry is a five-day-old retrospective
+announcement, which is not activity. Show the last few **note writes**
+instead, from `transactionLog`:
+
+> Claude added "Prefers short answers" — 4m ago
+> Codex appended to "Project: Unli Rice" — 2h ago
+
+This is the app proving it works, which is the entire job of Home.
+
+**Plus, conditionally:** the existing `needsAttentionCard`, which is already
+correctly gated on `needsAttentionCount > 0` (`HomeView.swift:28`). Leave it
+exactly as is.
+
+## R2.3 — What leaves Home, and where it goes
+
+| Remove from Home | Goes to | Why |
+| --- | --- | --- |
+| **Instant Memory Capsule** block (`HomeView.swift:113-143`) | More | Caps-lock filename, exposes the internal `Memory: capsule` note-title convention, and its current content is an apology that the note doesn't exist. Most prominent block on the page; nothing actionable in it |
+| **"Who You Are (Profile)"** + Launch Profile Builder + Manage Profiles (`HomeView.swift:233+`) | More | Round 1 already specified this move and it didn't happen. It also self-contradicts: "your profile is active" next to a button to build it |
+| **New Note** button | The Notes screen | Rare by design — the premise is that the AI writes the notes |
+| **Add Folder to Brain Map** | More, **renamed** | It calls `chooseScanRoot()` (`HomeView.swift:65`) — it adds a folder to be *indexed*. It has nothing to do with the Brain Map. Call it "Index a folder" |
+| **Open Memory Folder** | More (and fix the bug below) | Occasional, not primary |
+
+Net: Home goes from six sections plus four buttons to **three blocks and one
+button**.
+
+## R2.4 — Bug: "Open Memory Folder" opens the old hidden folder
+
+`HomeView.openMirrorFolderInFinder()` (`HomeView.swift:152-157`) recomputes
+the legacy path from `store.dataURL` and **ignores `AppStore.exportFolderURL`**
+— the relocated-folder property added by this very commit
+(`AppStore.swift:207`). So the button opens
+`~/Library/Group Containers/group.com.calmdownoscar.unlirice/… Export`, which
+is precisely the hidden location item 3 exists to escape.
+
+Use `store.exportFolderURL` when set, and fall back to the legacy path only
+when it is nil. Check for the same mistake anywhere else that path is
+recomputed by hand rather than read from `AppStore`.
+
+## R2.5 — Vocabulary still leaking
+
+Round 1's rename list was not applied. Still on screen: "Instant Memory
+Capsule (MEMORY.MD)", "Brain Map", "Profile", "Default Profile active". Apply
+§5 of this document. A filename, a data structure, and an internal note title
+should never appear in GUI copy.
+
+## R2.6 — Working order
+
+1. **R2.1** (the purpose copy) — an hour, and it is the thing the founder
+   actually asked for. Do it first, on its own commit.
+2. **R2.4** (the folder bug) — small and it is a live defect.
+3. **R2.2 / R2.3** (cut Home to three blocks) — the bulk.
+4. **R2.5** (vocabulary) — fold in as you touch each string.
+
+Same constraints as round 1: nothing is deleted, only relocated; no engine
+changes; every screen stays reachable behind More.
+
+---
+
+# Round 3 — Two users, one app
+
+**Added 2026-08-08.**
+
+The founder's framing: a brand-new user needs *a reason to install*. A
+seasoned user — someone who builds their own tools — needs *a reason not to
+replace this with a file they wrote themselves*. These are different
+arguments and the app currently makes neither.
+
+## R3.1 — The gate today is a boolean, and it is in the wrong place
+
+`advancedModeEnabled` (`AppStore.swift:245`) defaults to false and is toggled
+from a switch buried at `AutomationView.swift:503`. So depth is all-or-nothing
+and the user has to already know it exists to find it. That is backwards: a
+beginner cannot discover it, and an expert has to go hunting.
+
+**Replace the boolean with stages the app enters on its own.** Every input is
+a fact the app already has — note count, `connectionActivities`, and the
+distinct `source` values in the event log. No new state, no new storage, one
+computed property.
+
+| Stage | Entered when | What Home shows | What unlocks |
+| --- | --- | --- | --- |
+| **1. Cold** | Nothing connected | `FirstRunView` — one question | Nothing else exists |
+| **2. Connected** | ≥1 client seen, no agent-written note yet | "Try asking it: *remember that I prefer short answers*" | Nothing else |
+| **3. Working** | ≥1 agent-authored note | Round 2's three blocks | Notes |
+| **4. Multi-tool** | ≥2 distinct non-app sources have written | Adds "who wrote what" to notes | Review queue, provenance, House Rules |
+| **5. Builder** | CLI used, or 2nd profile created, or ~200+ notes | Unchanged | CLI docs, `project init`, Trust Center, profiles, shard sync |
+
+**The principle: a capability appears when the user acquires the problem it
+solves.** Provenance is noise with one tool connected and essential with two.
+The review queue is empty theatre until there are enough notes to have
+duplicates. Neither should be visible before then.
+
+Two rules on top:
+
+- **Stages only ever add.** Nothing that has appeared may disappear later,
+  even if the triggering condition stops holding. Users rely on what they
+  have seen.
+- **Keep the manual override.** The existing Advanced Mode toggle survives as
+  "show everything" for someone who wants stage 5 on day one — but move it
+  somewhere findable (More), not inside the automation pane.
+
+## R3.2 — The new user's reason to install
+
+One sentence, and it has to name the pain rather than the mechanism:
+
+> **Your AI forgets you. Every single conversation.**
+
+Then the turn:
+
+> Unli Rice is one memory all your AI tools read and write. Tell something to
+> Claude, and ChatGPT knows it too.
+
+This is the App Store subtitle, the First Run headline, and the top line of
+Home (R2.1). Same words in all three places — a person who installs because
+of a sentence should see that sentence again when the app opens.
+
+What this deliberately does **not** lead with: MCP, notes, memory capsules,
+profiles, event logs, local-first, open source. Every one of those is a
+*reason to keep* the app, not a reason to try it.
+
+## R3.3 — The seasoned user's reason to stay
+
+Be honest about the competition: **it is a markdown file they wrote
+themselves.** Anyone technical enough to build apps will make a `CLAUDE.md`
+or a `memory.md` and point their tools at it. The founder did exactly this —
+`_Second Brain`, a `memory.md` capped at 2,500 characters, retired
+2026-07-20.
+
+So the app should say what you hit when you try. Every item below is verified
+in this codebase, not marketing:
+
+1. **Every write is signed.** Each event carries `source` and `device`
+   (`Event.swift`). A markdown file cannot tell you whether Claude or Codex
+   wrote that line, or when.
+2. **Two agents can write at once without clobbering each other.** The
+   projection cursor is a byte offset into an append-only file, so a second
+   client's writes arrive as bytes past the cursor
+   (`NoteService.swift:29-38`). Concurrent writes to a shared markdown file
+   destroy each other.
+3. **Nothing can be destroyed.** There is no delete method for an agent to
+   call anywhere in the codebase; archiving is soft and reversible
+   (`NoteService.swift:94-107`). An agent that decides to "tidy up" your
+   `memory.md` truncates it, and nothing brings it back.
+4. **Full history per note**, returned as the actual events rather than a
+   synthetic diff (`NoteService.swift:197`).
+5. **A maintenance pass that proposes and never applies** — the janitor may
+   only tag and flag; structural changes queue for a human
+   (`JanitorProposal.swift`).
+6. **Ingestion** of Claude session logs and nominated folders, idempotent by
+   content digest (`IngestRunner.swift`).
+7. **Three access channels for the same memory** — MCP, the folder, and the
+   CLI — so a tool that speaks none of one still works.
+
+Ship this as a page in **More → "Why not just a text file?"**, and reuse it
+verbatim as the second half of the App Store description. It is the strongest
+copy this product has and it currently exists nowhere.
+
+## R3.4 — Effort and order
+
+1. **R3.2 copy** — an hour. Same sentence in three places. Do it with R2.1;
+   they are the same commit's worth of work.
+2. **R3.3 page** — half a day, almost all writing. High value, near-zero risk.
+3. **R3.1 stages** — ~1.5 days. It is a computed property plus visibility
+   conditions on screens that all already exist. Do **not** build new screens
+   for this; if a stage has nothing to unlock, the stage is wrong.
+
+Constraints unchanged: nothing deleted, only gated; no engine changes; every
+screen reachable via the manual override.

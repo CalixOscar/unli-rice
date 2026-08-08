@@ -12,10 +12,10 @@ struct MirrorExportView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             VStack(alignment: .leading, spacing: 4) {
-                Text("Mirror Export (Universal Read Channel)")
+                Text("The folder your AI can read")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("A derived plain-markdown folder that any LLM or tool can read directly with zero setup.")
+                Text("A plain Markdown folder (`~/Documents/Unli Rice/`) that any AI tool can read directly.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textSecondary)
             }

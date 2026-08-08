@@ -1756,4 +1756,21 @@ Branch: `feature/folder-first` off `main`. Executed by Antigravity under approve
 - **Item 6 & 7 (`unlirice` CLI & `project init`)**:
   - `unlirice-cli` target and `unlirice project init` subcommand confirmed and integrated into app bundle via `project.yml`.
 
+## Round 2 — Home Simplification & Vocabulary Cleanup (2026-08-08)
+
+Branch: `feature/folder-first` off `main`. Executed by Antigravity under approved battleplan (`implementation_plan.md`). `source: "antigravity"`.
+
+- **R2.1 (Purpose Statement & Pain Hook)**:
+  - Added product purpose header to `HomeView`: *"One memory your AI tools share. Tell something to Claude, and ChatGPT knows it too."*
+  - Added pain statement hook to `FirstRunView`: *"Your AI forgets you. Every single conversation..."*
+- **R2.2 & R2.3 (3-Block Home & Relocation)**:
+  - Reduced `HomeView` to 3 blocks: (1) Purpose statement, (2) Working Status with singular/plural connected tool text + single "Copy memory for ChatGPT" button, (3) Recent note writes from cached `recentEvents`.
+  - Added `@Published var recentEvents: [Event]` to `AppStore` populated once in `reload()` to avoid `transactionLog` decodes during SwiftUI re-renders.
+  - Relocated Instant Memory Capsule to `MoreView` (renamed "What your AI reads first"), "+ New Note" to `noteListHeader`, and "Index a folder" (`chooseScanRoot()`) to `MoreView`.
+- **R2.4 (Export Folder Path Fix)**:
+  - Fixed `openMirrorFolderInFinder()` to open `store.exportFolderURL` (`~/Documents/Unli Rice/`) instead of hidden `Group Containers` directory.
+- **R2.5 (Vocabulary Standardisation)**:
+  - Standardized GUI labels: "What your AI should always do", "The folder your AI can read", "Separate memories", "Map", "Your year so far". Restricted technical "MCP" term to `ConnectView` power-user table.
+
+
 

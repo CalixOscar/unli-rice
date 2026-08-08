@@ -94,6 +94,27 @@ final class AppStore: ObservableObject {
     @Published var trustMessage: String?
     @Published var trustBusy: Bool = false
 
+    /// Cached recent transaction log events, populated once in reload() to avoid decoding on re-renders.
+    @Published var recentEvents: [Event] = []
+
+    /// The newest event that created or appended to a note.
+    var lastWriteEvent: Event? {
+        recentEvents.first { $0.kind == .created || $0.kind == .appended }
+    }
+
+    /// Dynamic status sentence describing connected tools with proper singular/plural.
+    var connectedToolsStatusText: String {
+        let clients = Array(Set(connectionActivities.map(\.clientName)))
+        if clients.isEmpty {
+            return "Not connected — Pick an AI tool to connect your memory."
+        } else if clients.count == 1 {
+            return "\(clients[0]) uses this memory."
+        } else {
+            let names = clients.prefix(2).joined(separator: " and ")
+            return "\(names) share this memory."
+        }
+    }
+
     /// The settings/triggers pane. Was a permanently-visible right-hand column
     /// until it became a destination like every other pane — see `AutomationView`.
     @Published var showingAutomation: Bool = false
@@ -734,6 +755,7 @@ final class AppStore: ObservableObject {
             notes = all.filter { !$0.archived }
             archivedNotes = all.filter { $0.archived }
             pending = try service.pendingReviews()
+            recentEvents = (try? service.transactionLog(limit: 10)) ?? []
             refreshNotices()
             errorMessage = nil
             if let selected = selectedNoteID, noteIndex[selected] == nil {
