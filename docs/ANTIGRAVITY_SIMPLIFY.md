@@ -555,3 +555,135 @@ transcript becomes seven predicted plus one real.
 
 Constraints unchanged: no engine changes beyond the importer's scheduling and
 mtime skip; no new write capability; nothing deleted.
+
+---
+
+# Round 5 — Show the memory, explain the silence
+
+**Added 2026-08-08. The founder, on the rebuilt Home: "I still don't get this
+page. What does it mean?"**
+
+Round 2 made Home shorter. It did not make it meaningful. Every line on it is
+telemetry — which processes connected, when the last database write happened,
+a log of recent operations. **The memory itself, which is the entire product,
+appears nowhere on the screen.**
+
+## R5.1 — Lead with what the AI knows
+
+Home's largest element should be the actual content of the memory, in plain
+readable prose:
+
+> **What your AI knows about you**
+>
+> You're a solo app developer at calmdownoscar. You prefer short answers, no
+> hype, no emoji. You're working on Unli Rice, Nuptia, and ClearSpace.
+
+Assemble it from notes that already exist — `Profile: identity`,
+`Profile: voice`, `Profile: principles`, and `Memory: capsule` — the same
+sources `MirrorExporter` already reads (`MirrorExporter.swift:48-99`). If
+those notes don't exist yet, say so plainly and link to the one action that
+creates them; do not render an empty box.
+
+Then **one status line in plain words**, no client names and no timestamps:
+
+> Claude reads this automatically. ChatGPT needs a copy-paste.
+
+Then **one button**: Copy memory for ChatGPT.
+
+Someone should read that page in three seconds and know what they have and
+what to do. Client names, versions, and connection counts move to More.
+
+## R5.2 — The event log stays, but it has to be legible and explain itself
+
+The founder wants it kept. It is the app's evidence that it is real. Two
+changes.
+
+**Plain language, and only knowledge-changing events.** Today it reads
+`Ingest tagged "Note" with 'document'` and
+`Ingest created "Doc: raw/ae1860ffb0c4-AGENTS.md"` — a content hash and a
+note literally called "Note". Rules:
+
+- Show `created` and `appended` only. Tagging, untagging, and flagging are
+  maintenance, not knowledge — fold them into a single trailing line
+  ("plus 4 tidying changes") or drop them.
+- Name the thing in human terms: "Indexed **AGENTS.md** from your Projects
+  folder", not `Doc: raw/<digest>-AGENTS.md`.
+- Say who in the user's vocabulary: "Antigravity added…", "Claude added…",
+  "Unli Rice indexed…" — never `ingest`, never `janitor`, which are internal
+  source identifiers.
+
+**Explain the gap.** This is the founder's specific ask: why is the newest
+entry nine hours old rather than now? The app can answer this from state it
+already holds, and it must not guess:
+
+| Detected condition | Line to show |
+| --- | --- |
+| `routinesEnabled == false` | "Background collecting is off, so nothing is being added on its own." + **Turn it on** |
+| `claudeProjectsBookmark == nil` | "Your Claude Code sessions aren't being indexed — they're on this Mac but Unli Rice can't see them yet." + **Choose folder** |
+| A client has connected but never called a write tool | "Claude has connected but hasn't written anything. Your standing instructions may not be reaching it." + **Review them** |
+| None of the above | "Nothing new since then." — and nothing else |
+
+**That last row matters.** If the user simply hasn't worked in nine hours,
+nine hours is the correct answer and the app must say so calmly. Only show a
+diagnosis when there is an actual detected cause. Manufacturing concern out of
+an ordinary quiet period is exactly the urgency-bait the studio guardrails
+forbid.
+
+## R5.3 — "Unknown MCP client" is alarming, and it shouldn't be
+
+The founder's reaction — *"that's worrying"* — is the correct reaction to that
+string, and the string is the app's own fault. It is the fallback at
+`unlirice-mcp/main.swift:36`, shown when a client doesn't send `clientInfo`
+during the handshake. It reads like an unidentified program touched your data.
+
+Three fixes, in order of value:
+
+1. **Never show the raw fallback.** Say "A tool that didn't identify itself"
+   and, next to it, the reassurance that is actually true and provable:
+   *this server has no network listener — it is a local process started by a
+   program on this Mac that you pointed at Unli Rice.* Nothing remote can
+   reach it. That sentence belongs in the UI, not just in `PRIVACY.md`.
+2. **Capture something identifying that is definitely available.** The server
+   already reads `FileManager.default.currentDirectoryPath`
+   (`main.swift:74`), and an MCP server's working directory is the project
+   folder its client launched it in. Record it, and render "A tool that didn't
+   identify itself — working in `~/Documents/Projects/Unli Rice`". That turns
+   an anonymous entry into a recognisable one. *Optional, investigate only:*
+   whether the parent process name is obtainable under the helper's sandbox
+   profile — if it is, that is better still. Do not ship a guess.
+3. **Don't show stale clients on Home at all.** The current entry was last
+   seen 2026-08-03 and codex 2026-07-22 — 17 days ago. Home names the two
+   least relevant clients while omitting `claude-code`, which connected the
+   same day. The full history belongs in More → Trust Center.
+
+## R5.4 — Four defects in the current card
+
+All verified against `connections.json` on 2026-08-08.
+
+1. **The headline picks the wrong clients.** It shows codex (last seen 22 Jul)
+   and "Unknown MCP client" (3 Aug) while `claude-code` connected that same
+   day at 12:48Z. Whatever the selection rule is, it is not "who is actually
+   using this."
+2. **"codex has connected 1 time but never written a note" is false.** That
+   record carries `lastToolName: "append_to_note"` with
+   `lastToolSucceeded: true`. The R4.2 diagnostic is checking the wrong field.
+   It is also the most prominent line on the page, in warning colour, and it
+   is wrong.
+3. **Clients are keyed `name|version`** (`id: "claude-code|2.1.222"`), so
+   `claude-code` appears as four separate clients across four updates.
+   Collapse by `clientName` for anything user-facing; keep the version detail
+   inside Trust Center.
+4. **The internal fallback string is user-visible** — see R5.3.
+
+## R5.5 — Order
+
+1. **R5.4 defects** — the false warning first; a wrong claim in warning colour
+   is worse than no claim. Hours.
+2. **R5.3** — the identity and reassurance copy. Half a day.
+3. **R5.2** — legible event log plus the gap diagnosis. ~1 day; the
+   diagnosis reads state the app already has.
+4. **R5.1** — lead with the memory. ~1 day, and it is the change that makes
+   the page mean something.
+
+Constraints unchanged: nothing deleted, only relocated; no new write
+capability; no diagnosis shown without a detected cause.

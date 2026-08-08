@@ -102,9 +102,46 @@ final class AppStore: ObservableObject {
         recentEvents.first { $0.kind == .created || $0.kind == .appended }
     }
 
+    /// Connection activities active within the last 7 days, collapsed by client name and sorted newest first.
+    var recentConnectionActivities: [MCPConnectionActivity] {
+        let cutoff = Date().addingTimeInterval(-7 * 86400)
+        let active = connectionActivities.filter { $0.lastSeenAt >= cutoff }
+
+        var collapsed: [String: MCPConnectionActivity] = [:]
+        for act in active {
+            let key = act.clientName.lowercased()
+            if let existing = collapsed[key] {
+                if act.lastSeenAt > existing.lastSeenAt {
+                    collapsed[key] = act
+                }
+            } else {
+                collapsed[key] = act
+            }
+        }
+        return collapsed.values.sorted { $0.lastSeenAt > $1.lastSeenAt }
+    }
+
+    /// Returns stranger-friendly client name for UI (replaces raw fallback strings).
+    func displayClientName(for name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("unknown") {
+            return "A tool that didn't identify itself"
+        }
+        if lower == "claude-code" || lower == "claude" {
+            return "Claude Code"
+        }
+        if lower == "cursor" {
+            return "Cursor"
+        }
+        if lower == "codex" {
+            return "Codex"
+        }
+        return name
+    }
+
     /// Dynamic status sentence describing connected tools with proper singular/plural.
     var connectedToolsStatusText: String {
-        let clients = Array(Set(connectionActivities.map(\.clientName)))
+        let clients = recentConnectionActivities.map { displayClientName(for: $0.clientName) }
         if clients.isEmpty {
             return "Not connected — Pick an AI tool to connect your memory."
         } else if clients.count == 1 {
@@ -117,14 +154,56 @@ final class AppStore: ObservableObject {
 
     /// Dynamic diagnostic sentence for connected tools that haven't written notes yet.
     var unwrittenClientsDiagnostic: String? {
-        let connectedClients = Array(Set(connectionActivities.map(\.clientName)))
-        let writingSources = Set(recentEvents.map { $0.source.lowercased() })
-        let quietClients = connectedClients.filter { client in
-            !writingSources.contains(client.lowercased())
+        let noteSources = Set(notes.flatMap(\.sources).map { $0.lowercased() })
+        let eventSources = Set(recentEvents.map { $0.source.lowercased() })
+        let allKnownWriters = noteSources.union(eventSources)
+
+        for activity in recentConnectionActivities {
+            let name = activity.clientName.lowercased()
+            let hasToolCall = activity.lastToolName != nil || activity.lastToolCallAt != nil
+            let hasWritten = hasToolCall || allKnownWriters.contains(name) || allKnownWriters.contains(name.replacingOccurrences(of: "-", with: ""))
+
+            if !hasWritten {
+                let displayName = displayClientName(for: activity.clientName)
+                let count = connectionActivities.filter { $0.clientName.lowercased() == name }.count
+                return "\(displayName) has connected \(count) time\(count == 1 ? "" : "s") but hasn't written a note yet. Standing instructions may not be reaching it."
+            }
         }
-        guard let quiet = quietClients.first else { return nil }
-        let count = connectionActivities.filter { $0.clientName.lowercased() == quiet.lowercased() }.count
-        return "\(quiet) has connected \(count) time\(count == 1 ? "" : "s") but never written a note."
+        return nil
+    }
+
+    /// Assembles the prose summary of what the AI knows about the user from standing profile notes and capsule.
+    var summaryOfWhatAIKnows: String? {
+        var sections: [String] = []
+
+        if let identity = note(title: "Profile: identity")?.body, !identity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(identity)
+        }
+        if let voice = note(title: "Profile: voice")?.body, !voice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(voice)
+        }
+        if let principles = note(title: "Profile: principles")?.body, !principles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(principles)
+        }
+        if let capsule = note(title: "Memory: capsule")?.body, !capsule.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sections.append(capsule)
+        }
+
+        if sections.isEmpty {
+            let profileNotes = notes.filter { $0.title.lowercased().hasPrefix("profile:") && !$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            if !profileNotes.isEmpty {
+                sections = profileNotes.map { $0.body }
+            }
+        }
+
+        guard !sections.isEmpty else { return nil }
+        return sections.joined(separator: "\n\n")
+    }
+
+    /// Looks up an active or archived note by exact title match.
+    func note(title: String) -> Note? {
+        let lower = title.lowercased()
+        return notes.first { $0.title.lowercased() == lower } ?? archivedNotes.first { $0.title.lowercased() == lower }
     }
 
     /// The 5 progressive stages the app enters automatically.
@@ -961,6 +1040,11 @@ final class AppStore: ObservableObject {
         closeAllPanes()
         showingProfileBuilder = true
         statusMessage = "Profile Builder — create your personalized AI context document set."
+    }
+
+    func showHouseRules() {
+        closeAllPanes()
+        showingMore = true
     }
 
     func showProfileManager() {
