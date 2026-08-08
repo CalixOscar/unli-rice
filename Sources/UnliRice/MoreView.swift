@@ -8,6 +8,7 @@ struct MoreView: View {
 
     enum MoreDestination: String, CaseIterable, Identifiable {
         case setup = "Setup & Tools"
+        case whyNotTextFile = "Why not just a text file?"
         case profiles = "Separate memories"
         case houseRules = "What your AI should always do"
         case folder = "The folder your AI can read"
@@ -23,6 +24,7 @@ struct MoreView: View {
         var icon: String {
             switch self {
             case .setup: return "gearshape.fill"
+            case .whyNotTextFile: return "doc.text.magnifyingglass"
             case .profiles: return "person.2.fill"
             case .houseRules: return "text.badge.checkmark"
             case .folder: return "folder.fill"
@@ -69,6 +71,8 @@ struct MoreView: View {
                 switch selectedDestination {
                 case .setup:
                     SetupView()
+                case .whyNotTextFile:
+                    WhyNotTextFileView()
                 case .profiles:
                     ProfileManagerView()
                 case .houseRules:

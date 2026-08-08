@@ -446,3 +446,112 @@ copy this product has and it currently exists nowhere.
 
 Constraints unchanged: nothing deleted, only gated; no engine changes; every
 screen reachable via the manual override.
+
+---
+
+# Round 4 — Nothing is actually being captured
+
+**Added 2026-08-08, after the founder asked why a full working session did not
+appear in the app.**
+
+Home showed "codex and claude-code share this memory" while the newest real
+write was Antigravity's CLI test from nine hours earlier. An entire Claude
+Code session — an investigation, three battleplans, a code review — left no
+trace. Three verified causes:
+
+1. **The connected agent never wrote.** The MCP server delivered its
+   `instructions` at handshake (`unlirice-mcp/main.swift:78`) telling the
+   model to read the vault. The model read it and never called `create_note`
+   or `append_to_note` once. Nothing in the system requires or prompts a
+   write; it depends entirely on the model volunteering.
+2. **Routines are off.** `agent.json` has `routinesEnabled: false`, so ingest
+   and the janitor never run unattended.
+3. **The Claude session importer has no folder.** `claudeProjectsPath` and
+   `claudeProjectsBookmark` are both null. Meanwhile the transcripts are
+   sitting on disk at `~/.claude/projects/<slugified-cwd>/<uuid>.jsonl`.
+
+`ClaudeSessionImporter`'s own doc comment calls it *"the highest-signal
+pipeline and the reason it's the one built first."* It is built, it works, and
+it is pointed at nothing.
+
+## R4.1 — Wire up the session importer
+
+**The fix is not a button.** Asking the user to capture their own work
+violates the app's central promise. The work is already on disk; nothing is
+reading it.
+
+- **Ask at the right moment.** `FirstRunView` already asks "which AI do you
+  use?". When the answer is Claude, offer one follow-up: *"Also index your
+  Claude Code sessions? They're already on your Mac."* → `NSOpenPanel` →
+  store the app-scope bookmark in `AgentSettings.claudeProjectsBookmark`
+  (the field already exists). The sandbox requires a picker for
+  `~/.claude/projects`; it cannot be enabled silently.
+- **Routines default on for new installs only.** An app whose whole promise
+  is "works while you're not looking" ships inert today. Flip the default —
+  but **do not change the stored value for existing users**, who may have
+  turned it off deliberately.
+- **Weekly is too slow.** The Tuesday slot means today's session is invisible
+  until next week, which is the complaint that opened this round. Run the
+  session importer on the routine tick, like Round 1's inbox.
+- **But measure before shipping every-tick.** `discover()` walks the whole
+  projects tree and reads each file to count messages and find titles
+  (`ClaudeSessionImporter.swift:53+`), and those files run to several MB.
+  Add an mtime-based skip so unchanged sessions are not re-read, then measure.
+  This project's precedent is `janitor-calibrate` and the projection
+  performance work: measure on the real corpus, don't assume.
+- **Expect a large first run.** That directory holds months of sessions. The
+  existing per-run note budget handles it (leftovers defer to the next run,
+  by design — `IngestConfig.noteBudget`), but confirm the budget in use on
+  this path is the small one, not the 10,000 default.
+
+## R4.2 — Stop reporting a handshake as participation
+
+Home currently says two connected tools "share this memory." They don't —
+they *connected*. `recordContextDelivery` fires on `initialize`
+(`unlirice-mcp/main.swift:64`), and the comment there explains why: so Trust
+Center doesn't claim a client "never read a note" when it was handed the vault
+and simply hasn't called a tool yet. Defensible in Trust Center. On Home,
+rendered as "share this memory," it is a false claim.
+
+- Show the two facts separately: **who is connected**, and **the last actual
+  write**. The honest line is already on that card in small type.
+- **A tool that connected but never wrote is a diagnostic, not a success.** It
+  means the House Rules are not landing. `MCPConnectionActivity` already
+  distinguishes the two — `TrustCenterView.swift:239` renders "connected …,
+  never read a note" — so no new data is needed. Surface it: *"Claude Code
+  has connected 6 times but never written a note."* That sentence is more
+  useful than anything else on the screen.
+
+## R4.3 — This failure is not in the eval suite. Add it.
+
+All eight existing cases test *response quality when the agent acts*:
+`silent_constraint_drop`, `invented_entity`, `state_desync`, `cold_start`,
+`unconventional_input`, `tone_break`, `fallback_parity`, `cost_blowout`.
+**None covers an agent that reads the vault, is instructed to write back, and
+silently doesn't.** That is the failure that just occurred in production use.
+
+- Add `evals/cases/unli-009.yaml`, `mode: no_write_back`, asserting that a
+  session which materially changed the user's project produces at least one
+  `create_note` or `append_to_note`.
+- The assertion is deterministic — the harness already records `tool_calls`,
+  so this needs no judge model, like nine of the existing eleven assertions.
+- **The fixture already exists.** The 2026-08-08 session transcript is at
+  `~/.claude/projects/-Users-calmdownoscar-Documents-Projects-Unli-Rice/`.
+  Convert it into `evals/fixtures/unli-009.json`. It is a *failing* fixture,
+  which makes it more valuable than a passing one — it is the first case in
+  this suite with `origin: observed` rather than `predicted`.
+
+This also retires the standing eval-gate warning: eight cases with no recorded
+transcript becomes seven predicted plus one real.
+
+## R4.4 — Order
+
+1. **R4.2** — copy and a diagnostic line, no new data. Hours.
+2. **R4.3** — the case file and the fixture conversion. Half a day, and it
+   closes a gate that has been open since 2026-08-03.
+3. **R4.1** — the picker, the default flip, the tick scheduling, the mtime
+   skip, and the measurement. ~1 day, and it is the one that makes the app
+   actually capture anything.
+
+Constraints unchanged: no engine changes beyond the importer's scheduling and
+mtime skip; no new write capability; nothing deleted.

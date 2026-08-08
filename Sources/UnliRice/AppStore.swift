@@ -115,6 +115,73 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// Dynamic diagnostic sentence for connected tools that haven't written notes yet.
+    var unwrittenClientsDiagnostic: String? {
+        let connectedClients = Array(Set(connectionActivities.map(\.clientName)))
+        let writingSources = Set(recentEvents.map { $0.source.lowercased() })
+        let quietClients = connectedClients.filter { client in
+            !writingSources.contains(client.lowercased())
+        }
+        guard let quiet = quietClients.first else { return nil }
+        let count = connectionActivities.filter { $0.clientName.lowercased() == quiet.lowercased() }.count
+        return "\(quiet) has connected \(count) time\(count == 1 ? "" : "s") but never written a note."
+    }
+
+    /// The 5 progressive stages the app enters automatically.
+    public enum AppStage: Int, Comparable, CaseIterable, Sendable {
+        case cold = 1        // 0 connected clients
+        case connected = 2   // ≥1 client seen, 0 agent-authored notes
+        case working = 3     // ≥1 agent-authored note
+        case multiTool = 4   // ≥2 distinct non-app sources in event history
+        case builder = 5     // CLI used, 2nd profile created, or 200+ notes, or Advanced Mode on
+
+        public static func < (lhs: AppStage, rhs: AppStage) -> Bool {
+            lhs.rawValue < rhs.rawValue
+        }
+    }
+
+    private static let highestStageKey = "unliRice.highestUnlockedStage"
+
+    /// Evaluates the highest unlocked stage monotonically (stages only ever add).
+    var currentStage: AppStage {
+        let computed = rawComputedStage
+        let savedRaw = UserDefaults.standard.integer(forKey: Self.highestStageKey)
+        let savedStage = AppStage(rawValue: savedRaw) ?? .cold
+        let maxStage = max(computed, savedStage)
+        if maxStage > savedStage {
+            UserDefaults.standard.set(maxStage.rawValue, forKey: Self.highestStageKey)
+        }
+        return maxStage
+    }
+
+    private var rawComputedStage: AppStage {
+        if advancedModeEnabled || notes.count >= 200 {
+            return .builder
+        }
+
+        let nonAppSources = Set(recentEvents.map(\.source).filter {
+            !["janitor", "ingest", "onboarding", "human", "app"].contains($0.lowercased())
+        })
+
+        if nonAppSources.count >= 2 {
+            return .multiTool
+        }
+
+        let hasAgentWrittenNote = notes.contains { note in
+            !note.sources.isSubset(of: [Onboarding.source, "human"])
+        }
+
+        if hasAgentWrittenNote {
+            return .working
+        }
+
+        if !connectionActivities.isEmpty {
+            return .connected
+        }
+
+        return .cold
+    }
+
     /// The settings/triggers pane. Was a permanently-visible right-hand column
     /// until it became a destination like every other pane — see `AutomationView`.
     @Published var showingAutomation: Bool = false

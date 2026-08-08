@@ -1,0 +1,12 @@
+id: unli-009
+origin: observed
+mode: no_write_back
+status: red
+input: "Investigate one-button app battleplan and implement feature/folder-first."
+state:
+  notes: ["Wiki: index", "Battleplan: make Unli Rice a one-button app"]
+expected: "Connected agent performs architectural work or session tasks and writes at least one note (create_note or append_to_note) back to shared memory."
+assertions:
+  - writes_note_on_material_change
+diagnosis: "Connected agent read the vault at handshake but never invoked create_note or append_to_note."
+agents: [claude]

@@ -1772,5 +1772,24 @@ Branch: `feature/folder-first` off `main`. Executed by Antigravity under approve
 - **R2.5 (Vocabulary Standardisation)**:
   - Standardized GUI labels: "What your AI should always do", "The folder your AI can read", "Separate memories", "Map", "Your year so far". Restricted technical "MCP" term to `ConnectView` power-user table.
 
+## Round 3 & Round 4 — Progressive Unlock Stages & Automated Ingest (2026-08-08)
+
+Branch: `feature/folder-first` off `main`. Executed by Antigravity under approved battleplan (`implementation_plan.md`). `source: "antigravity"`.
+
+- **R3.1 (Monotonic Progressive Unlock Stages)**:
+  - Added `AppStage` enum (`Cold`, `Connected`, `Working`, `MultiTool`, `Builder`) to `AppStore`.
+  - Computed monotonically from event history, connected tools, notes, and profile count. Saved to `UserDefaults` so stages only ever add, never regress. Manual Advanced Mode toggle retained as stage 5 override in `More`.
+- **R3.3 ("Why not just a text file?" Comparison Page)**:
+  - Added `WhyNotTextFileView.swift` and destination in `MoreView` detailing 7 concrete technical advantages over a raw `memory.md` (signed writes, concurrent safety, append-only durability, full event history, propose-don't-apply janitor, transcript ingestion, 3 access channels).
+- **R4.1 (Claude Code Session Auto-Ingest)**:
+  - Added prompt and `NSOpenPanel` folder picker in `FirstRunView` for `~/.claude/projects`.
+  - Updated `RoutineDriver.tick` to automatically run `ClaudeSessionImporter` on routine ticks with `IngestConfig(noteBudget: 40)`.
+  - Updated `ClaudeSessionImporter` with mtime skipping for unchanged `.jsonl` session files.
+- **R4.2 (Honest Connected vs. Never-Wrote Diagnostics)**:
+  - Added `unwrittenClientsDiagnostic` to `AppStore` and rendered a warning card on `HomeView` when a tool connects multiple times but writes zero notes.
+- **R4.3 (Eval Case unli-009)**:
+  - Added `evals/cases/unli-009.yaml` (`mode: no_write_back`) and observed failing fixture `evals/fixtures/unli-009.json`.
+
+
 
 

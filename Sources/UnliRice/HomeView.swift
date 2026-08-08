@@ -73,6 +73,12 @@ struct HomeView: View {
                             .font(.system(size: 12.5))
                             .foregroundStyle(Theme.textSecondary)
                     }
+
+                    if let diagnostic = store.unwrittenClientsDiagnostic {
+                        Text(diagnostic)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.brass)
+                    }
                 }
 
                 Spacer()

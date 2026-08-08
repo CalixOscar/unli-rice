@@ -151,6 +151,20 @@ public final class RoutineDriver {
             if isScoped { exportURL.stopAccessingSecurityScopedResource() }
         }
 
+        let claudeURL = settings.claudeProjectsURL ?? {
+            let defaultPath = NSString(string: "~/.claude/projects").expandingTildeInPath
+            let url = URL(fileURLWithPath: defaultPath, isDirectory: true)
+            return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        }()
+
+        if let claudeURL = claudeURL {
+            let isScoped = claudeURL.startAccessingSecurityScopedResource()
+            let claudeImporter = ClaudeSessionImporter(projectsDirectory: claudeURL, minimumMessages: 4)
+            let runner = IngestRunner(service: service, rawStore: rawStore)
+            _ = try? runner.run(importer: claudeImporter, config: IngestConfig(noteBudget: 40))
+            if isScoped { claudeURL.stopAccessingSecurityScopedResource() }
+        }
+
         if settings.routinesEnabled {
             for kind in RoutineKind.allCases {
                 let decision = RoutineScheduler.decide(

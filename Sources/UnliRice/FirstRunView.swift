@@ -149,6 +149,38 @@ struct FirstRunView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
 
+            if selectedTool == .claude {
+                VStack(alignment: .leading, spacing: 8) {
+                    Divider().opacity(0.15)
+
+                    Text("Index Claude Code Sessions")
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+
+                    Text("Also index your Claude Code session logs? They're already on your Mac at ~/.claude/projects.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.textSecondary)
+
+                    HStack {
+                        Button("Select ~/.claude/projects Folder") {
+                            store.chooseClaudeProjectsFolder()
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(Theme.accentColor)
+                        .solidControl(cornerRadius: 6)
+
+                        if store.claudeProjectsURL != nil {
+                            Text("✓ Access granted")
+                                .font(.system(size: 11.5, weight: .semibold))
+                                .foregroundStyle(Theme.emerald)
+                        }
+                    }
+                }
+            }
+
             // Live status dot
             liveStatusDot(toolName: toolName)
         }
