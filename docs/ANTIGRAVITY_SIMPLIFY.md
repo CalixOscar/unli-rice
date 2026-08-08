@@ -687,3 +687,135 @@ All verified against `connections.json` on 2026-08-08.
 
 Constraints unchanged: nothing deleted, only relocated; no new write
 capability; no diagnosis shown without a detected cause.
+
+---
+
+# Round 6 — Making "What your AI knows about you" editable
+
+**Added 2026-08-09.** R5.1 landed and the founder's verdict was "exactly what
+I am looking for." The ask now: make those fields editable, **subtly** — no
+form — ideally with an LLM doing the filling in.
+
+## R6.1 — Blocker: revisions stack, and they must be collapsed first
+
+**Do this before any edit path. Every option below triggers it.**
+
+`ProfileBuilder.createOrAppend` (`ProfileBuilder.swift:208-215`) does not
+replace a profile note, it appends:
+
+```
+\n\n---\n### Revision (<ISO8601>)\n\n<new body>
+```
+
+Nothing extracts the newest revision back out. Home renders `note.body`
+whole, so the first edit turns that clean screen into the old version
+followed by the new one, **stale copy first**.
+
+This is also a correctness bug, not just a display one. `MirrorExporter`
+writes `note.body` wholesale into `01_Identity.md` etc.
+(`MirrorExporter.swift:55-60`), and the clipboard button copies the same. An
+LLM then reads superseded guardrails concatenated with current ones **with no
+signal about which wins**.
+
+**The precedent is `HouseRulesRevision`** (`HouseRulesPreset.swift:166-215`)
+— but read it carefully before reusing it, because it solves only half of
+this:
+
+- Its `wrapped(_:)` embeds the sentence *"This revision supersedes every
+  earlier House Rules revision in this note. Follow only the latest
+  revision."* That is how the LLM side is handled — by telling the model, in
+  prose, which part wins. Profile notes have no such sentence today.
+- `latestDigest(in:)` returns a **digest, not a body**. There is no
+  extract-the-latest-body function anywhere in this codebase; House Rules
+  never needed one because the GUI keeps its draft in a local state file.
+
+So build a `ProfileRevision` enum modelled on `HouseRulesRevision`, with:
+
+1. A marker (`<!-- unlirice-profile-revision sha256:… -->`) and the same
+   supersedes sentence, so an LLM reading the raw note or the export knows
+   which revision is authoritative.
+2. **A new `latestBody(in:) -> String`** that returns only the newest
+   revision's text. This is the piece that does not exist.
+3. **A compatibility path for notes written before the marker existed** —
+   including notes with the current plain `### Revision (…)` separator, and
+   notes with no revision at all (the founder's are in this state today, so
+   this path is the common case, not the edge case).
+   `noteContainsCurrentRevision` already carries an equivalent
+   pre-marker branch — follow it.
+
+Then apply `latestBody(in:)` at **all three read sites**: Home's "What your
+AI knows about you", `MirrorExporter`'s profile file writes, and the
+clipboard copy. Missing one reintroduces the bug in a different surface.
+
+Full history stays in the event log — nothing is deleted, decision #2 intact.
+
+**~0.5 day, prerequisite to everything else in this round.**
+
+## R6.2 — The pencil, and why not inline
+
+**Rejected: editing directly on Home.** Home is the default screen and the
+log is append-only, so every save is a permanent revision. The app already
+guards against exactly this — `houseRulesAreSaved`
+(`AppStore+Autopilot.swift:89-92`) exists because *"'save' with no changes
+isn't a no-op — it's a second copy of the same text inside one note."*
+Autosave would produce revision churn on every keystroke pause; explicit save
+is a form, which is what the founder is asking to avoid. And an
+always-editable Home makes the memory mutable by accident.
+
+**Build: a subtle pencil affordance that opens a sheet.** The control already
+exists in this app — the House Rules editor (`ConnectView.swift:174-192`) is
+a `TextEditor` with explicit Save and "Reset to default" inside a card. Copy
+that pattern rather than inventing one.
+
+- Pencil sits inline next to each section heading (Identity, Voice,
+  Principles) — low contrast, no label, visible on hover.
+- Sheet shows that section's note text, editable.
+- Save appends a revision via `ProfileRevision.wrapped`, and is **disabled
+  when the text is unchanged**, mirroring `houseRulesAreSaved`.
+
+~0.5 day.
+
+## R6.3 — The two LLM affordances, inside the same sheet
+
+The founder's stated ideal is an LLM filling this in. The version already
+specced (Round 1 item 5 / R3) relies on the agent doing it at session start
+of its own accord. **Round 4 established that this does not happen** — a full
+session connected, was instructed to write back, and wrote nothing.
+
+So do not rely on volunteering. Make it user-initiated:
+
+**Button 1 — "Copy for my AI to edit."** Puts the current section text plus a
+short instruction on the clipboard. Works with any tool, including ones with
+no MCP connection at all.
+
+**Button 2 — "Ask my AI to interview me."** Puts a *prompt* on the clipboard,
+not the text:
+
+> Interview me about my working style and update my Unli Rice profile. Ask a
+> few questions first, then write the answers back with `append_to_note` on
+> `Profile: identity`.
+
+The user pastes it, the agent asks, the agent writes over MCP. Reliable
+because a human initiated it.
+
+Both reuse `AppStore.copyContextToClipboard`'s pasteboard handling
+(`AppStore.swift:816`). ~2 hours.
+
+## R6.4 — Markdown is rendering literally
+
+The hero screen currently shows `# Profile: Identity` and
+`- **Name / Handle:** User` with the hashes and asterisks visible. Render it
+as styled text. Use SwiftUI's native `AttributedString(markdown:)` — no
+dependency, and the package's no-external-dependencies rule holds. ~2 hours.
+
+## R6.5 — Order
+
+1. **R6.1** — the revision collapse. Nothing else is safe to ship first.
+2. **R6.4** — markdown rendering. Independent, small, and it is on the screen
+   the founder singled out as working.
+3. **R6.2** — the pencil and sheet.
+4. **R6.3** — the two clipboard buttons.
+
+Constraints unchanged: nothing deleted; no new write capability beyond
+appending a profile revision, which `ProfileBuilder` already does; explicit
+save only, never autosave.

@@ -207,16 +207,17 @@ public enum ProfileBuilder {
 
     private static func createOrAppend(title: String, body: String, tag: String = "profile", noteService: NoteService) throws -> Note? {
         let existing = try noteService.searchNotes(query: title)
+        let wrappedContent = ProfileRevision.wrapped(body, title: title)
         if let match = existing.first(where: { $0.title.lowercased() == title.lowercased() }) {
             return try noteService.appendToNote(
                 id: match.id,
-                text: "\n\n---\n### Revision (\(ISO8601DateFormatter().string(from: Date())))\n\n\(body)",
+                text: "\n\n---\n\n\(wrappedContent)",
                 source: "unlirice"
             )
         } else {
             let note = try noteService.createNote(
                 title: title,
-                body: body,
+                body: wrappedContent,
                 source: "unlirice"
             )
             _ = try? noteService.tagNote(id: note.id, tag: tag, source: "unlirice")

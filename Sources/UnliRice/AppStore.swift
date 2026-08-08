@@ -176,28 +176,52 @@ final class AppStore: ObservableObject {
     var summaryOfWhatAIKnows: String? {
         var sections: [String] = []
 
-        if let identity = note(title: "Profile: identity")?.body, !identity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            sections.append(identity)
+        if let identity = note(title: "Profile: identity")?.body {
+            let body = ProfileRevision.latestBody(in: identity)
+            if !body.isEmpty { sections.append(body) }
         }
-        if let voice = note(title: "Profile: voice")?.body, !voice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            sections.append(voice)
+        if let voice = note(title: "Profile: voice")?.body {
+            let body = ProfileRevision.latestBody(in: voice)
+            if !body.isEmpty { sections.append(body) }
         }
-        if let principles = note(title: "Profile: principles")?.body, !principles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            sections.append(principles)
+        if let principles = note(title: "Profile: principles")?.body {
+            let body = ProfileRevision.latestBody(in: principles)
+            if !body.isEmpty { sections.append(body) }
         }
-        if let capsule = note(title: "Memory: capsule")?.body, !capsule.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            sections.append(capsule)
+        if let capsule = note(title: "Memory: capsule")?.body {
+            let body = ProfileRevision.latestBody(in: capsule)
+            if !body.isEmpty { sections.append(body) }
         }
 
         if sections.isEmpty {
-            let profileNotes = notes.filter { $0.title.lowercased().hasPrefix("profile:") && !$0.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            let profileNotes = notes.filter { $0.title.lowercased().hasPrefix("profile:") }
             if !profileNotes.isEmpty {
-                sections = profileNotes.map { $0.body }
+                sections = profileNotes.compactMap {
+                    let body = ProfileRevision.latestBody(in: $0.body)
+                    return body.isEmpty ? nil : body
+                }
             }
         }
 
         guard !sections.isEmpty else { return nil }
         return sections.joined(separator: "\n\n")
+    }
+
+    /// Saves an updated profile section by appending a new revision.
+    func saveProfileSection(title: String, body: String) {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let wrapped = ProfileRevision.wrapped(trimmed, title: title)
+        if let existing = note(title: title) {
+            _ = try? service.appendToNote(id: existing.id, text: "\n\n---\n\n\(wrapped)", source: "unlirice")
+        } else {
+            if let created = try? service.createNote(title: title, body: wrapped, source: "unlirice") {
+                _ = try? service.tagNote(id: created.id, tag: "profile", source: "unlirice")
+            }
+        }
+        reload()
+        triggerExportMirror()
     }
 
     /// Looks up an active or archived note by exact title match.
@@ -986,13 +1010,15 @@ final class AppStore: ObservableObject {
         var contextBlocks: [String] = []
 
         if let guardrails = allNotes.first(where: { $0.title.lowercased() == "profile: guardrails" }) {
-            contextBlocks.append("## Standing Guardrails & Preferences\n\n\(guardrails.body)")
+            let body = ProfileRevision.latestBody(in: guardrails.body)
+            contextBlocks.append("## Standing Guardrails & Preferences\n\n\(body)")
         } else if !houseRulesText.isEmpty {
             contextBlocks.append("## Standing Guardrails & Preferences\n\n\(houseRulesText)")
         }
 
         if let capsule = allNotes.first(where: { $0.title.lowercased() == MirrorExporter.memoryCapsuleTitle.lowercased() }) {
-            contextBlocks.append("## Key Memory Capsule\n\n\(capsule.body)")
+            let body = ProfileRevision.latestBody(in: capsule.body)
+            contextBlocks.append("## Key Memory Capsule\n\n\(body)")
         }
 
         let projectNotes = allNotes.filter { $0.title.lowercased().hasPrefix("project: ") }

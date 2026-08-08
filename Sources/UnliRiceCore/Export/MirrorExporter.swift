@@ -58,7 +58,8 @@ public enum MirrorExporter {
         // titles, and a prefix would let a user note like "Profile: identity —
         // old draft" shadow the real one depending on list order.
         func latestNoteBody(titled title: String) -> String? {
-            notes.first(where: { $0.title.lowercased() == title.lowercased() })?.body
+            guard let raw = notes.first(where: { $0.title.lowercased() == title.lowercased() })?.body else { return nil }
+            return ProfileRevision.latestBody(in: raw)
         }
 
         let numberedFiles: [(String, String)] = [
@@ -84,7 +85,8 @@ public enum MirrorExporter {
         for (index, note) in overlayNotes.enumerated() {
             let name = safeFilenameComponent(String(note.title.dropFirst(overlayPrefix.count))).capitalized
             let filename = String(format: "%02d_Overlay_%@.md", 5 + index, name)
-            try writeExportFile(filename: filename, content: note.body, in: contextDir)
+            let body = ProfileRevision.latestBody(in: note.body)
+            try writeExportFile(filename: filename, content: body, in: contextDir)
             exportedCount += 1
         }
 

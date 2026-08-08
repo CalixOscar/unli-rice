@@ -5,6 +5,7 @@ import UnliRiceCore
 /// Leads with what the AI knows about you, legible recent activity, and silence diagnostics.
 struct HomeView: View {
     @EnvironmentObject var store: AppStore
+    @State private var showingEditProfileSheet: Bool = false
 
     var body: some View {
         ScrollView {
@@ -12,7 +13,7 @@ struct HomeView: View {
                 // Block 1 — App Purpose Header
                 purposeHeader
 
-                // Block 2 — What your AI knows about you (R5.1)
+                // Block 2 — What your AI knows about you (R5.1, R6.2, R6.4)
                 whatAIKnowsCard
 
                 // Block 3 — Working Status & Local Process Reassurance
@@ -30,6 +31,10 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+        .sheet(isPresented: $showingEditProfileSheet) {
+            ProfileEditSheet()
+                .environmentObject(store)
+        }
     }
 
     // MARK: - Purpose Header
@@ -46,22 +51,34 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Block 2: What Your AI Knows About You (R5.1)
+    // MARK: - Block 2: What Your AI Knows About You (R5.1, R6.2, R6.4)
 
     private var whatAIKnowsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
+            HStack(spacing: 8) {
                 Text("WHAT YOUR AI KNOWS ABOUT YOU")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
+
+                Button(action: {
+                    showingEditProfileSheet = true
+                }) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .help("Edit profile section text")
+
                 Spacer()
+
                 Text("\(store.notes.count) notes stored")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(Theme.accentColor)
             }
 
             if let summary = store.summaryOfWhatAIKnows {
-                Text(summary)
+                Text(LocalizedStringKey(summary))
                     .font(.system(size: 13, design: .default))
                     .foregroundStyle(Theme.textPrimary)
                     .lineSpacing(4)
