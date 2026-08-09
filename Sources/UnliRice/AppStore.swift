@@ -160,6 +160,59 @@ final class AppStore: ObservableObject {
         embeddingServerPath.isEmpty ? nil : URL(string: embeddingServerPath)
     }
 
+    // MARK: - Bring-your-own LLM (see AppStore+Reasoning.swift)
+
+    /// The provider endpoint, model, and consent. Note what is *not* here: the
+    /// API key. It lives in `reasoningKeyStore` — the keychain — because
+    /// everything in this section is written to `UserDefaults`, which anything
+    /// running as this user can read. See docs/BYO_LLM.md §3.
+    @Published var reasoningServerPath: String = "" {
+        didSet {
+            UserDefaults.standard.set(reasoningServerPath, forKey: Self.reasoningServerKey)
+            // A new host is a new company. Consent doesn't travel.
+            refreshReasoningKeyPresence()
+        }
+    }
+    @Published var reasoningModelName: String? {
+        didSet { UserDefaults.standard.set(reasoningModelName, forKey: Self.reasoningModelKey) }
+    }
+
+    /// Off by default, and it must stay off by default. This is a free app and
+    /// most installs will never turn it on; for them nothing changes, including
+    /// what this app talks to.
+    @Published var reasoningEnabled: Bool = false {
+        didSet { UserDefaults.standard.set(reasoningEnabled, forKey: Self.reasoningEnabledKey) }
+    }
+
+    /// The host the one-time disclosure was accepted for. Stored rather than a
+    /// bare bool so that pointing the app at a different provider asks again.
+    @Published var reasoningConsentedHost: String? {
+        didSet { UserDefaults.standard.set(reasoningConsentedHost, forKey: Self.reasoningConsentKey) }
+    }
+
+    @Published var reasoningMaxNotes: Int {
+        didSet { UserDefaults.standard.set(reasoningMaxNotes, forKey: Self.reasoningMaxNotesKey) }
+    }
+    @Published var reasoningMaxTokens: Int {
+        didSet { UserDefaults.standard.set(reasoningMaxTokens, forKey: Self.reasoningMaxTokensKey) }
+    }
+
+    /// Whether a key exists for the current host. Cached because answering it
+    /// means a keychain round trip and the menus ask on every redraw.
+    @Published var reasoningKeyPresent: Bool = false
+    @Published var reasoningBusy: Bool = false
+    @Published var reasoningMessage: String?
+    /// What the last dry run would send. Cleared once a real run happens.
+    @Published var reasoningPlan: ReasoningPlan?
+    /// What the model asked for and didn't get, in the user's words.
+    @Published var reasoningRefusals: [String] = []
+    @Published var showingReasoningConsent: Bool = false
+    @Published var outboundCalls: [OutboundCall] = []
+
+    /// The keychain, always. Never `UserDefaults`, never `AgentSettings` — that
+    /// file's own doc comment invites someone to `cat` it.
+    let reasoningKeyStore: ReasoningKeyStore = KeychainReasoningKeyStore()
+
     // MARK: - Ingest (see AppStore+Ingest.swift)
 
     /// What the pipelines *would* pull in, from the last preview. Cleared after
@@ -229,6 +282,12 @@ final class AppStore: ObservableObject {
     static let scanRootsKey = "unliRice.scanRoots"
     static let embeddingServerKey = "unliRice.embeddingServer"
     static let embeddingModelKey = "unliRice.embeddingModel"
+    static let reasoningServerKey = "unliRice.reasoningServer"
+    static let reasoningModelKey = "unliRice.reasoningModel"
+    static let reasoningEnabledKey = "unliRice.reasoningEnabled"
+    static let reasoningConsentKey = "unliRice.reasoningConsentedHost"
+    static let reasoningMaxNotesKey = "unliRice.reasoningMaxNotes"
+    static let reasoningMaxTokensKey = "unliRice.reasoningMaxTokens"
     static let routinesEnabledKey = "unliRice.routinesEnabled"
     /// Pre-gallery global draft key. Read once to migrate an existing user's
     /// text into the first per-vault state file, then removed after a safe save.
@@ -348,6 +407,16 @@ final class AppStore: ObservableObject {
         advancedModeEnabled = UserDefaults.standard.bool(forKey: AppStore.advancedModeKey)
         embeddingServerPath = UserDefaults.standard.string(forKey: AppStore.embeddingServerKey) ?? ""
         embeddingModelName = UserDefaults.standard.string(forKey: AppStore.embeddingModelKey)
+        reasoningServerPath = UserDefaults.standard.string(forKey: AppStore.reasoningServerKey) ?? ""
+        reasoningModelName = UserDefaults.standard.string(forKey: AppStore.reasoningModelKey)
+        reasoningEnabled = UserDefaults.standard.bool(forKey: AppStore.reasoningEnabledKey)
+        reasoningConsentedHost = UserDefaults.standard.string(forKey: AppStore.reasoningConsentKey)
+        // Defaulted low on purpose. This is the user's money, and the first
+        // thing anyone wants from a feature that spends it is a number they set.
+        reasoningMaxNotes = UserDefaults.standard.object(forKey: AppStore.reasoningMaxNotesKey) as? Int
+            ?? ReasoningCaps.default.maxNotesPerRun
+        reasoningMaxTokens = UserDefaults.standard.object(forKey: AppStore.reasoningMaxTokensKey) as? Int
+            ?? ReasoningCaps.default.maxInputTokensPerRun
         do {
             let store = try EventStore(fileURL: url)
             let deviceIdentity = DeviceIdentity.current(inDirectory: url.deletingLastPathComponent())
@@ -390,6 +459,10 @@ final class AppStore: ObservableObject {
         }
 
         backgroundAgentInstalled = BackgroundAgent.isInstalled()
+        // Asked once at launch rather than on every menu redraw: "is a key
+        // configured" decides whether "Run it here" is offered at all, and that
+        // question costs a keychain round trip.
+        refreshReasoningKeyPresence()
         migrateRoutineStampsIfNeeded()
         // Written on every launch, not only on change: this file is what the
         // background agent reads, and an install where the GUI's preferences

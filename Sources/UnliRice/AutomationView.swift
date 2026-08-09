@@ -46,6 +46,7 @@ struct AutomationView: View {
                         ScheduleCard()
                         JanitorCard()
                         IngestCard()
+                        ReasoningCard()
                     } else {
                         SimpleScanRootsCard()
                     }
@@ -55,6 +56,9 @@ struct AutomationView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheet(isPresented: $store.showingReasoningConsent) {
+            ReasoningConsentSheet()
+        }
     }
 }
 
@@ -558,5 +562,188 @@ private struct SimpleScanRootsCard: View {
                 }
             }
         }
+    }
+}
+
+/// Bring-your-own LLM. Off by default — see docs/BYO_LLM.md.
+///
+/// The layout mirrors `JanitorCard`'s shape on purpose: preview first and
+/// styled as the primary action, because a run that costs money deserves the
+/// same "see it before it happens" contract the free janitor already has, if
+/// not a stronger one.
+private struct ReasoningCard: View {
+    @EnvironmentObject var store: AppStore
+    @State private var showingConfig = false
+    @State private var keyField: String = ""
+
+    var body: some View {
+        Card(
+            title: "Bring your own LLM",
+            subtitle: "Lets a model you configure judge the janitor's shortlist, review flags, and clipboard prompts — on demand, never on a schedule. Off unless you turn it on below.",
+            icon: "cpu"
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: Binding(
+                    get: { store.reasoningEnabled },
+                    set: { newValue in
+                        if newValue {
+                            store.reasoningEnabled = true
+                            if !store.isReasoningConsented { store.requestReasoningConsent() }
+                        } else {
+                            store.reasoningEnabled = false
+                        }
+                    }
+                )) {
+                    Text("Run a connected LLM here")
+                        .font(.system(size: 12.5))
+                }
+                .toggleStyle(.switch)
+                .tint(Theme.accentColor)
+
+                configRow
+
+                if let plan = store.reasoningPlan {
+                    Text(plan.disclosure)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(8)
+                        .background(Theme.bgField)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.borderLight, lineWidth: 1))
+                } else if let message = store.reasoningMessage {
+                    Text(message)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if !store.reasoningRefusals.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("The model asked for things it isn't allowed to do:")
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(Theme.brass)
+                        ForEach(Array(store.reasoningRefusals.enumerated()), id: \.offset) { _, refusal in
+                            Text("· \(refusal)")
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Theme.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var configRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button(showingConfig ? "− Provider" : "+ Provider") {
+                showingConfig.toggle()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(Theme.textSecondary.opacity(0.85))
+
+            if showingConfig {
+                HStack(spacing: 8) {
+                    TextField("https://api.openai.com/v1", text: $store.reasoningServerPath)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding(6)
+                        .background(Theme.bgField)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
+
+                    TextField("model name", text: Binding(
+                        get: { store.reasoningModelName ?? "" },
+                        set: { store.reasoningModelName = $0.isEmpty ? nil : $0 }
+                    ))
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 11, design: .monospaced))
+                    .padding(6)
+                    .background(Theme.bgField)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
+                }
+                .frame(maxWidth: 560)
+
+                HStack(spacing: 8) {
+                    SecureField(store.reasoningKeyPresent ? "key saved — enter to replace" : "API key", text: $keyField)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding(6)
+                        .background(Theme.bgField)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.borderLight, lineWidth: 1))
+
+                    Button("Save") {
+                        store.saveReasoningKey(keyField)
+                        keyField = ""
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .foregroundStyle(Theme.accentColor)
+                    .solidControl(cornerRadius: 4)
+                    .disabled(keyField.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                    if store.reasoningKeyPresent {
+                        Button("Forget key") { store.forgetReasoningKey() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+                .frame(maxWidth: 560)
+
+                HStack(spacing: 12) {
+                    Stepper("Max notes/run: \(store.reasoningMaxNotes)", value: $store.reasoningMaxNotes, in: 1...200)
+                    Stepper("Max tokens/run: \(store.reasoningMaxTokens)", value: $store.reasoningMaxTokens, in: 500...100_000, step: 500)
+                }
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+
+                Text("The key is stored in your macOS keychain, never in a settings file. Titles and bodies of the notes shown in a run are sent to this host — nothing else, and only when you press a button.")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// The one-time disclosure required before the first byte may leave — default
+/// off, names the host, requires an explicit action. Not a checkbox buried in
+/// this settings pane; a separate decision, exactly as §2 of docs/BYO_LLM.md
+/// asks for.
+struct ReasoningConsentSheet: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Send notes to \(store.reasoningHost ?? "this provider")?")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+
+            Text(store.reasoningDisclosure)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+
+            HStack {
+                Spacer()
+                Button("Not now") { store.declineReasoningConsent() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                Button("Allow for \(store.reasoningHost ?? "this host")") { store.grantReasoningConsent() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .foregroundStyle(Theme.onSolidFill)
+                    .solidControl(cornerRadius: 6)
+            }
+        }
+        .padding(24)
+        .frame(width: 480)
     }
 }

@@ -27,12 +27,42 @@ public struct CleanupPrompt: Identifiable, Equatable, Sendable {
     /// The text that lands on the clipboard.
     public let body: String
 
-    public init(id: String, title: String, blurb: String, body: String) {
+    /// Which notes this job is about, when the same sentence is dispatched to a
+    /// configured provider instead of the clipboard.
+    ///
+    /// The clipboard version doesn't need this: an agent on the other end has
+    /// `list_notes` and gathers its own pile. Over the provider transport there
+    /// is no agent and no tool call, so the pile has to be gathered here —
+    /// which is also what makes the per-run note cap meaningful.
+    public let scope: ReasoningScope
+
+    /// The same job, stated for a model that has no tools and answers in JSON.
+    ///
+    /// Deliberately a second string rather than a reworded `body`. `body` names
+    /// real MCP tools because a vague prompt produces a chatty answer instead of
+    /// work, and that text stays exactly as it is — the clipboard path is
+    /// first-class, not legacy. It is the only path that works with a ChatGPT
+    /// Plus subscription and no API key, which is a large fraction of users.
+    public let dispatchTask: String?
+
+    public init(
+        id: String,
+        title: String,
+        blurb: String,
+        body: String,
+        scope: ReasoningScope = .all,
+        dispatchTask: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.blurb = blurb
         self.body = body
+        self.scope = scope
+        self.dispatchTask = dispatchTask
     }
+
+    /// Whether "Run it here" can offer this one at all.
+    public var isDispatchable: Bool { dispatchTask != nil }
 }
 
 public enum CleanupPrompts {
@@ -71,6 +101,16 @@ public enum CleanupPrompts {
 
             Do not archive anything that other notes link to. Report how many you kept and \
             how many you archived.
+            """,
+            scope: .ingested,
+            dispatchTask: """
+            These notes were imported automatically from my coding-session transcripts. \
+            Most are noise; a few record a decision, a fix, a constraint, or a preference \
+            I would want to find again.
+
+            Tag the ones worth keeping "keep". For the ones that are just a transcript of \
+            routine work, raise a flag_for_review saying so in one sentence — I will \
+            archive them myself. You cannot archive anything and should not try.
             """
         ),
         CleanupPrompt(
@@ -90,6 +130,17 @@ public enum CleanupPrompts {
             If a cluster looks like a duplicate but the notes actually disagree with each \
             other, do not merge them — `flag_for_review` the keeper describing the \
             conflict, and leave both in place.
+            """,
+            scope: .janitorShortlist,
+            dispatchTask: """
+            Below are notes the local rules put on a duplicate shortlist by title wording \
+            alone. That is a weak signal and roughly half of it is wrong.
+
+            Read them and decide which pairs are genuinely the same idea. For each one \
+            that is, raise a single flag_for_review naming the other note's title and \
+            saying which is older. Say nothing about pairs that only look alike. If two \
+            notes cover the same subject but actually disagree, flag that instead and say \
+            so — it is a different problem and merging it would lose the disagreement.
             """
         ),
         CleanupPrompt(
@@ -110,6 +161,19 @@ public enum CleanupPrompts {
             `append_to_note` a `[[Exact Note Title]]` wiki-link so they connect in the graph.
 
             Report the tag vocabulary you settled on and how many notes you touched.
+            """,
+            scope: .all,
+            dispatchTask: """
+            Make this store navigable by tagging it consistently.
+
+            Read the notes below and tag the untagged ones — two or three tags each, no \
+            more — reusing the vocabulary the store already has rather than inventing \
+            synonyms for it. Do not apply a tag to a note just because the word appears \
+            in its text. If a tag on a note is plainly wrong, untag it.
+
+            Linking related notes is not something you can do here: it would mean writing \
+            into notes I wrote. Where two notes clearly belong together and aren't \
+            connected, raise one flag_for_review saying so.
             """
         ),
         CleanupPrompt(
@@ -129,6 +193,18 @@ public enum CleanupPrompts {
             the history matters. For each one, `append_to_note` a dated line saying what \
             superseded it and linking the note that did, then `flag_for_review` it so I see \
             it in my queue.
+            """,
+            scope: .all,
+            dispatchTask: """
+            Find notes that are no longer true.
+
+            Look for statements that later notes contradict, plans that were clearly \
+            abandoned, and instructions referencing tools, paths, or decisions that other \
+            notes say have since changed.
+
+            Raise a flag_for_review on each, naming what superseded it and the title of \
+            the note that did. Do not propose archiving them — being outdated is not the \
+            same as being worthless, and the history matters.
             """
         )
     ]
@@ -157,6 +233,17 @@ public enum CleanupPrompts {
             The third bucket is the only one where you must not act, because trashing is \
             the one operation in this system that a human has to perform. Give me that \
             list with a one-line reason each.
+            """,
+            scope: .archived,
+            dispatchTask: """
+            These notes are archived. Archiving is reversible here, so this pile has \
+            accumulated without much thought.
+
+            Read them and raise a flag_for_review on any that plainly still matter and \
+            should not be archived, saying why in one sentence. Leave the merely dated \
+            ones alone. Say nothing about the worthless ones: emptying the trash is the \
+            one operation in this system a human has to perform, and telling me about it \
+            here would just add noise to the queue I use to decide.
             """
         )
     ]

@@ -1680,3 +1680,51 @@ brake; `_AI Context/08_AI_Failure_Modes.md` and the docs alone are the weakest t
 
 Deliberately *not* built: a `new_case.py` scaffolder. Writing a 15-line YAML file is
 not the bottleneck, and an anti-rabbit-hole toolkit that grows is self-refuting.
+
+## Bring-your-own LLM, Phase 1 (2026-08-09)
+
+Built on `feature/byo-llm` off `main` (not `feature/folder-first`), per
+`docs/BYO_LLM.md`, which the founder had already authored as a design doc with two
+decisions taken: on-demand first, not unattended; the LLM may write proposals,
+derived notes, and tags. This session implemented the design as written rather than
+re-deriving it. `swift build` and `swift test` are green — 294 tests, up from the
+pre-existing ~230-ish, all passing.
+
+New: `Sources/UnliRiceCore/Reasoning/` — `ReasoningProvider` protocol mirroring
+`SimilarityProvider`, `NullReasoningProvider` (the default; holds no `URLSession`, so
+there is no code path to a socket), `OpenAICompatibleReasoning` (`/v1/chat/completions`,
+no per-provider SDK), `ReasoningKeyStore` (Keychain, `kSecClassGenericPassword` keyed by
+host — never `UserDefaults`, never `AgentSettings`), `ReasoningAction` +
+`ReasoningActionParser` + `RestrictedReasoningDispatcher` (the authority ladder from §4,
+enforced by a type with no case for archive/unarchive/resolve/consolidate — the same
+shape `JanitorProposalKind` already uses for the local janitor), `ReasoningCursor`
+(incremental — content-fingerprinted, not timestamp-based; see below),
+`ReasoningRun`/`ReasoningRunner` (plan/execute, hard caps, dry run), `OutboundCallLog`
+(metadata-only receipt, mirrors `MCPConnectionActivity`'s shape).
+
+Wired into the app in `AppStore+Reasoning.swift` (consent, keychain plumbing,
+`canRunReasoningHere` — the single gate everything else reads), a "Bring your own LLM"
+card + consent sheet in `AutomationView.swift`, "Run it here" added to `CleanupMenu` and
+`AIReviewMenu` in `ContentView.swift` (only rendered when a key is configured — the
+no-key UI is otherwise unchanged), and an outbound-call card in `TrustCenterView.swift`.
+
+One divergence from the design doc worth recording, found while writing the cursor: the
+doc's sketch used `Note.updatedAt` as the incremental key, mirroring `SyncState`. Event
+timestamps round-trip through the log as whole seconds, so a note edited in the same
+second as a run would read as unchanged and never be re-judged — a real bug, not a
+hypothetical, caught by `testAnEditInTheSameSecondAsTheRunIsStillNoticed`.
+`ReasoningCursor` fingerprints the judged content (title + body + tags, FNV-1a) instead.
+
+The dispatcher tests (`ReasoningDispatcherTests.swift`) are the load-bearing ones: every
+one of the 14 non-ladder MCP tools, asked for by name, is refused and none touches the
+log; a `consolidate_duplicates` request can only ever become a pending
+`flag_for_review`; every write from the dispatcher carries `source: "janitor:<model>"`,
+distinct from bare `"janitor"` per AGENTS.md. `ReasoningNoKeyTests.swift` proves the
+no-key path makes zero network requests using a `URLProtocol` that counts and refuses
+every request — including a full plan→execute→dispatch→log run — and separately confirms
+`RemoteSimilarity.isLoopback` is untouched.
+
+Not done, out of scope on purpose: Phase 2 (unattended/routine-tick — needs the
+`keychain-access-groups` decision), anything in `Sources/UnliRiceCapture`, the App Store
+description / privacy-label update in §7 (do before the next Mac release, not before this
+branch merges).

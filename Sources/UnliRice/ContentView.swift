@@ -425,15 +425,20 @@ struct CleanupMenu: View {
     var body: some View {
         Menu {
             ForEach(prompts) { prompt in
-                Button {
-                    store.copyPrompt(prompt)
+                Menu {
+                    Button("Copy prompt") { store.copyPrompt(prompt) }
+                    // Only offered when a key is configured — with none set,
+                    // this menu is exactly what it was before this feature.
+                    if store.canRunReasoningHere, prompt.isDispatchable {
+                        Button("Run it here") { Task { await store.runPromptHere(prompt) } }
+                    }
                 } label: {
                     Text(prompt.title)
                     Text(prompt.blurb)
                 }
             }
             Divider()
-            Text("Each copies a prompt to paste into your assistant.")
+            Text("Each copies a prompt to paste into your assistant, or runs against your configured LLM.")
                 .foregroundColor(Theme.textPrimary)
         } label: {
             Text(label)
@@ -458,6 +463,10 @@ struct AIReviewMenu: View {
                 } label: {
                     Text(target.displayName)
                 }
+            }
+            if store.canRunReasoningHere {
+                Divider()
+                Button("Run it here") { Task { await store.runReviewHere() } }
             }
             Divider()
             Text("Copies a prompt listing all pending reviews to paste into the LLM.")

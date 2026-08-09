@@ -11,6 +11,7 @@ struct TrustCenterView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     doctorCard
                     connectionCard
+                    outboundCard
                     recoveryCard
                     trashCard
                 }
@@ -19,7 +20,10 @@ struct TrustCenterView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear { store.refreshTrustCenter() }
+        .onAppear {
+            store.refreshTrustCenter()
+            store.refreshOutboundCalls()
+        }
     }
 
     private var header: some View {
@@ -120,6 +124,51 @@ struct TrustCenterView: View {
                     }
                 }
             }
+        }
+    }
+
+    /// What left this machine for a bring-your-own LLM call. Same treatment as
+    /// `connectionCard`: metadata only, host/time/count/tokens/outcome, never
+    /// note contents. See docs/BYO_LLM.md §2.
+    private var outboundCard: some View {
+        TrustCard(
+            title: "Outbound LLM calls",
+            subtitle: "Every call this app made to a configured provider. Note titles and bodies are never logged here — only what was sent, to whom, and how it went.",
+            icon: "arrow.up.right.circle"
+        ) {
+            if store.outboundCalls.isEmpty {
+                Text("Nothing has been sent. This stays empty unless you configure and run a provider yourself.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(store.outboundCalls) { call in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(outboundColor(call))
+                                .frame(width: 7, height: 7)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(call.host)
+                                    .font(.system(size: 12.5, weight: .medium))
+                                    .foregroundStyle(Theme.textPrimary)
+                                Text("\(call.line) · \(call.at.formatted(.relative(presentation: .named)))")
+                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func outboundColor(_ call: OutboundCall) -> Color {
+        switch call.outcome {
+        case .succeeded: return Theme.emerald
+        case .notSent, .dryRun: return Theme.textSecondary
+        case .failed: return Theme.crit
         }
     }
 
