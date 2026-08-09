@@ -10,6 +10,7 @@ public struct CaptureView: View {
     @State private var newTabName = ""
     @State private var tabToDelete: String? = nil
     @State private var showDeleteTabAlert = false
+    @State private var showAISharePreview = false
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -39,6 +40,12 @@ public struct CaptureView: View {
         }
         .sheet(isPresented: $showSettings) {
             settingsSheet
+        }
+        .sheet(isPresented: $showAISharePreview) {
+            AISharePreviewView(notes: store.selectedNotes) {
+                showAISharePreview = false
+                store.clearNoteSelection()
+            }
         }
         .alert("New Project Tab", isPresented: $showNewTabAlert) {
             TextField("Project Name", text: $newTabName)
@@ -256,6 +263,16 @@ public struct CaptureView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer()
+                if !store.selectedNoteIDs.isEmpty {
+                    Button("Clear") { store.clearNoteSelection() }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.accentColor)
+                        .buttonStyle(.plain)
+                }
+            }
+
+            if !store.selectedNoteIDs.isEmpty {
+                sendToAIBar
             }
 
             if store.pulledNotes.isEmpty {
@@ -265,16 +282,22 @@ public struct CaptureView: View {
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(store.pulledNotes) { note in
-                        HStack(alignment: .top) {
+                        let isSelected = store.selectedNoteIDs.contains(note.id)
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 17))
+                                .foregroundStyle(isSelected ? Theme.onAccent : Theme.textLight.opacity(0.5))
+                                .padding(.top, 1)
+
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(note.title)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
+                                    .foregroundStyle(isSelected ? Theme.onAccent : Theme.textPrimary)
                                     .lineLimit(2)
                                 if !note.body.isEmpty {
                                     Text(note.body)
                                         .font(.system(size: 11.5))
-                                        .foregroundStyle(Theme.textSecondary)
+                                        .foregroundStyle(isSelected ? Theme.onAccent.opacity(0.85) : Theme.textSecondary)
                                         .lineLimit(3)
                                 }
                             }
@@ -289,11 +312,38 @@ public struct CaptureView: View {
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .cardStyle(cornerRadius: 12)
+                        .liquidGlass(cornerRadius: 12, tint: isSelected ? Theme.accentColor : nil)
+                        .contentShape(RoundedRectangle(cornerRadius: 12))
+                        .onTapGesture { store.toggleNoteSelection(note.id) }
                     }
                 }
             }
         }
+    }
+
+    /// Appears once ≥1 note is ticked. A blue glass capsule naming exactly what
+    /// would be sent, before anything is — the same "show it before it happens"
+    /// promise the rest of this app makes for anything that leaves the device.
+    private var sendToAIBar: some View {
+        let text = ShareToAI.compose(store.selectedNotes)
+        let tokens = ShareToAI.estimatedTokens(text)
+        return HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 13, weight: .semibold))
+            Text("Send \(store.selectedNoteIDs.count) to AI")
+                .font(.system(size: 13, weight: .semibold))
+            Spacer()
+            Text("~\(tokens) tokens")
+                .font(.system(size: 10.5, design: .monospaced))
+                .opacity(0.75)
+        }
+        .foregroundStyle(Theme.onAccent)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(Capsule().fill(Theme.accentColor))
+        .contentShape(Capsule())
+        .onTapGesture { showAISharePreview = true }
     }
 
     private var capturesList: some View {

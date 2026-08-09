@@ -49,6 +49,26 @@ public final class CaptureStore: ObservableObject {
     @Published public var pulledNotes: [Note] = []
     @Published public var sharedFolderURL: URL?
 
+    /// Which of `pulledNotes` are ticked for "Send to AI". Selecting is not
+    /// sending — nothing is composed or shared until the user acts on it.
+    @Published public var selectedNoteIDs: Set<UUID> = []
+
+    public var selectedNotes: [Note] {
+        pulledNotes.filter { selectedNoteIDs.contains($0.id) }
+    }
+
+    public func toggleNoteSelection(_ id: UUID) {
+        if selectedNoteIDs.contains(id) {
+            selectedNoteIDs.remove(id)
+        } else {
+            selectedNoteIDs.insert(id)
+        }
+    }
+
+    public func clearNoteSelection() {
+        selectedNoteIDs.removeAll()
+    }
+
     @Published public var recordingMode: RecordingMode {
         didSet {
             UserDefaults.standard.set(recordingMode.rawValue, forKey: Self.recordingModeKey)
@@ -192,6 +212,11 @@ public final class CaptureStore: ObservableObject {
         self.pulledNotes = allNotes.filter { note in
             note.tags.contains(currentProjectTab)
         }
+        // A note that's out of view (switched tabs, deleted, no longer synced)
+        // must not stay silently selected — the "N selected" count on screen
+        // has to mean N notes actually in front of you right now.
+        let visible = Set(pulledNotes.map(\.id))
+        selectedNoteIDs = selectedNoteIDs.intersection(visible)
     }
 
     public func deleteCapture(id: UUID) {
