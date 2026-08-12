@@ -13,8 +13,6 @@ struct MoreView: View {
         case houseRules = "What your AI should always do"
         case folder = "The folder your AI can read"
         case automation = "What Runs on Its Own"
-        case map = "Map"
-        case yearSoFar = "Your year so far"
         case trustCenter = "Trust Center"
         case notifications = "Notifications"
         case archived = "Archived Notes"
@@ -29,8 +27,6 @@ struct MoreView: View {
             case .houseRules: return "text.badge.checkmark"
             case .folder: return "folder.fill"
             case .automation: return "bolt.fill"
-            case .map: return "network"
-            case .yearSoFar: return "calendar"
             case .trustCenter: return "shield.checkmark.fill"
             case .notifications: return "bell.fill"
             case .archived: return "archivebox.fill"
@@ -96,10 +92,6 @@ struct MoreView: View {
                     folderSection
                 case .automation:
                     AutomationView()
-                case .map:
-                    mapSection
-                case .yearSoFar:
-                    RetrospectiveView()
                 case .trustCenter:
                     TrustCenterView()
                 case .notifications:
@@ -156,37 +148,6 @@ struct MoreView: View {
             return capsuleNote.body.isEmpty ? "Memory capsule note is empty." : capsuleNote.body
         }
         return "Memory Summary: \(store.activeProfileName)\nTotal Notes: \(store.notes.count)\nNo dedicated 'Memory: capsule' note yet. Connected AIs will summarize session context here automatically."
-    }
-
-    // MARK: - Map Section (Map + Index a folder action)
-
-    private var mapSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Map")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(Theme.textPrimary)
-                Spacer()
-                Button(action: {
-                    store.chooseScanRoot()
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "folder.badge.plus")
-                        Text("Index a folder")
-                    }
-                    .font(.system(size: 11.5, weight: .medium))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .foregroundStyle(Theme.accentColor)
-                    .solidControl(cornerRadius: 6)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-
-            NoteGraphView()
-        }
     }
 
     // MARK: - Archived Notes Section

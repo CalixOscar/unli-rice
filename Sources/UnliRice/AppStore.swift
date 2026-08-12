@@ -649,6 +649,36 @@ final class AppStore: ObservableObject {
                 into: eventStore,
                 ownShardFilename: ownShardFilename
             )
+
+            // The phone does not write into this Mac's `shards/` directory — it
+            // cannot see it. It publishes `events-phone-<id>.jsonl` into the
+            // folder the user picked on the phone, which on this side is a scan
+            // root or the export folder. Importing only from `besideEventLog`
+            // meant captures sat in iCloud, as text, for days while the Mac
+            // reported an empty corpus and the MCP tools found nothing.
+            let phoneShardFolders = phoneShardSearchFolders()
+            var phoneEventsAppended = 0
+            for folder in phoneShardFolders {
+                let needsStop = folder.startAccessingSecurityScopedResource()
+                defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
+
+                let folderReceipt = try? ShardImporter.importShards(
+                    from: folder,
+                    into: eventStore,
+                    syncStateURL: SyncState.url(besideEventLog: dataURL),
+                    ownShardFilename: ownShardFilename,
+                    requiringShardNaming: true,
+                    cursorNamespace: folder.path
+                )
+                phoneEventsAppended += folderReceipt?.eventsAppended ?? 0
+            }
+
+            if phoneEventsAppended > 0 {
+                service.rebuild()
+                _ = noticeStore.post(NoticeFactory.capturesArrived(count: phoneEventsAppended))
+                reload()
+            }
+
             if receipt.eventsAppended > 0 {
                 service.rebuild()
                 _ = noticeStore.post(NoticeFactory.capturesArrived(count: receipt.eventsAppended))
@@ -669,10 +699,28 @@ final class AppStore: ObservableObject {
                 }
             )
 
-            return receipt.eventsAppended
+            return receipt.eventsAppended + phoneEventsAppended
         } catch {
             return 0
         }
+    }
+
+    /// Folders that may hold a shard published by another device.
+    ///
+    /// Deliberately the folders the user has *already* granted access to — the
+    /// export folder and the scan roots — rather than a new setting. Someone who
+    /// points their phone at an iCloud folder and then adds that folder on the
+    /// Mac has already said, twice, that this is the shared folder; asking a
+    /// third time in a third place is how the two halves got out of sync.
+    func phoneShardSearchFolders() -> [URL] {
+        var folders: [URL] = []
+        var seen = Set<String>()
+        for candidate in ([exportFolderURL].compactMap { $0 } + scanRoots) {
+            if seen.insert(candidate.standardizedFileURL.path).inserted {
+                folders.append(candidate)
+            }
+        }
+        return folders
     }
 
     /// Whether anything in this corpus was written by a person or an agent, as
@@ -1177,6 +1225,15 @@ final class AppStore: ObservableObject {
         closeAllPanes()
         showingGraph = true
         statusMessage = "Brain map — how your notes link together into one brain."
+    }
+
+    /// Map and Your year so far are top-level destinations in the sidebar, not
+    /// chips buried in More's scrolling selector bar — a look-back over a year
+    /// of notes isn't a settings pane, and neither is the map.
+    func showRetrospective() {
+        closeAllPanes()
+        showingRetrospective = true
+        statusMessage = "Your year so far — what these notes add up to."
     }
 
     func selectNote(_ id: UUID?) {

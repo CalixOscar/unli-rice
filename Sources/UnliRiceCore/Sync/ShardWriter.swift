@@ -1,5 +1,15 @@
 import Foundation
 
+public enum RecorderShardError: Error, LocalizedError {
+    case nothingWritten
+
+    public var errorDescription: String? {
+        switch self {
+        case .nothingWritten: return "The capture wrote no events."
+        }
+    }
+}
+
 public struct ShardWriter: Sendable {
     public let shardFileURL: URL
     public let deviceLabel: String
@@ -9,7 +19,24 @@ public struct ShardWriter: Sendable {
         self.deviceLabel = deviceLabel
     }
 
+    /// The `created` event for the capture. Callers that also need the `tagged`
+    /// events — anyone mirroring these writes into a second log — must use
+    /// `writeCaptureEvents` instead: returning only the head of the batch here
+    /// is what silently dropped every project tag on the phone, because
+    /// `CaptureStore` appended just this event to its own `events.jsonl` and the
+    /// tags existed only in the shard.
+    @discardableResult
     public func writeCapture(transcript: String, date: Date = Date(), tags: [String] = []) throws -> Event {
+        let events = try writeCaptureEvents(transcript: transcript, date: date, tags: tags)
+        guard let created = events.first else {
+            throw RecorderShardError.nothingWritten
+        }
+        return created
+    }
+
+    /// Every event this capture appended, in write order: the `created` event
+    /// followed by one `tagged` event per tag.
+    public func writeCaptureEvents(transcript: String, date: Date = Date(), tags: [String] = []) throws -> [Event] {
         let noteID = UUID()
         let eventID = UUID()
 
@@ -70,7 +97,7 @@ public struct ShardWriter: Sendable {
             try handle.write(contentsOf: Data("\n".utf8))
         }
 
-        return event
+        return eventsToWrite
     }
 
     /// The title for a capture whose transcript came back empty — a silent

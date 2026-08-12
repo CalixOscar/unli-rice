@@ -37,6 +37,30 @@ final class ShardWriterTests: XCTestCase {
         XCTAssertTrue(raw.contains("\"title\":\"\(expectedTitle)\""))
     }
 
+    /// `writeCapture` returns only the `created` event, so a caller mirroring
+    /// these writes into a second log — which `CaptureStore` does, and which is
+    /// what `sync()` republishes from — silently dropped every tag. Captures
+    /// then carried no project tab, the phone's tab filter matched nothing, and
+    /// the UI said "No synced notes found." over a corpus that had them.
+    func testWriteCaptureEventsReturnsTagEventsAndNotJustTheCreatedOne() throws {
+        let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
+
+        let events = try writer.writeCaptureEvents(transcript: "Tag me", tags: ["Unli Thoughts"])
+
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events.first?.kind, .created)
+
+        let tagged = try XCTUnwrap(events.last)
+        XCTAssertEqual(tagged.kind, .tagged)
+        XCTAssertEqual(tagged.tag, "Unli Thoughts")
+        XCTAssertEqual(tagged.device, "iPhone")
+        // Same note, or the tag lands on nothing.
+        XCTAssertEqual(tagged.noteId, events.first?.noteId)
+
+        // The one-event convenience form still hands back the created event.
+        XCTAssertEqual(try writer.writeCapture(transcript: "Head only", tags: ["x"]).kind, .created)
+    }
+
     /// A constant fallback title scores 1.0 against itself in
     /// `Janitor.duplicateProposals`, which compares titles alone at a 0.85
     /// threshold — so two failed transcriptions would propose merging two

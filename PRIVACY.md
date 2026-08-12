@@ -27,6 +27,14 @@ If the user configures a local embedding server, Unli Rice sends note titles
 only to a loopback address on the same Mac. The app rejects non-local server
 addresses.
 
+## iOS Companion App (Unli Rice Capture)
+
+Unli Rice Capture is an on-device voice capture app for iOS. Audio recordings are transcribed locally on device using Apple's native SpeechAnalyzer framework; audio data is never uploaded to calmdownoscar or any third party.
+
+- **Data collection**: No account, analytics, advertising, tracking, or developer server.
+- **Network activity**: The only network request is Apple's system-level download of on-device speech recognition language models (`AssetInventory`) when first required by iOS.
+- **Sync**: Optional shared folder synchronization is performed strictly through the user's selected iCloud Drive folder using security-scoped bookmarks.
+
 ## Retention and deletion
 
 Notes remain in the store controlled by the user until the user archives and

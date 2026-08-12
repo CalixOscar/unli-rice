@@ -144,4 +144,84 @@ final class ShardImporterTests: XCTestCase {
         let allNotes = try service.listNotes()
         XCTAssertEqual(allNotes.count, 2)
     }
+
+    /// Importing from a folder that is not a dedicated `shards/` directory — a
+    /// user's iCloud sync folder, a scan root — means sharing that folder with
+    /// unrelated `.jsonl` files: Claude session logs, eval fixtures, exports.
+    /// Appending those as events is unrecoverable, because the log is immutable.
+    func testImportFromSharedFolderIgnoresJSONLThatIsNotAShard() throws {
+        let sharedFolder = root.appendingPathComponent("Unli thoughts", isDirectory: true)
+        try FileManager.default.createDirectory(at: sharedFolder, withIntermediateDirectories: true)
+
+        let phoneShard = sharedFolder.appendingPathComponent("events-phone-ABC.jsonl")
+        try Data("""
+        {"id":"\(UUID().uuidString)","noteId":"\(UUID().uuidString)",\
+        "timestamp":"2026-08-10T02:54:55Z","source":"human","device":"iPhone",\
+        "kind":"created","title":"The tabs don't work","text":"switch between projects"}
+
+        """.utf8).write(to: phoneShard)
+
+        // A Claude session transcript, which is also newline-delimited JSON with
+        // a `type` field and no business being in anyone's event log.
+        let strayLog = sharedFolder.appendingPathComponent("a3f9-session.jsonl")
+        try Data("""
+        {"id":"\(UUID().uuidString)","noteId":"\(UUID().uuidString)",\
+        "timestamp":"2026-08-10T03:00:00Z","source":"claude","kind":"created",\
+        "title":"NOT A CAPTURE","text":"transcript line"}
+
+        """.utf8).write(to: strayLog)
+
+        let receipt = try ShardImporter.importShards(
+            from: sharedFolder,
+            into: store,
+            syncStateURL: syncStateURL,
+            requiringShardNaming: true,
+            cursorNamespace: sharedFolder.path
+        )
+
+        XCTAssertEqual(receipt.eventsAppended, 1)
+        XCTAssertEqual(receipt.shardsImported, 1)
+
+        let titles = try service.listNotes().map(\.title)
+        XCTAssertTrue(titles.contains("The tabs don't work"))
+        XCTAssertFalse(titles.contains("NOT A CAPTURE"))
+    }
+
+    /// Two folders can hold a shard with the same filename — the phone's own
+    /// copy and an iCloud copy of it. Cursors keyed by filename alone would
+    /// share one byte offset between them, so whichever imported second would
+    /// resume at the other's position and skip real events.
+    func testSameShardFilenameInTwoFoldersKeepsSeparateCursors() throws {
+        let folderA = root.appendingPathComponent("A", isDirectory: true)
+        let folderB = root.appendingPathComponent("B", isDirectory: true)
+        try FileManager.default.createDirectory(at: folderA, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: folderB, withIntermediateDirectories: true)
+
+        func shard(title: String) -> Data {
+            Data("""
+            {"id":"\(UUID().uuidString)","noteId":"\(UUID().uuidString)",\
+            "timestamp":"2026-08-10T02:54:55Z","source":"human","device":"iPhone",\
+            "kind":"created","title":"\(title)","text":"body"}
+
+            """.utf8)
+        }
+
+        let name = "events-phone-SAME.jsonl"
+        try shard(title: "From A").write(to: folderA.appendingPathComponent(name))
+        try shard(title: "From B").write(to: folderB.appendingPathComponent(name))
+
+        for folder in [folderA, folderB] {
+            _ = try ShardImporter.importShards(
+                from: folder,
+                into: store,
+                syncStateURL: syncStateURL,
+                requiringShardNaming: true,
+                cursorNamespace: folder.path
+            )
+        }
+
+        let titles = try service.listNotes().map(\.title)
+        XCTAssertTrue(titles.contains("From A"))
+        XCTAssertTrue(titles.contains("From B"))
+    }
 }

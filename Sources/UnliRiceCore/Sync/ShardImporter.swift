@@ -18,12 +18,21 @@ public struct ImportReceipt: Equatable, Sendable {
 /// `store.appendRaw(_:)`. Persists byte cursors in `sync-state.json` to prevent
 /// resurrected purged notes.
 public enum ShardImporter {
+    /// The naming convention every published shard follows. Required when
+    /// importing from a folder that is not a dedicated `shards/` directory —
+    /// a user's sync folder or scan root can hold unrelated `.jsonl` files
+    /// (Claude session logs, eval fixtures, exports) and appending those to the
+    /// event log as if they were events is unrecoverable: the log is immutable.
+    public static let shardFilenamePrefix = "events-"
+
     @discardableResult
     public static func importShards(
         from shardDirectory: URL,
         into store: EventStore,
         syncStateURL: URL,
-        ownShardFilename: String? = nil
+        ownShardFilename: String? = nil,
+        requiringShardNaming: Bool = false,
+        cursorNamespace: String? = nil
     ) throws -> ImportReceipt {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: shardDirectory.path) else {
@@ -35,7 +44,10 @@ public enum ShardImporter {
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         ).filter { url in
-            url.pathExtension == "jsonl" && (ownShardFilename == nil || url.lastPathComponent != ownShardFilename)
+            guard url.pathExtension == "jsonl" else { return false }
+            if let ownShardFilename, url.lastPathComponent == ownShardFilename { return false }
+            if requiringShardNaming, !url.lastPathComponent.hasPrefix(shardFilenamePrefix) { return false }
+            return true
         }
 
         guard !shardFiles.isEmpty else {
@@ -50,7 +62,12 @@ public enum ShardImporter {
         var shardsImportedCount = 0
 
         for shardURL in shardFiles.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            let shardID = shardURL.lastPathComponent
+            // Cursors are keyed by filename, which is unique per device but not
+            // per *location*. Once the same log imports from more than one
+            // folder, two folders holding a same-named shard would share — and
+            // fight over — one byte offset, so those keys get namespaced.
+            let shardID = cursorNamespace.map { "\($0)/\(shardURL.lastPathComponent)" }
+                ?? shardURL.lastPathComponent
             let feed = ShardFeed(fileURL: shardURL)
             let previousCursor = syncState.cursor(for: shardID)
 

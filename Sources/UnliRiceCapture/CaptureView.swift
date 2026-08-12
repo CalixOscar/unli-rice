@@ -1,10 +1,16 @@
 import SwiftUI
+import UIKit
 import UnliRiceCore
 import UniformTypeIdentifiers
 
 public struct CaptureView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var store: CaptureStore
+    @StateObject private var player = CapturePlayer()
+    @StateObject private var lock = AppLock.shared
     @State private var showSettings = false
+    @State private var showFolderChoice = false
+    @State private var showFolderPicker = false
     @State private var showFileImporter = false
     @State private var showNewTabAlert = false
     @State private var newTabName = ""
@@ -13,10 +19,22 @@ public struct CaptureView: View {
 
     @MainActor
     public init(store: CaptureStore? = nil) {
-        _store = StateObject(wrappedValue: store ?? CaptureStore())
+        // The shared store, so the mic button and the Action Button are two
+        // controls over one recording rather than two independent ones.
+        _store = StateObject(wrappedValue: store ?? CaptureStore.shared)
     }
 
     public var body: some View {
+        ZStack {
+            mainContent
+
+            if lock.isLocked {
+                lockScreen
+            }
+        }
+    }
+
+    private var mainContent: some View {
         ZStack {
             Theme.bgMain
                 .ignoresSafeArea()
@@ -25,7 +43,20 @@ public struct CaptureView: View {
                 header
                 tabBar
 
-                if store.layoutPlacement == .micTopNotesBottom {
+                if horizontalSizeClass == .regular {
+                    HStack(alignment: .top, spacing: 20) {
+                        VStack(spacing: 16) {
+                            recordSection
+                            ipadInfoCard
+                            Spacer(minLength: 0)
+                        }
+                        .frame(width: 320)
+
+                        Divider().overlay(Theme.borderLight)
+
+                        notesAndCapturesSection
+                    }
+                } else if store.layoutPlacement == .micTopNotesBottom {
                     recordSection
                     Divider().overlay(Theme.borderLight)
                     notesAndCapturesSection
@@ -35,7 +66,51 @@ public struct CaptureView: View {
                     recordSection
                 }
             }
-            .padding(16)
+            .padding(horizontalSizeClass == .regular ? 24 : 16)
+        }
+        .onAppear {
+            store.resyncRecordingState()
+            showFolderChoice = store.needsSharedFolderChoice
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            // A recording the Action Button started is still running; the mic
+            // button has to come back as a stop button, not as a start button
+            // that would open a second recording over the live one.
+            store.resyncRecordingState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            // `willResignActive` rather than `didEnterBackground`, so the
+            // content is already covered in the app switcher snapshot.
+            lock.lockOnBackground()
+        }
+        .alert("Where should captures go?", isPresented: $showFolderChoice) {
+            Button("Choose a folder") { showFolderPicker = true }
+            Button("Keep on this phone only") { store.choosePrivateMode() }
+        } message: {
+            Text("A shared folder in iCloud Drive is how thoughts reach your Mac. Without one, everything stays on this phone — you can change this later in Settings.")
+        }
+        // Its own importer, separate from the one inside the settings sheet:
+        // presenting a file importer from the root while a sheet is up does not
+        // reliably work, and one shared binding would have to serve both.
+        .fileImporter(
+            isPresented: $showFolderPicker,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first { store.setSharedFolder(url) }
+            case .failure:
+                // Dismissing the picker is not a decision. Leaving the choice
+                // unmade means the prompt returns, rather than silently
+                // defaulting someone into either sharing or not sharing.
+                break
+            }
+        }
+        .onChange(of: store.currentProjectTab) { _, _ in
+            // The row that was playing is no longer on screen; audio that keeps
+            // going from an invisible row has no stop button.
+            player.stop()
         }
         .sheet(isPresented: $showSettings) {
             settingsSheet
@@ -149,6 +224,29 @@ public struct CaptureView: View {
         .cardStyle(cornerRadius: 20)
     }
 
+    private var ipadInfoCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "ipad.landscape")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.accentColor)
+                Text("iPad Workspace")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+
+            Text("Project: \(store.currentProjectTab)")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+
+            Text("Captures and notes automatically sync with your Mac via your shared iCloud Drive folder.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Theme.textLight)
+        }
+        .padding(14)
+        .cardStyle(cornerRadius: 14)
+    }
+
     private var recordButton: some View {
         ZStack {
             // Ambient outer glow ring
@@ -191,6 +289,53 @@ public struct CaptureView: View {
     private var isRecording: Bool {
         if case .recording = store.state { return true }
         return false
+    }
+
+    private var lockScreen: some View {
+        ZStack {
+            // Opaque, not a blur: an app-switcher snapshot taken over a
+            // translucent overlay still shows the note titles underneath, which
+            // is the one moment the lock exists to cover.
+            Theme.bgMain
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 34))
+                    .foregroundStyle(Theme.accentColor)
+
+                Text("Unli Rice is locked")
+                    .font(.system(size: 19, weight: .bold, design: .serif))
+                    .foregroundStyle(Theme.textPrimary)
+
+                if let error = lock.lastError {
+                    Text(error)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.crit)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+
+                Button(action: { Task { await lock.unlock() } }) {
+                    Text("Unlock with \(lock.biometryLabel)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.onAccent)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 22)
+                        .background(Theme.accentColor)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .transition(.opacity)
+        // Prompt straight away, so the common case is one glance rather than a
+        // tap and then a glance.
+        .task { await lock.unlock() }
+    }
+
+    private var formattedFootprint: String {
+        ByteCountFormatter.string(fromByteCount: store.audioFootprintBytes, countStyle: .file)
     }
 
     private var statusView: some View {
@@ -238,10 +383,6 @@ public struct CaptureView: View {
     private var notesAndCapturesSection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                pulledNotesSection
-                if !store.pulledNotes.isEmpty && !store.captures.isEmpty {
-                    Divider().overlay(Theme.borderLight)
-                }
                 capturesList
             }
             .padding(.vertical, 4)
@@ -249,94 +390,87 @@ public struct CaptureView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var pulledNotesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("SYNCED WITH VAULT NOTES (\(store.pulledNotes.count))")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
-                Spacer()
+    private var capturesList: some View {
+        let items = store.visibleCaptures
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("\(store.currentProjectTab.uppercased()) (\(items.count))")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.textSecondary)
+
+            if let message = player.errorMessage {
+                Text(message)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.crit)
             }
 
-            if store.pulledNotes.isEmpty {
-                Text("No synced notes found.")
+            if items.isEmpty {
+                Text("Nothing in this project yet. Record a thought and it lands here.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textLight)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .multilineTextAlignment(.center)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(store.pulledNotes) { note in
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(note.title)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                                    .lineLimit(2)
-                                if !note.body.isEmpty {
-                                    Text(note.body)
-                                        .font(.system(size: 11.5))
-                                        .foregroundStyle(Theme.textSecondary)
-                                        .lineLimit(3)
-                                }
-                            }
-                            Spacer()
-                            Button(action: { store.deleteCapture(id: note.id) }) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Theme.crit)
-                                    .padding(6)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .cardStyle(cornerRadius: 12)
+                VStack(spacing: 8) {
+                    ForEach(items) { item in
+                        captureRow(item)
                     }
                 }
             }
         }
     }
 
-    private var capturesList: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("ON-DEVICE CAPTURES (\(store.captures.count))")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Theme.textSecondary)
+    private func captureRow(_ item: SentCaptureItem) -> some View {
+        let isPlaying = player.isPlaying(noteID: item.id)
+        let hasAudio = item.audioURL != nil
 
-            if store.captures.isEmpty {
-                Text("No local captures recorded yet.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.textLight)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(store.captures) { item in
-                        HStack {
-                            Image(systemName: "waveform")
-                                .foregroundStyle(Theme.accentColor)
-                                .font(.system(size: 13))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.title)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-                                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.system(size: 10.5, design: .monospaced))
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                            Spacer()
-                            Button(action: { store.deleteCapture(id: item.id) }) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Theme.crit)
-                                    .padding(6)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(12)
-                        .cardStyle(cornerRadius: 12)
-                    }
-                }
+        return HStack(spacing: 10) {
+            Button(action: { player.toggle(noteID: item.id, audioURL: item.audioURL) }) {
+                Image(systemName: isPlaying ? "stop.circle.fill" : (hasAudio ? "play.circle.fill" : "waveform"))
+                    .font(.system(size: 22))
+                    .foregroundStyle(hasAudio ? Theme.accentColor : Theme.textLight)
             }
+            .buttonStyle(.plain)
+            .disabled(!hasAudio)
+            // The recording is gone, the thought is not — retention prunes audio
+            // and leaves the note. Saying so beats a button that does nothing.
+            .accessibilityLabel(hasAudio ? (isPlaying ? "Stop playback" : "Play recording") : "Recording no longer stored")
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(2)
+                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Button(action: {
+                if isPlaying { player.stop() }
+                store.archiveCapture(id: item.id)
+            }) {
+                Image(systemName: "archivebox")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+                    .padding(6)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Archive note")
+
+            Button(action: {
+                // Deleting the note deletes the file underneath the player.
+                if isPlaying { player.stop() }
+                store.deleteCapture(id: item.id)
+            }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.crit)
+                    .padding(6)
+            }
+            .buttonStyle(.plain)
         }
+        .padding(12)
+        .cardStyle(cornerRadius: 12)
     }
 
     private var settingsSheet: some View {
@@ -346,6 +480,19 @@ public struct CaptureView: View {
                     .ignoresSafeArea()
 
                 Form {
+                    Section(header: Text("Vault & Archive").foregroundStyle(Theme.textSecondary)) {
+                        NavigationLink(destination: ArchivedNotesView(store: store)) {
+                            HStack {
+                                Text("Archived Notes")
+                                    .foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Text("\(store.archivedCaptures.count)")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                    }
+
                     Section(header: Text("Sync Configuration").foregroundStyle(Theme.textSecondary)) {
                         Button(action: { showFileImporter = true }) {
                             HStack {
@@ -362,7 +509,40 @@ public struct CaptureView: View {
                             Text(url.lastPathComponent)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(Theme.textSecondary)
+                            Button(role: .destructive, action: {
+                                store.choosePrivateMode()
+                            }) {
+                                Text("Stop syncing — keep on this phone")
+                            }
+                        } else {
+                            Text("Private. Nothing leaves this phone.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.textSecondary)
                         }
+                    }
+
+                    Section {
+                        Toggle("Require \(lock.biometryLabel)", isOn: $lock.isEnabled)
+                            .disabled(!lock.isAvailable)
+                        if !lock.isAvailable {
+                            Text("Set a passcode on this iPhone first — there is nothing to unlock with until you do.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        // The switch turning itself back off needs its reason
+                        // shown *here*. It was only on the lock screen, which
+                        // that same failure dismisses — so the user saw a toggle
+                        // silently refuse to stay on, with no explanation.
+                        if let error = lock.lastError {
+                            Text(error)
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.crit)
+                        }
+                    } header: {
+                        Text("Privacy").foregroundStyle(Theme.textSecondary)
+                    } footer: {
+                        Text("Locks the app when it goes to the background. This hides your notes from someone holding your unlocked phone; it is not extra encryption on top of what iOS already does.")
+                            .foregroundStyle(Theme.textLight)
                     }
 
                     Section(header: Text("Recording Behavior").foregroundStyle(Theme.textSecondary)) {
@@ -381,6 +561,27 @@ public struct CaptureView: View {
                             }
                         }
                         .pickerStyle(.segmented)
+                    }
+
+                    Section {
+                        Picker("Keep recordings", selection: $store.audioRetention) {
+                            ForEach(AudioRetention.allCases) { policy in
+                                Text(policy.rawValue).tag(policy)
+                            }
+                        }
+                        HStack {
+                            Text("Audio stored")
+                                .foregroundStyle(Theme.textPrimary)
+                            Spacer()
+                            Text(formattedFootprint)
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    } header: {
+                        Text("Recordings").foregroundStyle(Theme.textSecondary)
+                    } footer: {
+                        Text("Audio is roughly 30MB an hour. Pruning it frees the space and keeps the transcript — the note stays, only the recording goes.")
+                            .foregroundStyle(Theme.textLight)
                     }
                 }
                 .scrollContentBackground(.hidden)
