@@ -217,9 +217,13 @@ public struct CaptureView: View {
         VStack(spacing: 14) {
             recordButton
             statusView
+
+            if isRecordingOrPaused {
+                recordingControlBar
+            }
         }
         .padding(.vertical, 16)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
         .cardStyle(cornerRadius: 20)
     }
@@ -247,19 +251,56 @@ public struct CaptureView: View {
         .cardStyle(cornerRadius: 14)
     }
 
+    private var recordingControlBar: some View {
+        HStack(spacing: 32) {
+            Button(action: {
+                if isPaused {
+                    store.resumeRecording()
+                } else {
+                    store.pauseRecording()
+                }
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: isPaused ? "play.circle.fill" : "pause.circle.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(Theme.accentColor)
+                    Text(isPaused ? "Resume" : "Pause")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            Button(action: {
+                store.stopAndProcess()
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.system(size: 34))
+                        .foregroundStyle(Theme.crit)
+                    Text("Stop & Save")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 6)
+    }
+
     private var recordButton: some View {
         ZStack {
             // Ambient outer glow ring
             Circle()
-                .fill((isRecording ? Theme.crit : Theme.accentColor).opacity(isRecording ? 0.25 : 0.15))
+                .fill((isRecording ? Theme.crit : (isPaused ? Theme.accentColor : Theme.accentColor)).opacity(isRecordingOrPaused ? 0.25 : 0.15))
                 .frame(width: 88, height: 88)
 
             Circle()
-                .fill(isRecording ? Theme.crit : Theme.accentColor)
+                .fill(isRecording ? Theme.crit : (isPaused ? Theme.accentColor.opacity(0.85) : Theme.accentColor))
                 .frame(width: 68, height: 68)
                 .shadow(color: (isRecording ? Theme.crit : Theme.accentColor).opacity(0.4), radius: 10, x: 0, y: 4)
 
-            Image(systemName: isRecording ? "square.fill" : "mic.fill")
+            Image(systemName: isRecording ? "pause.fill" : (isPaused ? "play.fill" : "mic.fill"))
                 .font(.system(size: 26))
                 .foregroundColor(Theme.onAccent)
         }
@@ -268,13 +309,13 @@ public struct CaptureView: View {
             store.recordingMode == .holdToRecord ?
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
-                    if !isRecording {
+                    if !isRecordingOrPaused {
                         store.startRecording()
                     }
                 }
                 .onEnded { _ in
                     if isRecording {
-                        store.stopAndProcess()
+                        store.pauseRecording()
                     }
                 }
             : nil
@@ -289,6 +330,21 @@ public struct CaptureView: View {
     private var isRecording: Bool {
         if case .recording = store.state { return true }
         return false
+    }
+
+    private var isPaused: Bool {
+        if case .paused = store.state { return true }
+        return false
+    }
+
+    private var isRecordingOrPaused: Bool {
+        isRecording || isPaused
+    }
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let secs = Int(seconds) % 60
+        return String(format: "%02d:%02d", mins, secs)
     }
 
     private var lockScreen: some View {
@@ -346,9 +402,31 @@ public struct CaptureView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textSecondary)
             case .recording:
-                Text(store.recordingMode == .holdToRecord ? "Recording… Release to finish" : "Recording… Tap to finish")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.crit)
+                VStack(spacing: 4) {
+                    HStack(spacing: 6) {
+                        Circle().fill(Theme.crit).frame(width: 8, height: 8)
+                        Text("Recording… \(formatDuration(store.recordingDuration))")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Theme.crit)
+                    }
+                    Text(store.recordingMode == .holdToRecord ? "Release to pause" : "Tap mic or pause to pause · Tap stop when done")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            case .paused:
+                VStack(spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "pause.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.accentColor)
+                        Text("Paused · \(formatDuration(store.recordingDuration))")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Theme.accentColor)
+                    }
+                    Text("Tap resume to keep recording into the same note")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             case .transcribing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)

@@ -47,6 +47,7 @@ public final class CaptureStore: ObservableObject {
     public enum State: Equatable {
         case idle
         case recording(audioURL: URL)
+        case paused(audioURL: URL)
         case transcribing(audioURL: URL)
         case completed(title: String)
         case error(String)
@@ -60,10 +61,13 @@ public final class CaptureStore: ObservableObject {
 
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
+    @Published public var recordingDuration: TimeInterval = 0
     @Published public var captures: [SentCaptureItem] = []
     @Published public var archivedCaptures: [SentCaptureItem] = []
     @Published public var pulledNotes: [Note] = []
     @Published public var sharedFolderURL: URL?
+
+    private var durationTimer: Timer?
 
     @Published public var audioRetention: AudioRetention {
         didSet {
@@ -395,7 +399,9 @@ public final class CaptureStore: ObservableObject {
         case .idle, .completed, .error:
             startRecording()
         case .recording:
-            stopAndProcess()
+            pauseRecording()
+        case .paused:
+            resumeRecording()
         case .transcribing:
             break
         }
@@ -407,12 +413,47 @@ public final class CaptureStore: ObservableObject {
                 let audioURL = try await recorder.startRecording(
                     outputDirectory: storageDir.appendingPathComponent("Audio")
                 )
+                recordingDuration = 0
+                startDurationTimer()
                 state = .recording(audioURL: audioURL)
                 partialTranscript = "Recording audio…"
             } catch {
                 state = .error(error.localizedDescription)
             }
         }
+    }
+
+    public func pauseRecording() {
+        if case .recording(let url) = state {
+            recorder.pauseRecording()
+            state = .paused(audioURL: url)
+            partialTranscript = "Recording paused. Tap resume or stop."
+        }
+    }
+
+    public func resumeRecording() {
+        if case .paused(let url) = state {
+            recorder.resumeRecording()
+            state = .recording(audioURL: url)
+            partialTranscript = "Recording audio…"
+        }
+    }
+
+    private func startDurationTimer() {
+        durationTimer?.invalidate()
+        durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if case .recording = self.state {
+                    self.recordingDuration += 1
+                }
+            }
+        }
+    }
+
+    private func stopDurationTimer() {
+        durationTimer?.invalidate()
+        durationTimer = nil
     }
 
     public func stopAndProcess() {
@@ -427,6 +468,7 @@ public final class CaptureStore: ObservableObject {
     /// from `state` instead.
     @discardableResult
     public func finishRecording() async throws -> String {
+        stopDurationTimer()
         guard let audioURL = recorder.stopRecording() else {
             state = .error("No audio file recorded.")
             throw RecorderError.recordingFailed("No audio file recorded.")
@@ -521,12 +563,21 @@ public final class CaptureStore: ObservableObject {
     /// one.
     public func resyncRecordingState() {
         if recorder.isRecording, let url = recorder.currentAudioURL {
-            if case .recording = state {} else {
+            if recorder.isPaused {
+                state = .paused(audioURL: url)
+                partialTranscript = "Recording paused. Tap resume or stop."
+            } else if case .recording = state {
+                // Already recording
+            } else {
                 state = .recording(audioURL: url)
                 partialTranscript = "Recording audio…"
             }
         } else if case .recording = state {
             state = .idle
+            stopDurationTimer()
+        } else if case .paused = state {
+            state = .idle
+            stopDurationTimer()
         }
     }
 }

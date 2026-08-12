@@ -51,6 +51,21 @@ public final class Recorder: NSObject, AVAudioRecorderDelegate, @unchecked Senda
         audioRecorder != nil
     }
 
+    /// Whether the recording is currently paused.
+    public var isPaused: Bool {
+        guard let recorder = audioRecorder else { return false }
+        return !recorder.isRecording
+    }
+
+    public func pauseRecording() {
+        audioRecorder?.pause()
+    }
+
+    public func resumeRecording() {
+        try? AVAudioSession.sharedInstance().setActive(true)
+        audioRecorder?.record()
+    }
+
     /// Called when iOS takes the microphone away mid-recording and hands it back
     /// — a phone call, Siri, another app. `true` means recording resumed into the
     /// same file and nothing was lost; `false` means it could not be resumed and
