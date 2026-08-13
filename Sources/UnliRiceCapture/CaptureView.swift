@@ -16,6 +16,8 @@ public struct CaptureView: View {
     @State private var newTabName = ""
     @State private var tabToDelete: String? = nil
     @State private var showDeleteTabAlert = false
+    @AppStorage("hasSeenWelcomeSplash") private var hasSeenWelcomeSplash = false
+    @State private var showWelcomeSplash = false
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -30,6 +32,16 @@ public struct CaptureView: View {
 
             if lock.isLocked {
                 lockScreen
+            }
+
+            if showWelcomeSplash {
+                WelcomeSplashView {
+                    hasSeenWelcomeSplash = true
+                    showWelcomeSplash = false
+                    showFolderChoice = store.needsSharedFolderChoice
+                }
+                .transition(.opacity)
+                .zIndex(1)
             }
         }
     }
@@ -70,7 +82,11 @@ public struct CaptureView: View {
         }
         .onAppear {
             store.resyncRecordingState()
-            showFolderChoice = store.needsSharedFolderChoice
+            if hasSeenWelcomeSplash {
+                showFolderChoice = store.needsSharedFolderChoice
+            } else {
+                showWelcomeSplash = true
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             // A recording the Action Button started is still running; the mic
