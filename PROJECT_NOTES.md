@@ -1790,6 +1790,15 @@ Branch: `feature/folder-first` off `main`. Executed by Antigravity under approve
 - **R4.3 (Eval Case unli-009)**:
   - Added `evals/cases/unli-009.yaml` (`mode: no_write_back`) and observed failing fixture `evals/fixtures/unli-009.json`.
 
+## Three-finger interaction acceptance check (2026-08-14)
 
+- The founder manually tested the three-finger interaction on real hardware and
+  confirmed that it works smoothly.
+- This is a user acceptance result, not an automated gesture test. The working
+  tree was clean before this entry was added, so there was no pending gesture
+  implementation to include in this commit; the confirmation applies to the
+  existing `feature/folder-first` branch state at `9561a7f`.
+- Verification after the documentation update: `swift test` passed all 262
+  tests with zero failures.
 
 
