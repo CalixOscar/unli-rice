@@ -71,6 +71,77 @@ final class AutopilotTests: XCTestCase {
         )
     }
 
+    // MARK: - Enclosing project detection
+
+    /// The regression this predicate exists for: an Xcode-only app has no
+    /// `Package.swift`, so `packageRoot` reported "no project" while the
+    /// assistant was working inside one.
+    func testEnclosingProjectRootFindsAnXcodeProjectWithNoPackageSwift() {
+        let root = URL(fileURLWithPath: "/Users/x/Projects/MyApp")
+        let start = root.appendingPathComponent("MyApp/Views")
+
+        let found = Autopilot.enclosingProjectRoot(
+            startingAt: start,
+            fileExists: { _ in false },
+            contentsOfDirectory: { $0.path == root.path ? ["MyApp.xcodeproj", "README.md"] : [] }
+        )
+
+        XCTAssertEqual(found?.path, root.path)
+        XCTAssertNil(Autopilot.packageRoot(startingAt: start) { _ in false })
+    }
+
+    /// A bare git checkout of a non-Swift codebase counts too.
+    func testEnclosingProjectRootFindsABareGitDirectory() {
+        let root = URL(fileURLWithPath: "/Users/x/Projects/scripts")
+        let start = root.appendingPathComponent("lib/util")
+
+        let found = Autopilot.enclosingProjectRoot(
+            startingAt: start,
+            fileExists: { $0.path == root.appendingPathComponent(".git").path },
+            contentsOfDirectory: { _ in [] }
+        )
+
+        XCTAssertEqual(found?.path, root.path)
+    }
+
+    func testEnclosingProjectRootAcceptsAnXcworkspace() {
+        let root = URL(fileURLWithPath: "/Users/x/Projects/Workspace")
+
+        let found = Autopilot.enclosingProjectRoot(
+            startingAt: root,
+            fileExists: { _ in false },
+            contentsOfDirectory: { $0.path == root.path ? ["Workspace.xcworkspace"] : [] }
+        )
+
+        XCTAssertEqual(found?.path, root.path)
+    }
+
+    /// Every non-Swift marker should stand on its own, so a Python or Go tree
+    /// with no git dir is still a project.
+    func testEnclosingProjectRootAcceptsEachNonSwiftMarker() {
+        for marker in ["package.json", "pyproject.toml", "Cargo.toml", "go.mod", "CLAUDE.md"] {
+            let root = URL(fileURLWithPath: "/Users/x/Projects/thing")
+            let found = Autopilot.enclosingProjectRoot(
+                startingAt: root.appendingPathComponent("src"),
+                fileExists: { $0.path == root.appendingPathComponent(marker).path },
+                contentsOfDirectory: { _ in [] }
+            )
+            XCTAssertEqual(found?.path, root.path, "expected \(marker) to mark a project root")
+        }
+    }
+
+    /// A loose folder in Documents is genuinely not a project — the "no project"
+    /// branch still has to be reachable, or the fix would just always say yes.
+    func testEnclosingProjectRootIsNilOutsideAnyProject() {
+        XCTAssertNil(
+            Autopilot.enclosingProjectRoot(
+                startingAt: URL(fileURLWithPath: "/Users/x/Documents/loose notes"),
+                fileExists: { _ in false },
+                contentsOfDirectory: { _ in [] }
+            )
+        )
+    }
+
     // MARK: - The house-rules note
 
     /// Titles are permanent and wiki-links resolve by exact title, so a repeat

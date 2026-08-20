@@ -60,6 +60,64 @@ public enum Autopilot {
         packageRoot(startingAt: Bundle.main.bundleURL)
     }
 
+    // MARK: - Finding *any* enclosing project
+
+    /// Filenames that, on their own, mean "this directory is a project root".
+    static let projectMarkerNames = [
+        ".git",
+        "Package.swift",
+        "package.json",
+        "pyproject.toml",
+        "Cargo.toml",
+        "go.mod",
+        "CLAUDE.md"
+    ]
+
+    /// Extensions matched against directory entries, since these carry the
+    /// project's own name (`Foo.xcodeproj`) and can't be checked by exact path.
+    static let projectMarkerExtensions = ["xcodeproj", "xcworkspace"]
+
+    /// Walks up from `start` looking for the first directory that carries any
+    /// evidence of being a project root.
+    ///
+    /// Deliberately separate from `packageRoot`, which answers a narrower and
+    /// still-needed question — "where is the SwiftPM package?" — and is used
+    /// that way to build a `swift run --package-path` invocation. This one only
+    /// answers "is the user sitting inside *some* project?", so it accepts
+    /// Xcode-only projects, plain git checkouts, and non-Swift codebases too.
+    ///
+    /// The MCP server's `initialize` instructions previously asked `packageRoot`
+    /// that question and told every Xcode-only or non-Swift session it had no
+    /// project — while the assistant was mid-edit on a file in one.
+    ///
+    /// `fileExists` and `contentsOfDirectory` are injected so the walk can be
+    /// tested against a made-up tree.
+    public static func enclosingProjectRoot(
+        startingAt start: URL,
+        fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) },
+        contentsOfDirectory: (URL) -> [String] = {
+            (try? FileManager.default.contentsOfDirectory(atPath: $0.path)) ?? []
+        }
+    ) -> URL? {
+        var directory = start.standardizedFileURL
+        while directory.path != "/" && !directory.path.isEmpty {
+            if projectMarkerNames.contains(where: {
+                fileExists(directory.appendingPathComponent($0))
+            }) {
+                return directory
+            }
+            if contentsOfDirectory(directory).contains(where: {
+                projectMarkerExtensions.contains(URL(fileURLWithPath: $0).pathExtension)
+            }) {
+                return directory
+            }
+            let parent = directory.deletingLastPathComponent().standardizedFileURL
+            guard parent != directory else { break }
+            directory = parent
+        }
+        return nil
+    }
+
     // MARK: - The house-rules note
 
     /// The tag the Autopilot note carries. Gives a brand-new corpus an
