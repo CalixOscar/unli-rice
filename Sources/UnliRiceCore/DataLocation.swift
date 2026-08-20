@@ -108,34 +108,123 @@ public enum DataLocation {
         return support.appendingPathComponent(directoryName, isDirectory: true)
     }
 
-    /// Carries a log written under the old app name across to the new location.
+    /// Every location this app has ever used as its default event log, newest
+    /// predecessor first. Adoption walks this list when the current default is
+    /// absent.
+    ///
+    /// This exists because the default has moved twice, and only the first move
+    /// was handled. `SecondBrain` -> `Application Support/Unli Rice` was the
+    /// rename; `Application Support/Unli Rice` -> the App Group container was
+    /// the sandboxing change made for the Mac App Store build. The second move
+    /// still consulted only the *rename* predecessor, so a machine that had
+    /// been running the app between those two changes silently started from the
+    /// pre-rename log and orphaned everything written in between.
+    public static func predecessorEventLogURLs(
+        fileManager: FileManager = .default
+    ) -> [URL] {
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return [
+            support.appendingPathComponent(directoryName, isDirectory: true),
+            support.appendingPathComponent(legacyDirectoryName, isDirectory: true)
+        ].map { $0.appendingPathComponent("events.jsonl") }
+    }
+
+    /// Picks which predecessor log to adopt: the one holding the most events.
+    ///
+    /// Deliberately *not* "the first that exists". When the default moved into
+    /// the App Group container both predecessors existed, and order alone
+    /// picked the 150-event pre-rename log over the 724-event one that was
+    /// actually in use the day before. Size is the property that actually
+    /// distinguishes a live corpus from a stale one, so it is what decides.
+    ///
+    /// Pure and injectable so the choice can be asserted without touching the
+    /// real filesystem.
+    public static func storeToAdopt(
+        from candidates: [URL],
+        eventCount: (URL) -> Int?
+    ) -> URL? {
+        candidates
+            .compactMap { url -> (URL, Int)? in
+                guard let count = eventCount(url), count > 0 else { return nil }
+                return (url, count)
+            }
+            .max { $0.1 < $1.1 }?
+            .0
+    }
+
+    /// Number of events in a log, or nil if it cannot be read.
+    ///
+    /// Counts newlines rather than parsing: this runs on the launch path, the
+    /// only question being asked is "which of these is bigger", and a malformed
+    /// tail should not make a real corpus look empty.
+    public static func eventCount(atPath url: URL) -> Int? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var count = 0
+        while let chunk = try? handle.read(upToCount: 1 << 16), !chunk.isEmpty {
+            count += chunk.reduce(0) { $1 == 0x0A ? $0 + 1 : $0 }
+        }
+        return count
+    }
+
+    /// The set of note ids a log has ever created.
+    ///
+    /// Used to answer "does this other log hold notes mine doesn't", which is
+    /// the only question that reliably identifies a corpus left behind. Event
+    /// *count* cannot: after a large ingest the live log outgrows a stranded one
+    /// while the stranded notes are still missing from it.
+    ///
+    /// Tolerant by design — a malformed line is skipped, not fatal. This runs on
+    /// the launch path to produce a warning, and a diagnostic that throws is a
+    /// diagnostic that gets wrapped in `try?` and silently disabled.
+    public static func createdNoteIDs(inLogAt url: URL) -> Set<String>? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.readToEnd() else { return nil }
+
+        var ids: Set<String> = []
+        for line in data.split(separator: 0x0A) {
+            guard !line.isEmpty,
+                  let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                  object["kind"] as? String == "created",
+                  let noteID = object["noteId"] as? String
+            else { continue }
+            ids.insert(noteID)
+        }
+        return ids
+    }
+
+    /// Carries a log written at a previous default location across to the
+    /// current one.
     ///
     /// Copies rather than moves, and only when the destination doesn't exist
     /// yet. The old file is left exactly where it was: this codebase destroys
-    /// no note history (decision #2), and that applies to a rename as much as
-    /// to a delete. Worst case the user is left with a harmless stale copy;
-    /// the failure mode of a move is losing the only copy of 150 events.
+    /// no note history (decision #2), and that applies to a relocation as much
+    /// as to a delete. Worst case the user is left with a harmless stale copy;
+    /// the failure mode of a move is losing the only copy of the corpus.
+    ///
+    /// Note this only ever runs for a *fresh* destination. It cannot reunite a
+    /// fork that has already happened — once both logs have real writes, that
+    /// is a merge, and a merge is a structural change this codebase proposes
+    /// rather than applies.
     static func migrateLegacyStoreIfNeeded(to destination: URL) {
         let fileManager = FileManager.default
         guard !fileManager.fileExists(atPath: destination.path) else { return }
 
-        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let legacy = support
-            .appendingPathComponent(legacyDirectoryName, isDirectory: true)
-            .appendingPathComponent("events.jsonl")
-        guard fileManager.fileExists(atPath: legacy.path) else { return }
+        let candidates = predecessorEventLogURLs(fileManager: fileManager)
+        guard let source = storeToAdopt(from: candidates, eventCount: eventCount(atPath:)) else { return }
 
         do {
             try fileManager.createDirectory(
                 at: destination.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try fileManager.copyItem(at: legacy, to: destination)
+            try fileManager.copyItem(at: source, to: destination)
         } catch {
             // Non-fatal: EventStore will create an empty log at the new path.
-            // The legacy file is still untouched on disk either way.
+            // The source file is still untouched on disk either way.
             FileHandle.standardError.write(
-                Data("unlirice: could not migrate legacy event log: \(error)\n".utf8)
+                Data("unlirice: could not migrate event log from \(source.path): \(error)\n".utf8)
             )
         }
     }

@@ -233,15 +233,13 @@ if let fileHandle = try? FileHandle(forWritingTo: logURL) {
 }
 
 // Resolve and start accessing all security-scoped directories
-var activeDataFolder: URL? = nil
-if let dataBookmark = settings.dataFolderBookmark {
-    var isStale = false
-    if let resolvedURL = try? URL(resolvingBookmarkData: dataBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
-        if resolvedURL.startAccessingSecurityScopedResource() {
-            activeDataFolder = resolvedURL
-        }
-    }
-}
+// Resolved once, through the shared resolver, so the folder whose scope is held
+// and the log that gets opened are guaranteed to be the same place. They were
+// not: the bookmark was resolved and accessed here, then the log path was
+// computed from `dataFolderPath` regardless, so a renamed folder left this
+// process holding one folder open while writing to another.
+let corpus = CorpusLocation.resolve(settings: settings)
+let activeDataFolder: URL? = corpus.scopedFolder
 
 let activeRoots = settings.scanRoots.map { ($0, $0.startAccessingSecurityScopedResource()) }
 let activeClaude = settings.claudeProjectsURL.map { ($0, $0.startAccessingSecurityScopedResource()) }
@@ -256,7 +254,10 @@ defer {
 // GUI does, so the two can never end up working on different files while
 // believing they're peers. `UNLIRICE_DATA_PATH` still outranks it, which is what
 // lets this binary be smoke-tested against a scratch log.
-let eventLogURL = DataLocation.eventLogURL(persistedFolderPath: settings.dataFolderPath)
+let eventLogURL = corpus.url
+if case .defaultAfterFolderFailed(let failure) = corpus.source {
+    log("WARNING: chosen notes folder unavailable\(failure.path.map { " (\($0))" } ?? "") — using \(eventLogURL.path) instead")
+}
 
 guard let store = try? EventStore(fileURL: eventLogURL) else {
     log("could not open event log at \(eventLogURL.path)")

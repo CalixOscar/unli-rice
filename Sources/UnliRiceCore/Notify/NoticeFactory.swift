@@ -132,3 +132,60 @@ public enum DigestAnnouncer {
         return month
     }
 }
+
+// MARK: - Corpus integrity
+//
+// These two are the loudest notices the app can post, and the reason is
+// historical: the system once ran for a month on the wrong event log and had no
+// way to say so. A corpus problem is not "news you might like" — it is the app
+// telling you it may be writing your notes somewhere you didn't ask for.
+
+extension NoticeFactory {
+    /// The user picked a notes folder and the app couldn't open it.
+    ///
+    /// Written for someone who has just opened the app and found it empty, so
+    /// it leads with reassurance — the notes still exist — before the fix. The
+    /// warning not to write is the important line: notes added now go into the
+    /// default corpus and have to be merged back by hand later.
+    public static func notesFolderUnavailable(_ failure: CorpusLocation.FolderFailure) -> Notice {
+        let named = failure.path.map { " (\($0))" } ?? ""
+        return Notice(
+            kind: .problem,
+            // Not keyed per-path: it is one situation — "we aren't on your
+            // folder" — and a flapping network volume shouldn't stack notices.
+            key: "notes-folder-unavailable",
+            title: "Your notes folder isn't available",
+            detail: """
+                \(failure.plainReason) Your notes\(named) are safe — Unli Rice hasn't changed \
+                or deleted anything, it just can't reach them right now, so it's showing its own \
+                notes instead.
+
+                Reconnect the folder to get them back. Until you do, anything you add will be \
+                saved in the wrong place.
+                """,
+            destination: .notesFolder
+        )
+    }
+
+    /// A previous default location holds more notes than the open one.
+    ///
+    /// Phrased as an observation with no recommended action, on purpose. Two
+    /// corpora is a situation only the user can adjudicate, and merging them is
+    /// a structural change this app proposes rather than performs.
+    public static func strandedCorpus(path: String, missingNotes: Int) -> Notice {
+        let count = missingNotes == 1 ? "1 note" : "\(missingNotes) notes"
+        return Notice(
+            kind: .problem,
+            key: "stranded-corpus",
+            title: "Found notes in an older location",
+            detail: """
+                There are \(count) at \(path) that aren't in the set Unli Rice has open now.
+
+                That usually means an update moved where notes are kept and left some behind. \
+                Nothing has been moved, merged, or deleted — both sets are still on your Mac. \
+                Open the older folder to look through it before deciding what to keep.
+                """,
+            destination: .notesFolder
+        )
+    }
+}

@@ -473,6 +473,10 @@ final class AppStore: ObservableObject {
     private(set) var service: NoteService
     private(set) var dataURL: URL
 
+    /// How `dataURL` was arrived at, and whether the user got the corpus they
+    /// asked for. See `CorpusLocation`.
+    private(set) var corpusLocation: CorpusLocation?
+
     /// Both are corpus-scoped and both are rebuilt by `switchDataFolder(to:)` —
     /// notices are about a corpus, and the driver's routine state lives beside
     /// its event log.
@@ -485,27 +489,40 @@ final class AppStore: ObservableObject {
     private var noteIndex: [UUID: Note] = [:]
 
     init() {
-        var url = DataLocation.eventLogURL(
-            persistedFolderPath: DataLocation.isSandboxed
-                ? nil
-                : UserDefaults.standard.string(forKey: Self.dataFolderKey)
+        // One resolver, shared with the MCP server, the agent and the CLI. This
+        // used to be a chain of `if let`s whose failure branch had no `else`:
+        // when a chosen folder wouldn't open, the app silently ran on the
+        // default corpus while still reporting the chosen folder in the UI.
+        var bookmarkWasStale = false
+        let location = CorpusLocation.resolve(
+            folderBookmark: UserDefaults.standard.data(forKey: "unliRice.dataFolderBookmark"),
+            folderPath: UserDefaults.standard.string(forKey: Self.dataFolderKey),
+            resolveBookmark: { data in
+                var isStale = false
+                guard let resolved = try? URL(
+                    resolvingBookmarkData: data,
+                    options: .withSecurityScope,
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                ) else { return nil }
+                bookmarkWasStale = isStale
+                return resolved
+            }
         )
-        if let bookmarkData = UserDefaults.standard.data(forKey: "unliRice.dataFolderBookmark") {
-            var isStale = false
-            if let resolvedURL = try? URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
-                if resolvedURL.startAccessingSecurityScopedResource() {
-                    dataFolderAccessStarted = true
-                    activeDataFolderURL = resolvedURL
-                    url = DataLocation.eventLogURL(inFolder: resolvedURL)
-                    if isStale,
-                       let refreshed = try? resolvedURL.bookmarkData(
-                        options: .withSecurityScope,
-                        includingResourceValuesForKeys: nil,
-                        relativeTo: nil
-                       ) {
-                        UserDefaults.standard.set(refreshed, forKey: "unliRice.dataFolderBookmark")
-                    }
-                }
+        let url = location.url
+        corpusLocation = location
+        if case .chosenFolder(let folder) = location.source {
+            activeDataFolderURL = folder
+            dataFolderAccessStarted = location.scopedFolder != nil
+            // macOS hands back a stale bookmark that still resolves; re-minting
+            // it now is what stops it decaying into the failure above.
+            if bookmarkWasStale,
+               let refreshed = try? folder.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+               ) {
+                UserDefaults.standard.set(refreshed, forKey: "unliRice.dataFolderBookmark")
             }
         }
         dataURL = url
@@ -734,8 +751,23 @@ final class AppStore: ObservableObject {
     /// exists because this preference used to be one-way: it could be set from
     /// the UI and never cleared, so a wrong folder was unrecoverable without
     /// editing defaults by hand.
+    /// Whether the corpus actually open is the default one.
+    ///
+    /// Reads the resolved location rather than the saved preference. The
+    /// preference version reported "custom folder" while the app was
+    /// demonstrably reading the default store — an indicator that lied in
+    /// precisely the situation it existed to describe.
     var usingDefaultDataFolder: Bool {
-        (UserDefaults.standard.string(forKey: Self.dataFolderKey) ?? "").isEmpty
+        corpusLocation?.isDefaultLocation ?? true
+    }
+
+    /// Set when the user chose a folder and the app could not open it. Drives
+    /// the banner; `nil` in every healthy state.
+    var corpusFallbackMessage: String? {
+        guard case .defaultAfterFolderFailed(let failure) = corpusLocation?.source else { return nil }
+        let named = failure.path.map { " (\($0))" } ?? ""
+        return "Can't open your notes folder\(named). \(failure.plainReason) "
+            + "Showing Unli Rice's own notes for now — don't add notes until you reconnect it."
     }
 
     /// Points the app back at its shared App Group container.
@@ -779,6 +811,14 @@ final class AppStore: ObservableObject {
             dataURL = url
             dataFolderAccessStarted = isScoped
             activeDataFolderURL = isScoped ? folder : nil
+            // An explicit switch always succeeded if we reached here, so the
+            // resolution is `.chosenFolder` — unless this is the deliberate
+            // return to the default location, which passes `persist: false`.
+            corpusLocation = CorpusLocation(
+                url: url,
+                source: persist ? .chosenFolder(folder) : .defaultLocation,
+                scopedFolder: isScoped ? folder : nil
+            )
             let driver = RoutineDriver(service: service, eventLogURL: url)
             routineDriver = driver
             noticeStore = driver.noticeStore
@@ -1050,6 +1090,14 @@ final class AppStore: ObservableObject {
         closeAllPanes()
         showingMore = true
         statusMessage = "More — Tools, settings, map, retrospectives, and secondary views."
+    }
+
+    /// Where you go to reconnect or switch the notes folder. Setup, because
+    /// that is where `ConnectView` — and the only folder picker — lives.
+    func showNotesFolder() {
+        closeAllPanes()
+        showingSetup = true
+        statusMessage = corpusFallbackMessage ?? "Setup — where your notes are stored."
     }
 
     @MainActor

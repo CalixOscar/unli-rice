@@ -39,14 +39,57 @@ struct ContentView: View {
                 
                 FirstRunView()
             } else {
-                HStack(spacing: 0) {
-                    sidebar
-                    Divider().opacity(0.3)
-                    mainColumn
+                VStack(spacing: 0) {
+                    corpusBanner
+                    HStack(spacing: 0) {
+                        sidebar
+                        Divider().opacity(0.3)
+                        mainColumn
+                    }
                 }
             }
         }
-        .onAppear { store.reload() }
+        .onAppear {
+            store.reload()
+            store.checkCorpusHealth()
+        }
+    }
+
+    /// Shown across the top of everything when the notes folder the user chose
+    /// could not be opened.
+    ///
+    /// Deliberately not dismissible and deliberately above the sidebar: the app
+    /// is writing to a corpus the user did not pick, and every minute it stays
+    /// unnoticed is more notes landing in the wrong place. This is the one
+    /// condition worth interrupting the whole window for.
+    @ViewBuilder
+    private var corpusBanner: some View {
+        if let message = store.corpusFallbackMessage {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Theme.crit)
+                    .font(.system(size: 13))
+                Text(message)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button("Reconnect Folder…") { store.chooseExistingVault() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.crit)
+                Button("Use Default") { store.useDefaultDataFolder() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Theme.crit.opacity(0.13))
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Theme.crit.opacity(0.45)).frame(height: 1)
+            }
+        }
     }
 
     private var sidebar: some View {

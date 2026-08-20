@@ -51,6 +51,8 @@ extension AppStore {
             showReviewQueue()
         case .retrospective(let period):
             showRetrospective(periodID: period)
+        case .notesFolder:
+            showNotesFolder()
         }
     }
 
@@ -72,5 +74,30 @@ extension AppStore {
         noticeStore.clear()
         refreshNotices()
         statusMessage = "Cleared. Your notes are untouched — this only clears the messages."
+    }
+}
+
+// MARK: - Corpus integrity
+
+extension AppStore {
+    /// Checks at launch that the corpus we opened is the one the user meant,
+    /// and posts a notice if it isn't.
+    ///
+    /// Runs on every launch rather than on a schedule: the situations it
+    /// detects — an unreachable folder, a corpus left behind by a relocation —
+    /// are established *by* launching, and a user who has lost their notes
+    /// should not have to wait for a routine tick to be told why.
+    ///
+    /// Costs two newline counts over files already on disk. It is cheap because
+    /// it has to be: an integrity check expensive enough to be worth skipping
+    /// is one that eventually gets skipped.
+    func checkCorpusHealth() {
+        guard let location = corpusLocation else { return }
+        let findings = CorpusHealth.check(location: location)
+        guard !findings.isEmpty else { return }
+        for notice in CorpusHealth.notices(for: findings) {
+            _ = noticeStore.post(notice)
+        }
+        refreshNotices()
     }
 }

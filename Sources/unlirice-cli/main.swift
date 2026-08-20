@@ -387,18 +387,19 @@ let cleanArgs = rawArgs.filter { $0 != "--json" }
 
 let settings = AgentSettings.load()
 
-var activeDataFolder: URL? = nil
-if let dataBookmark = settings.dataFolderBookmark {
-    var isStale = false
-    if let resolvedURL = try? URL(resolvingBookmarkData: dataBookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale) {
-        if resolvedURL.startAccessingSecurityScopedResource() {
-            activeDataFolder = resolvedURL
-        }
-    }
-}
+// Shared resolver: the scope held and the log opened must be the same folder.
+let corpus = CorpusLocation.resolve(settings: settings)
+let activeDataFolder: URL? = corpus.scopedFolder
 defer { activeDataFolder?.stopAccessingSecurityScopedResource() }
 
-let logURL = DataLocation.eventLogURL(persistedFolderPath: settings.dataFolderPath)
+let logURL = corpus.url
+if case .defaultAfterFolderFailed(let failure) = corpus.source {
+    FileHandle.standardError.write(Data(
+        ("Warning: couldn't open the chosen notes folder"
+         + (failure.path.map { " (\($0))" } ?? "")
+         + "; using \(logURL.path) instead.\n").utf8
+    ))
+}
 guard let store = try? EventStore(fileURL: logURL) else {
     FileHandle.standardError.write(Data("Error: Could not open event log at \(logURL.path)\n".utf8))
     exit(1)

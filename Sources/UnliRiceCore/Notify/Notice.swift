@@ -12,6 +12,8 @@ public enum NoticeDestination: Codable, Equatable, Sendable {
     case reviewQueue
     /// A `RetrospectivePeriod.id` — `2026-06` for a month, `2026` for a year.
     case retrospective(period: String)
+    /// The screen where the notes folder is chosen and reconnected.
+    case notesFolder
 }
 
 /// One thing worth mentioning next time the user looks.

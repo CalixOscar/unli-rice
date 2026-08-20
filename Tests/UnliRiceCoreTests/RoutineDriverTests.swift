@@ -69,7 +69,12 @@ final class RoutineDriverTests: XCTestCase {
     }
 
     private func makeDriver(_ importer: StubImporter) -> RoutineDriver {
-        RoutineDriver(service: service, eventLogURL: logURL, pipelines: { _ in [importer] })
+        RoutineDriver(
+            service: service,
+            eventLogURL: logURL,
+            pipelines: { _ in [importer] },
+            claudeProjects: { _ in nil }
+        )
     }
 
     private var settings: AgentSettings {
@@ -171,5 +176,44 @@ final class RoutineDriverTests: XCTestCase {
 
         let state = RoutineState.load(from: RoutineState.url(besideEventLog: logURL))
         XCTAssertEqual(state.lastRun(of: .dataIngestion), tuesdayMorning)
+    }
+}
+
+/// The 2026-08-08 regression: gating Claude-session ingest behind
+/// `routinesEnabled` was intended, but the same change dropped the
+/// `~/.claude/projects` fallback, so ingest additionally required a
+/// security-scoped bookmark to a dot-directory that no file picker offers.
+/// Session ingest stopped silently for a fortnight.
+final class ClaudeProjectsFallbackTests: XCTestCase {
+    func testUnsandboxedBuildFallsBackToTheConventionalDirectory() {
+        let home = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent(".claude/projects", isDirectory: true)
+        // Only meaningful on a machine that actually has Claude Code installed.
+        try? XCTSkipUnless(FileManager.default.fileExists(atPath: home.path))
+
+        let resolved = RoutineDriver.claudeProjectsDirectory(
+            for: AgentSettings(),
+            isSandboxed: false
+        )
+        XCTAssertEqual(resolved?.standardizedFileURL, home.standardizedFileURL)
+    }
+
+    /// Inside the sandbox the path is genuinely unreadable without a bookmark,
+    /// so the fallback must stay off rather than hand back a URL that fails.
+    func testSandboxedBuildRequiresAnExplicitBookmark() {
+        XCTAssertNil(
+            RoutineDriver.claudeProjectsDirectory(for: AgentSettings(), isSandboxed: true)
+        )
+    }
+
+    func testMissingDirectoryYieldsNothingRatherThanAPhantomRoot() {
+        final class NoFiles: FileManager, @unchecked Sendable {
+            override func fileExists(atPath: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool { false }
+        }
+        XCTAssertNil(
+            RoutineDriver.claudeProjectsDirectory(
+                for: AgentSettings(), isSandboxed: false, fileManager: NoFiles()
+            )
+        )
     }
 }

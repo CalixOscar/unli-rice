@@ -10,18 +10,20 @@ func logToStderr(_ message: String) {
 // AgentSettings; keep that scope open for this stdio server's lifetime.
 // UNLIRICE_DATA_PATH still wins for development smoke tests.
 let settings = AgentSettings.load()
-var activeDataFolder: URL?
-let dataURL: URL
-if let override = ProcessInfo.processInfo.environment["UNLIRICE_DATA_PATH"], !override.isEmpty {
-    dataURL = URL(fileURLWithPath: override)
-} else if let folder = settings.dataFolderURL,
-          folder.startAccessingSecurityScopedResource() {
-    activeDataFolder = folder
-    dataURL = DataLocation.eventLogURL(inFolder: folder)
-} else {
-    dataURL = DataLocation.eventLogURL(persistedFolderPath: settings.dataFolderPath)
-}
+let corpus = CorpusLocation.resolve(settings: settings)
+let dataURL = corpus.url
+let activeDataFolder: URL? = corpus.scopedFolder
 defer { activeDataFolder?.stopAccessingSecurityScopedResource() }
+// Say so, loudly, when this is not the corpus the user chose. A coding agent
+// reading a different event log than the GUI is showing is the exact split this
+// resolver exists to prevent, and stderr is the only channel this process has.
+if case .defaultAfterFolderFailed(let failure) = corpus.source {
+    logToStderr(
+        "unlirice-mcp: WARNING — could not open the chosen notes folder"
+        + (failure.path.map { " (\($0))" } ?? "") + "; falling back to \(dataURL.path). "
+        + "Notes written now will not go to the chosen folder."
+    )
+}
 let store: EventStore
 do {
     store = try EventStore(fileURL: dataURL)
@@ -70,12 +72,15 @@ while let line = readLine(strippingNewline: true) {
         // The client's working directory, not `Bundle.main` — this server is
         // launched inside whatever project the user is working in, which is the
         // thing being asked about.
-        let contextNote = Autopilot.packageRoot(
+        // Any project, not just a SwiftPM one: an Xcode-only project, a bare git
+        // checkout or a non-Swift codebase is still a project the assistant is
+        // working inside, and `packageRoot` would call all three "no project".
+        let contextNote = Autopilot.enclosingProjectRoot(
             startingAt: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         ) != nil
             ? "Unli Rice notes supplement the instructions already in this project."
-            : "No project folder here — Unli Rice notes are your only context for this session."
-        let instructions = "This workspace has an Unli Rice vault: \(noteCountStr). Before answering, call search_notes or list_notes, and read `Wiki: index`. \(contextNote) Open your first reply with: ✅ Unli Rice vault connected — \(noteCountStr). If you found no relevant notes, say so instead. Never claim otherwise."
+            : "No project folder was detected here; the notes carry the user's saved preferences and past decisions."
+        let instructions = "This workspace has an Unli Rice vault: \(noteCountStr). If the question plausibly touches the user's saved notes, preferences or past decisions, call search_notes or list_notes, and read `Wiki: index`. \(contextNote)"
         JSONRPC.writeLine(JSONRPC.result(id: id, [
             "protocolVersion": "2024-11-05",
             "capabilities": ["tools": [:]],

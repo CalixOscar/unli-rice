@@ -1802,3 +1802,167 @@ Branch: `feature/folder-first` off `main`. Executed by Antigravity under approve
   tests with zero failures.
 
 
+
+## The corpus fork and the silent ingest stall (2026-08-20)
+
+Two reported symptoms — "the wiki hub layer does not exist" and "ingest has not
+run since 2026-07-20" — investigated against the event logs and the code.
+Neither had the cause its symptom suggested, and **nothing was ever deleted**.
+The append-only guarantee held throughout; what failed was *which log the app
+opened*.
+
+### There are four event logs on this machine
+
+| Path | Notes | Live range |
+| --- | --- | --- |
+| `~/Library/Group Containers/group.com.calmdownoscar.unlirice/Unli Rice/` | 169 → 498 | 2026-07-19 → present — **live** |
+| `~/Library/Application Support/Unli Rice/` | 237 | 2026-07-19 → 07-20 — **orphaned** |
+| `~/Documents/Unli Rice Vault/` | 81 | abandoned |
+| `~/Library/Application Support/SecondBrain/` | 150 | pre-rename |
+
+The first two share exactly 1 note id and 3 titles. They are separate corpora,
+not two branches of one.
+
+### Root cause 1 — adoption only knew about one relocation
+
+The default log location has moved twice: `SecondBrain` →
+`Application Support/Unli Rice` (the rename), then
+`Application Support/Unli Rice` → the App Group container (`d848286`, "Prepare
+Mac App Store release", 2026-07-21 01:43, via `supportDirectory()` preferring
+`containerURL(forSecurityApplicationGroupIdentifier:)`).
+
+`DataLocation.migrateLegacyStoreIfNeeded` only ever consulted the *pre-rename*
+predecessor. At the second move both predecessors existed, so a brand-new App
+Group log was seeded from the 150-event `SecondBrain` log while the 724-event
+log in use the day before was left behind. Verified by event id: all 150 legacy
+events are in the App Group log; only 2 of Application Support's 724 are. The
+orphaned log's last write is 2026-07-20 23:15 — two hours before that commit.
+
+Five of the seven `Wiki:` hubs, and 16 of 17 Nuptia notes, are in the orphaned
+log. That is the whole of "the wiki layer is empty".
+
+**Fixed.** Adoption now considers every past default and picks the log holding
+the most events rather than the first that exists — size is what distinguishes a
+live corpus from a stale one, and ordering alone got it backwards. It still only
+runs for a *fresh* destination; it cannot reunite a fork that already happened,
+because that is a merge, and a merge is proposed, not applied.
+
+### The purge was real but is not the cause
+
+`unlirice-agent --purge --yes` did rewrite the log on 2026-07-20 20:41, removing
+295 notes. It took **no** wiki hub, and the pre-purge backup survives at
+`Backups/events-2026-07-20-204114.jsonl`. Recorded here because the hypothesis
+was reasonable and testing it is what ruled it out.
+
+### Root cause 2 — a correct gate that took a fallback with it
+
+Ingest did not stop on 07-20; it ran until 2026-08-08 (74 `ingest` notes created
+08-04 → 08-08). Commit `703353f` (2026-08-08 23:37) rightly gated Claude-session
+ingest behind `routinesEnabled`, but the same diff also deleted the
+`~/.claude/projects` default fallback. Ingest then required **two** conditions:
+`routinesEnabled == true` (it is `false`) *and* a security-scoped bookmark to a
+dot-directory that no `NSOpenPanel` offers a way to select. It stopped that
+night, silently.
+
+The launch agent is separately not registered — `launchctl list` shows no
+`com.calmdownoscar.unlirice.agent` and `routine-state.json` still has
+`lastRuns: {}`, so the routine has never ticked on this machine. Scan roots were
+never at fault: `Documents/Projects` is bookmarked and resolves.
+
+**Fixed.** The fallback is restored for unsandboxed builds and the
+`routinesEnabled` gate is kept. Sandboxed builds still require the bookmark,
+where the path is genuinely unreadable without one. The resolver is injected on
+`RoutineDriver.init` alongside `pipelines` and for the same reason — without it
+the suite ingested the developer's real `~/.claude/projects` into its temporary
+corpus, which is what made three tests fail and the run take 121s instead of
+0.4s.
+
+### Re-ingest
+
+329 notes indexed (123 sessions, 206 documents); live store 169 → 498.
+`search_notes("badminton")` returns 16, including sessions from 08-19/08-20.
+Backup taken first at `Backups/events-pre-repair-20260820-091635.jsonl`.
+
+### Shipping status
+
+- The **ingest regression is live**: the installed Mac App Store build is 1.1
+  (build 4), which postdates `703353f`. Every user on it has silent session
+  ingest disabled with no reachable way to switch it on.
+- The **fork bug is latent for App Store users**: the app went live 2026-08-01,
+  after `d848286`, so no store-bought install ever wrote to the Application
+  Support path. It orphaned data only on machines that ran a build between
+  2026-07-20 and 07-21 — in practice, this one.
+
+### What this cost, and the cheap guard that was missing
+
+The system had no way to say "the log I just opened is empty, but there is a
+larger one next door." Every layer behaved correctly in isolation; the failure
+was only visible by comparing two files nobody compared. `AGENTS.md`'s rule that
+notes can be wrong and code is ground truth held up — but the corollary is that
+*paths* are ground truth too, and the MCP server already prints the one it
+opened to stderr (`unlirice-mcp: ready, event log at …`). Read that line before
+concluding a note is missing.
+
+## Hardening the corpus: one resolver, and an alarm (2026-08-20)
+
+Follow-up to the fork above. The fork was possible because nothing in the system
+could observe which event log it had opened, and four executables each decided
+that for themselves.
+
+### `CorpusLocation` — resolution that reports itself
+
+New type in `UnliRiceCore`. It returns the event-log URL *and* a `source` saying
+how it got there, including `defaultAfterFolderFailed(FolderFailure)` — the case
+that previously did not exist. `AppStore`, `unlirice-mcp`, `unlirice-agent` and
+`unlirice-cli` all resolve through it. Three defects fell out of writing it:
+
+1. **The GUI's silent fallback.** `AppStore.init` resolved a chosen folder
+   through a chain of `if let`s whose failure branch had no `else`. A bookmark
+   that stopped resolving — folder renamed, volume unmounted, permission
+   revoked — left the app on the default corpus, silently, and writing there.
+2. **`usingDefaultDataFolder` lied.** It read the saved *preference*, so during
+   a fallback it reported "custom folder" while the default store was open. It
+   now derives from the resolved location.
+3. **The agent and CLI held one folder open and wrote to another.** Both
+   resolved `dataFolderBookmark`, started security-scoped access on it, then
+   computed the log path from `dataFolderPath` regardless — so a renamed folder
+   left them scoped to the new location while opening the old one. A bookmark
+   with no matching path sent them to the default entirely.
+
+The sandbox rule `DataLocation`'s docstring already asserted — a plain path is
+not authority without a bookmark — is now actually enforced, and only for
+sandboxed builds; unsandboxed source builds keep the old behaviour.
+
+### `CorpusHealth` — the check nobody had
+
+Runs at launch. Two findings, both posted as `Notice.Kind.problem`:
+
+- **`chosenFolderUnavailable`** — you picked a folder, it can't be opened, here
+  is which one and why. Also a non-dismissible banner across the top of the
+  window, because every minute this goes unnoticed is more notes landing in the
+  wrong corpus. It is the only condition in the app that interrupts the whole
+  window.
+- **`strandedCorpus`** — a previous default location holds notes the open log
+  has never seen.
+
+**Stranded detection compares note ids, not event counts.** The first
+implementation compared sizes and was wrong: after the 2026-08-20 re-ingest the
+live log (499 notes) is larger than the stranded one (237), so a size check
+reports nothing while 236 notes are still stranded. Identity is the property
+that actually means "left behind". Verified against the real logs — 236 missing
+from Application Support, and correctly **zero** from `SecondBrain`, which was
+fully adopted.
+
+Both checks are read-only. Neither adopts, merges, nor switches: two corpora is
+a structural question, and this codebase proposes rather than applies
+(decision #3).
+
+### Beginner-facing wording
+
+The notices lead with reassurance ("your notes are safe — Unli Rice hasn't
+changed or deleted anything") before the fix, and the folder-unavailable one
+carries the line that actually matters: *until you reconnect, anything you add
+will be saved in the wrong place*. Exact paths and counts stay in the detail
+text for anyone who wants them.
+
+296 tests, zero failures.

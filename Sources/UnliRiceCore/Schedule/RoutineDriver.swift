@@ -76,19 +76,22 @@ public final class RoutineDriver {
     private let stateURL: URL
     private let eventLogURL: URL
     private let pipelines: (AgentSettings) -> [ResourceImporter]
+    private let claudeProjects: (AgentSettings) -> URL?
 
-    /// `pipelines` is injectable for one reason: the default one scans
-    /// `~/.claude/projects`, so a test that used it would ingest the machine's
-    /// real conversation history into its temporary corpus. Production has no
-    /// reason to pass anything.
+    /// `pipelines` and `claudeProjects` are injectable for one reason: both
+    /// resolve to `~/.claude/projects` by default, so a test that used them
+    /// would ingest the machine's real conversation history into its temporary
+    /// corpus. Production has no reason to pass either.
     public init(
         service: NoteService,
         eventLogURL: URL,
-        pipelines: @escaping (AgentSettings) -> [ResourceImporter] = { Pipelines.standard(scanRoots: $0.scanRoots, claudeProjectsDirectory: $0.claudeProjectsURL) }
+        pipelines: @escaping (AgentSettings) -> [ResourceImporter] = { Pipelines.standard(scanRoots: $0.scanRoots, claudeProjectsDirectory: $0.claudeProjectsURL) },
+        claudeProjects: @escaping (AgentSettings) -> URL? = { RoutineDriver.claudeProjectsDirectory(for: $0) }
     ) {
         self.service = service
         self.eventLogURL = eventLogURL
         self.pipelines = pipelines
+        self.claudeProjects = claudeProjects
         self.rawStore = RawStore(directoryURL: RawStore.directoryURL(besideEventLog: eventLogURL))
         self.notices = NoticeStore(besideEventLog: eventLogURL)
         self.stateURL = RoutineState.url(besideEventLog: eventLogURL)
@@ -103,6 +106,34 @@ public final class RoutineDriver {
     /// asks "has this slot passed unserved", not "is it exactly 09:00" — which
     /// is what lets a slot survive the Mac being asleep at the scheduled minute.
     @discardableResult
+    /// Where Claude Code session transcripts are read from.
+    ///
+    /// A bookmark the user granted wins; an unsandboxed build otherwise falls
+    /// back to the conventional `~/.claude/projects`, matching what
+    /// `Pipelines.standard` already does for the manual path.
+    ///
+    /// That fallback matters more than it looks. Gating session ingest behind
+    /// `routinesEnabled` was correct, but the same change also dropped the
+    /// fallback, leaving ingest to need *two* conditions instead of one — and
+    /// the second, a security-scoped bookmark to a dot-directory, has no
+    /// obvious way for a user to satisfy it through a file picker. Session
+    /// ingest then stopped silently, which is the failure mode this system is
+    /// least able to notice. Sandboxed builds still require the bookmark,
+    /// because there the path is genuinely unreadable without one.
+    public static func claudeProjectsDirectory(
+        for settings: AgentSettings,
+        isSandboxed: Bool = DataLocation.isSandboxed,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        if let bookmarked = settings.claudeProjectsURL { return bookmarked }
+        guard !isSandboxed else { return nil }
+        let fallback = ClaudeSessionImporter.defaultProjectsDirectory()
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: fallback.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else { return nil }
+        return fallback
+    }
+
     public func tick(
         now: Date = Date(),
         settings: AgentSettings,
@@ -152,7 +183,7 @@ public final class RoutineDriver {
         }
 
         if settings.routinesEnabled {
-            if let claudeURL = settings.claudeProjectsURL {
+            if let claudeURL = claudeProjects(settings) {
                 let isScoped = claudeURL.startAccessingSecurityScopedResource()
                 let claudeImporter = ClaudeSessionImporter(projectsDirectory: claudeURL, minimumMessages: 4)
                 let runner = IngestRunner(service: service, rawStore: rawStore)
