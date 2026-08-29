@@ -25,6 +25,7 @@ if [ "$1" = "--staged" ]; then STAGED=1; shift; fi
 F="${1:-PROJECT_NOTES.md}"
 SIZE_WARN="${NOTES_SIZE_WARN:-40000}"
 ERR=0
+WANT="Status,Task,Files touched,Next step,Gotchas,Left by,"
 
 fail() { printf '  ERROR  %s\n' "$1"; ERR=1; }
 warn() { printf '  warn   %s\n' "$1"; }
@@ -64,35 +65,82 @@ for S in "## Overview" "## Handoff" "## Decisions Log" "## Session Log"; do
   fi
 done
 
-# --- 4. Handoff: six fields, in order, no sub-headings inside -----------------
+# --- 4/5. Handoff: six fields per track, in order -----------------------------
+# A Handoff may carry several named tracks (### Track name — ...). That is a real
+# pattern, not sloppiness: UnliDisk ships two App Store products from one codebase
+# and keeps a self-contained handoff for each. Each track is validated on its own,
+# so a multi-track note is held to the same standard as a single-track one instead
+# of being waved through by a blanket waiver.
+#
+# The one shape that is always wrong is a DATED heading inside Handoff. That means
+# the "## Decisions Log" heading below is missing, so every log entry is nesting
+# inside Handoff instead of following it. UnliDisk hid 120 entries that way, and
+# the old check reported it only as "a field was split around inserted content" —
+# true, but it named neither the cause nor the fix. (2026-08-29)
+
+check_track() {
+  _s=$1; _e=$2; _label=$3
+
+  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/ {
+           match($0, /^\*\*[^:]*:/); print substr($0, 3, RLENGTH-3) }' "$F")
+
+  _dup=$(printf '%s\n' "$_got" | grep -v '^$' | sort | uniq -d | tr '\n' ' ')
+  [ -n "$_dup" ] && fail "$_label repeats field(s): $_dup
+           two sessions each wrote a field without reconciling the other five —
+           the six fields describe one moment in time, so update all six or none"
+
+  _norm=$(printf '%s\n' "$_got" | tr '\n' ',' | sed 's/Files touched[^,]*/Files touched/;s/,,*$/,/')
+  [ "$_norm" = "$WANT" ] || fail "$_label fields wrong or out of order.
+           expected: $WANT
+           found:    $_norm"
+
+  _lb=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*Left by:\*\*/{print}' "$F")
+  if [ -z "$_lb" ]; then
+    fail "$_label has no **Left by:** field"
+  else
+    _undated=$(printf '%s\n' "$_lb" | grep -cvE '20[0-9]{2}-[0-9]{2}-[0-9]{2}')
+    if [ "${_undated:-0}" -gt 0 ]; then
+      fail "$_label: **Left by:** carries no YYYY-MM-DD date — \"Claude Code 2026-08-29\""
+    else
+      _seen=$(printf '%s\n' "$_lb" | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | sort | tail -1)
+      [ -n "$NEWEST" ] && [ "$_seen" \< "$NEWEST" ] && \
+        warn "$_label: **Left by:** is $_seen but the newest dated entry is $NEWEST — stale Handoff?"
+    fi
+  fi
+}
+
 HSTART=$(grep -n '^## Handoff' "$F" | head -1 | cut -d: -f1)
+NEWEST=$(grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$F" | sort | tail -1)
+
 if [ -n "$HSTART" ]; then
   HEND=$(awk -v s="$HSTART" 'NR>s && /^## /{print NR; exit}' "$F")
   [ -n "$HEND" ] || HEND=$(( $(wc -l < "$F") + 1 ))
 
-  INNER=$(awk -v s="$HSTART" -v e="$HEND" 'NR>s && NR<e && /^### /{c++} END{print c+0}' "$F")
-  [ "$INNER" -eq 0 ] || fail "Handoff contains $INNER sub-heading(s) between lines $HSTART and $HEND — a field was split around inserted content"
+  DATED=$(awk -v s="$HSTART" -v e="$HEND" 'NR>s && NR<e && /^### 20[0-9][0-9]-/{c++} END{print c+0}' "$F")
+  if [ "$DATED" -gt 0 ]; then
+    fail "Handoff contains $DATED dated entry heading(s) between lines $HSTART and $HEND.
+           Handoff holds only current state; dated entries belong under a later
+           heading. The '## Decisions Log' heading is almost certainly missing, so
+           the log is nesting inside Handoff. Insert it above the first dated entry."
+  fi
 
-  GOT=$(awk -v s="$HSTART" -v e="$HEND" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/ {
-          match($0, /^\*\*[^:]*:/); print substr($0, 3, RLENGTH-3) }' "$F" | tr '\n' ',')
-  NORM=$(printf '%s' "$GOT" | sed 's/Files touched[^,]*/Files touched/')
-  WANT="Status,Task,Files touched,Next step,Gotchas,Left by,"
-  [ "$NORM" = "$WANT" ] || fail "Handoff fields wrong or out of order.
-           expected: $WANT
-           found:    $NORM"
-fi
-
-# --- 5. Left by must not be older than the newest dated entry -----------------
-# Scoped to the Handoff section: the contract header names the fields too, and a
-# bare grep would read the header's mention instead of the real field.
-LEFTBY=$(awk -v s="${HSTART:-0}" -v e="${HEND:-0}" \
-           'NR>s && NR<e && /^\*\*Left by:\*\*/{print; exit}' "$F" \
-         | grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | head -1)
-NEWEST=$(grep -oE '20[0-9]{2}-[0-9]{2}-[0-9]{2}' "$F" | sort | tail -1)
-if [ -z "$LEFTBY" ]; then
-  fail "**Left by:** carries no YYYY-MM-DD date"
-elif [ -n "$NEWEST" ] && [ "$LEFTBY" \< "$NEWEST" ]; then
-  warn "**Left by:** is $LEFTBY but the newest dated entry is $NEWEST — stale Handoff?"
+  TRACKS=$(awk -v s="$HSTART" -v e="$HEND" 'NR>s && NR<e && /^### /{print NR}' "$F")
+  if [ -z "$TRACKS" ]; then
+    check_track "$HSTART" "$HEND" "Handoff"
+  else
+    FIRSTT=$(printf '%s\n' "$TRACKS" | head -1)
+    PRE=$(awk -v s="$HSTART" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/{c++} END{print c+0}' "$F")
+    [ "$PRE" -eq 0 ] || fail "Handoff has $PRE field(s) above its first track heading — a field
+           outside every track belongs to no track and will be read as belonging to
+           whichever one a reader happens to scroll into"
+    set -- $TRACKS
+    while [ $# -gt 0 ]; do
+      _st=$1; shift
+      if [ $# -gt 0 ]; then _en=$1; else _en=$HEND; fi
+      _name=$(sed -n "${_st}p" "$F" | sed 's/^### *//' | cut -c1-44)
+      check_track "$_st" "$_en" "Handoff track \"$_name\""
+    done
+  fi
 fi
 
 # --- 6. build/test claims must carry their evidence --------------------------
