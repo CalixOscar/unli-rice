@@ -22,11 +22,13 @@ here.
 
 ## Open plan — Note Contract validation
 
-`docs/PLAN-note-contract.md` is a settled plan, not yet built: structural
-validation for the MCP write path, so `create_note`/`append_to_note` stop
-accepting note shapes that contradict themselves. If you are picking up
-implementation work here, read it first rather than re-deriving the design.
-Left by Claude Code 2026-08-29.
+`docs/PLAN-note-contract.md` is a stage-2 plan — architecture, files to
+touch, edge cases, gotchas — for structural validation on the MCP write path,
+so `create_note`/`append_to_note` stop accepting note shapes that contradict
+themselves. **Not built, and not yet pre-mortemed.** Next step is Codex
+against §9 "Open questions", then Claude revises, then the swarm builds it.
+If you are picking up implementation work here, read it first rather than
+re-deriving the design. Left by Claude Code 2026-08-29.
 
 ## Before you start
 
