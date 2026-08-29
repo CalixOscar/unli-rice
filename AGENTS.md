@@ -20,6 +20,14 @@ here.
 > Connect status), mark it explicitly as unverified instead of stating it as
 > fact.
 
+## Open plan — Note Contract validation
+
+`docs/PLAN-note-contract.md` is a settled plan, not yet built: structural
+validation for the MCP write path, so `create_note`/`append_to_note` stop
+accepting note shapes that contradict themselves. If you are picking up
+implementation work here, read it first rather than re-deriving the design.
+Left by Claude Code 2026-08-29.
+
 ## Before you start
 
 Read the note titled **`Wiki: index`** first — not `list_notes`. It is the top of
