@@ -88,4 +88,30 @@ final class ShardWriterTests: XCTestCase {
         XCTAssertNotNil(event.device)
         XCTAssertEqual(event.device, identity.label)
     }
+
+    func testWriteAppendEventsEmitsOneAppendedEventWithNoTitleAndProjectsJoinedBody() throws {
+        let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
+        let created = try writer.writeCapture(transcript: "Original thought")
+
+        let appends = try writer.writeAppendEvents(noteID: created.noteId, text: "Additional thought")
+        XCTAssertEqual(appends.count, 1)
+
+        let appended = try XCTUnwrap(appends.first)
+        XCTAssertEqual(appended.kind, .appended)
+        XCTAssertEqual(appended.noteId, created.noteId)
+        XCTAssertNil(appended.title)
+        XCTAssertEqual(appended.text, "Additional thought")
+        XCTAssertEqual(appended.source, "human")
+        XCTAssertEqual(appended.device, "iPhone")
+
+        let projected = Projector.project([created, appended])
+        let note = try XCTUnwrap(projected[created.noteId])
+        XCTAssertEqual(note.body, "Original thought\n\n---\nAdditional thought")
+    }
+
+    func testEffectiveTranscriptionLocaleReturnsCurrentForEmptyIdentifier() {
+        XCTAssertEqual(TranscriptionLocale.effectiveLocale(for: ""), Locale.current)
+        XCTAssertEqual(TranscriptionLocale.effectiveLocale(for: "ja_JP").identifier, "ja_JP")
+        XCTAssertEqual(TranscriptionLocale.effectiveLocale(for: "es_ES").identifier, "es_ES")
+    }
 }

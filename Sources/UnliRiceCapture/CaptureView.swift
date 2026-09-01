@@ -18,6 +18,7 @@ public struct CaptureView: View {
     @State private var showDeleteTabAlert = false
     @AppStorage("hasSeenWelcomeSplash") private var hasSeenWelcomeSplash = false
     @State private var showWelcomeSplash = false
+    @State private var selectedCapture: SentCaptureItem? = nil
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -130,6 +131,9 @@ public struct CaptureView: View {
         }
         .sheet(isPresented: $showSettings) {
             settingsSheet
+        }
+        .sheet(item: $selectedCapture) { capture in
+            NoteDetailView(store: store, capture: capture)
         }
         .alert("New Project Tab", isPresented: $showNewTabAlert) {
             TextField("Project Name", text: $newTabName)
@@ -337,10 +341,12 @@ public struct CaptureView: View {
             : nil
         )
         .onTapGesture {
-            if store.recordingMode == .tapToToggle {
+            if store.recordingMode == .tapToToggle && store.appendTargetNoteID == nil {
                 store.toggleRecording()
             }
         }
+        .disabled(store.appendTargetNoteID != nil)
+        .opacity(store.appendTargetNoteID != nil ? 0.5 : 1.0)
     }
 
     private var isRecording: Bool {
@@ -530,15 +536,19 @@ public struct CaptureView: View {
             // and leaves the note. Saying so beats a button that does nothing.
             .accessibilityLabel(hasAudio ? (isPlaying ? "Stop playback" : "Play recording") : "Recording no longer stored")
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2)
-                Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
+            Button(action: { selectedCapture = item }) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
+                    Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
             Button(action: {
                 if isPlaying { player.stop() }
                 store.archiveCapture(id: item.id)
@@ -648,6 +658,24 @@ public struct CaptureView: View {
                         .pickerStyle(.segmented)
                     }
 
+                    Section {
+                        NavigationLink(destination: TranscriptionLanguageListView(store: store)) {
+                            HStack {
+                                Text("Language")
+                                    .foregroundStyle(Theme.textPrimary)
+                                Spacer()
+                                Text(store.transcriptionLocaleID.isEmpty ? "Follow system" : (Locale.current.localizedString(forIdentifier: store.transcriptionLocaleID) ?? store.transcriptionLocaleID))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                    } header: {
+                        Text("Transcription").foregroundStyle(Theme.textSecondary)
+                    } footer: {
+                        Text("Transcription runs entirely on your device. Language models download once on demand. Mixed-language speech (like code-switching) is not supported — speech is transcribed using the selected language.")
+                            .foregroundStyle(Theme.textLight)
+                    }
+
                     Section(header: Text("Interface Layout").foregroundStyle(Theme.textSecondary)) {
                         Picker("Layout Placement", selection: $store.layoutPlacement) {
                             ForEach(LayoutPlacement.allCases) { placement in
@@ -700,6 +728,9 @@ public struct CaptureView: View {
             if case .success(let urls) = result, let url = urls.first {
                 store.setSharedFolder(url)
             }
+        }
+        .onAppear {
+            store.loadAvailableLocalesIfNeeded()
         }
     }
 }

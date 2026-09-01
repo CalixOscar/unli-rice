@@ -35,13 +35,9 @@ public enum TranscriberError: Error, LocalizedError {
 /// Transcription runs against the `.m4a` the recorder has already written, so a
 /// failure here costs the transcript and never the capture.
 public final class SpeechAnalyzerTranscriber: Transcriber, @unchecked Sendable {
-    public let locale: Locale
+    public init() {}
 
-    public init(locale: Locale = Locale.current) {
-        self.locale = locale
-    }
-
-    public func transcribe(audioURL: URL) async throws -> String {
+    public func transcribe(audioURL: URL, locale: Locale) async throws -> String {
         guard SpeechTranscriber.isAvailable else {
             throw TranscriberError.speechRecognizerUnavailable
         }

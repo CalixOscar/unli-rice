@@ -33,7 +33,7 @@ struct WelcomeSplashView: View {
                     row(icon: "mic.fill", title: "Tap to record",
                         body: "Tap the mic to start, tap again to stop. Your words are transcribed into a note automatically.")
                     row(icon: "square.and.arrow.down.on.square", title: "It's saved as a note",
-                        body: "Every recording becomes a searchable note in Unli Thoughts — swipe to archive or delete.")
+                        body: "Every recording becomes a searchable note in Unli Thoughts — tap to archive or delete.")
                     row(icon: "lock.shield.fill", title: "Private by default",
                         body: "Transcription happens entirely on this device — audio never leaves your phone or goes to a server. Choose an iCloud folder later in Settings if you want notes to sync to your Mac; until then, nothing leaves this phone.")
                 }

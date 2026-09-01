@@ -76,9 +76,33 @@ public struct ShardWriter: Sendable {
             ))
         }
 
+        try write(eventsToWrite)
+
+        return eventsToWrite
+    }
+
+    /// Appends text to an existing note in this shard.
+    public func writeAppendEvents(noteID: UUID, text: String, date: Date = Date()) throws -> [Event] {
+        let event = Event(
+            id: UUID(),
+            noteId: noteID,
+            timestamp: date,
+            source: "human",
+            kind: .appended,
+            title: nil,
+            text: text,
+            device: deviceLabel
+        )
+
+        let events = [event]
+        try write(events)
+        return events
+    }
+
+    private func write(_ events: [Event]) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        
+
         let fileManager = FileManager.default
         let directory = shardFileURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -91,13 +115,11 @@ public struct ShardWriter: Sendable {
         defer { try? handle.close() }
         try handle.seekToEnd()
 
-        for e in eventsToWrite {
+        for e in events {
             let data = try encoder.encode(e)
             try handle.write(contentsOf: data)
             try handle.write(contentsOf: Data("\n".utf8))
         }
-
-        return eventsToWrite
     }
 
     /// The title for a capture whose transcript came back empty — a silent

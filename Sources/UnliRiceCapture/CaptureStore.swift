@@ -58,6 +58,7 @@ public final class CaptureStore: ObservableObject {
     private static let projectTabsKey = "UnliRiceCapture_projectTabs"
     private static let currentProjectTabKey = "UnliRiceCapture_currentProjectTab"
     private static let audioRetentionKey = "UnliRiceCapture_audioRetention"
+    private static let transcriptionLocaleKey = "UnliRiceCapture_transcriptionLocale"
 
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
@@ -66,6 +67,37 @@ public final class CaptureStore: ObservableObject {
     @Published public var archivedCaptures: [SentCaptureItem] = []
     @Published public var pulledNotes: [Note] = []
     @Published public var sharedFolderURL: URL?
+    @Published public var appendTargetNoteID: UUID? = nil
+
+    @Published public var availableLocales: [Locale] = []
+    @Published public var localeStatuses: [String: LanguageStatus] = [:]
+    @Published public var downloadingLocaleIDs: Set<String> = []
+
+    @Published public var transcriptionLocaleID: String {
+        didSet {
+            UserDefaults.standard.set(transcriptionLocaleID, forKey: Self.transcriptionLocaleKey)
+            let previousID = oldValue
+            let newID = transcriptionLocaleID
+            Task {
+                if !previousID.isEmpty && previousID != newID {
+                    await TranscriptionLanguages.release(Locale(identifier: previousID))
+                }
+                if !newID.isEmpty {
+                    do {
+                        try await TranscriptionLanguages.reserve(Locale(identifier: newID))
+                    } catch {
+                        await MainActor.run {
+                            self.state = .error(error.localizedDescription)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public var effectiveTranscriptionLocale: Locale {
+        TranscriptionLocale.effectiveLocale(for: transcriptionLocaleID)
+    }
 
     private var durationTimer: Timer?
 
@@ -126,7 +158,7 @@ public final class CaptureStore: ObservableObject {
     private let shardWriter: ShardWriter
     private let storageDir: URL
     private let eventStore: EventStore
-    private let noteService: NoteService
+    public let noteService: NoteService
     public let deviceIdentity: DeviceIdentity
     private var audioIndex: CaptureAudioIndex
 
@@ -149,6 +181,9 @@ public final class CaptureStore: ObservableObject {
 
         let savedRetentionRaw = UserDefaults.standard.string(forKey: Self.audioRetentionKey) ?? ""
         self.audioRetention = AudioRetention(rawValue: savedRetentionRaw) ?? .forever
+
+        let savedLocaleID = UserDefaults.standard.string(forKey: Self.transcriptionLocaleKey) ?? ""
+        self.transcriptionLocaleID = savedLocaleID
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let baseDir = storageDir ?? docs.appendingPathComponent("UnliRiceCapture", isDirectory: true)
@@ -407,6 +442,76 @@ public final class CaptureStore: ObservableObject {
         }
     }
 
+    public func loadAvailableLocalesIfNeeded() {
+        guard availableLocales.isEmpty else { return }
+        Task {
+            let locales = await TranscriptionLanguages.supported()
+            var statuses: [String: LanguageStatus] = [:]
+            for loc in locales {
+                statuses[loc.identifier] = await TranscriptionLanguages.status(for: loc)
+            }
+            await MainActor.run {
+                self.availableLocales = locales
+                self.localeStatuses = statuses
+            }
+        }
+    }
+
+    public func refreshStatus(for locale: Locale) {
+        Task {
+            let status = await TranscriptionLanguages.status(for: locale)
+            await MainActor.run {
+                self.localeStatuses[locale.identifier] = status
+            }
+        }
+    }
+
+    public func downloadLocale(_ locale: Locale) {
+        guard !downloadingLocaleIDs.contains(locale.identifier) else { return }
+        downloadingLocaleIDs.insert(locale.identifier)
+        localeStatuses[locale.identifier] = .downloading
+        Task {
+            do {
+                try await TranscriptionLanguages.install(locale)
+                let newStatus = await TranscriptionLanguages.status(for: locale)
+                await MainActor.run {
+                    self.downloadingLocaleIDs.remove(locale.identifier)
+                    self.localeStatuses[locale.identifier] = newStatus
+                }
+            } catch {
+                await MainActor.run {
+                    self.downloadingLocaleIDs.remove(locale.identifier)
+                    self.localeStatuses[locale.identifier] = .available
+                    self.state = .error(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    public func startAppendRecording(targetNoteID: UUID) {
+        guard state == .idle else { return }
+        appendTargetNoteID = targetNoteID
+        startRecording()
+    }
+
+    /// Appends text to an existing note, mirroring shard write and local event store.
+    public func appendToCapture(noteID: UUID, text: String) throws {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let written = try shardWriter.writeAppendEvents(noteID: noteID, text: trimmed)
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.dateEncodingStrategy = .iso8601
+        for writtenEvent in written {
+            if let rawData = try? jsonEncoder.encode(writtenEvent) {
+                try? eventStore.appendRaw(rawData)
+            }
+        }
+
+        rebuildCaptures()
+        sync()
+    }
+
     public func startRecording() {
         Task {
             do {
@@ -470,6 +575,7 @@ public final class CaptureStore: ObservableObject {
     public func finishRecording() async throws -> String {
         stopDurationTimer()
         guard let audioURL = recorder.stopRecording() else {
+            appendTargetNoteID = nil
             state = .error("No audio file recorded.")
             throw RecorderError.recordingFailed("No audio file recorded.")
         }
@@ -478,48 +584,89 @@ public final class CaptureStore: ObservableObject {
         partialTranscript = "Transcribing audio..."
 
         do {
-                let transcript = try await transcriber.transcribe(audioURL: audioURL)
-                let written = try shardWriter.writeCaptureEvents(transcript: transcript, tags: [currentProjectTab])
-                guard let event = written.first else {
-                    throw RecorderShardError.nothingWritten
-                }
+            let transcript = try await transcriber.transcribe(audioURL: audioURL, locale: effectiveTranscriptionLocale)
 
-                // Also append to local eventStore on phone. Every event, not
-                // just the `created` one: `sync()` republishes from this log, so
-                // an event missing here never reaches the shared folder and
-                // never reaches the Mac. Dropping the `tagged` events here is
-                // what left captures untagged, which made the project-tab filter
-                // in `updatePulledNotesForCurrentTab` match nothing and showed
-                // "No synced notes found." over a corpus that had them.
-                let jsonEncoder = JSONEncoder()
-                jsonEncoder.dateEncodingStrategy = .iso8601
-                for written in written {
-                    if let rawData = try? jsonEncoder.encode(written) {
-                        try? eventStore.appendRaw(rawData)
-                    }
-                }
-
-                // Keyed by note, not event: the note is what the list renders and
-                // what playback is asked for. `event.id` is the *created event's*
-                // id, which is a different UUID and never appears again.
-                audioIndex.record(noteID: event.noteId, filename: audioURL.lastPathComponent)
-                try? audioIndex.save(to: CaptureAudioIndex.url(inDirectory: storageDir))
-
-                let item = SentCaptureItem(
-                    id: event.noteId,
-                    title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
-                    timestamp: event.timestamp,
-                    audioURL: audioURL,
-                    tags: [currentProjectTab]
-                )
-                captures.insert(item, at: 0)
-                state = .completed(title: item.title)
+            if let targetNoteID = appendTargetNoteID {
+                appendTargetNoteID = nil
+                try appendToCapture(noteID: targetNoteID, text: transcript)
+                state = .completed(title: "Appended to note")
                 partialTranscript = transcript
+                return "Appended to note"
+            }
 
-                // Sync after capture
-                sync()
-                return item.title
+            let written = try shardWriter.writeCaptureEvents(transcript: transcript, tags: [currentProjectTab])
+            guard let event = written.first else {
+                throw RecorderShardError.nothingWritten
+            }
+
+            // Also append to local eventStore on phone. Every event, not
+            // just the `created` one: `sync()` republishes from this log, so
+            // an event missing here never reaches the shared folder and
+            // never reaches the Mac. Dropping the `tagged` events here is
+            // what left captures untagged, which made the project-tab filter
+            // in `updatePulledNotesForCurrentTab` match nothing and showed
+            // "No synced notes found." over a corpus that had them.
+            let jsonEncoder = JSONEncoder()
+            jsonEncoder.dateEncodingStrategy = .iso8601
+            for written in written {
+                if let rawData = try? jsonEncoder.encode(written) {
+                    try? eventStore.appendRaw(rawData)
+                }
+            }
+
+            // Keyed by note, not event: the note is what the list renders and
+            // what playback is asked for. `event.id` is the *created event's*
+            // id, which is a different UUID and never appears again.
+            audioIndex.record(noteID: event.noteId, filename: audioURL.lastPathComponent)
+            try? audioIndex.save(to: CaptureAudioIndex.url(inDirectory: storageDir))
+
+            let item = SentCaptureItem(
+                id: event.noteId,
+                title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
+                timestamp: event.timestamp,
+                audioURL: audioURL,
+                tags: [currentProjectTab]
+            )
+            captures.insert(item, at: 0)
+            state = .completed(title: item.title)
+            partialTranscript = transcript
+
+            // Sync after capture
+            sync()
+            return item.title
         } catch {
+            let targetID = appendTargetNoteID
+            appendTargetNoteID = nil
+
+            if targetID == nil {
+                // If a new capture's transcription fails, still create the note
+                // with an empty transcript so the audio survives on disk and is
+                // reachable and playable from the list under its fallback title.
+                if let written = try? shardWriter.writeCaptureEvents(transcript: "", tags: [currentProjectTab]),
+                   let event = written.first {
+                    let jsonEncoder = JSONEncoder()
+                    jsonEncoder.dateEncodingStrategy = .iso8601
+                    for writtenEvent in written {
+                        if let rawData = try? jsonEncoder.encode(writtenEvent) {
+                            try? eventStore.appendRaw(rawData)
+                        }
+                    }
+
+                    audioIndex.record(noteID: event.noteId, filename: audioURL.lastPathComponent)
+                    try? audioIndex.save(to: CaptureAudioIndex.url(inDirectory: storageDir))
+
+                    let fallbackItem = SentCaptureItem(
+                        id: event.noteId,
+                        title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
+                        timestamp: event.timestamp,
+                        audioURL: audioURL,
+                        tags: [currentProjectTab]
+                    )
+                    captures.insert(fallbackItem, at: 0)
+                    sync()
+                }
+            }
+
             state = .error("Transcription failed: \(error.localizedDescription) (audio saved at \(audioURL.lastPathComponent))")
             throw error
         }
