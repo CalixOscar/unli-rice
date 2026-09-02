@@ -37,6 +37,9 @@ struct BranchGraphView: View {
         let aheadOfParent: Int?
         let aheadOfTrunk: Int?
         var depth: Int = 0
+        /// True when the branch is an ANCESTOR of the trunk — already folded in.
+        /// Nil aheadOfTrunk means unknown (no ancestry published), which is neither.
+        var merged: Bool? = nil
     }
 
     private var trunkBranch: GitRepoScanner.Branch? {
@@ -77,13 +80,15 @@ struct BranchGraphView: View {
                                      isCurrent: e.isCurrent || b.isCurrent,
                                      parentSHA: e.parentSHA ?? pSHA,
                                      aheadOfParent: e.aheadOfParent ?? a?.aheadOfParent,
-                                     aheadOfTrunk: e.aheadOfTrunk ?? a?.aheadOfTrunk)
+                                     aheadOfTrunk: e.aheadOfTrunk ?? a?.aheadOfTrunk,
+                                     merged: (e.aheadOfTrunk ?? a?.aheadOfTrunk).map { $0 == 0 })
             } else {
                 grouped[b.sha] = Row(sha: b.sha, names: [b.name],
                                      onRemote: b.tipOnRemote, isCurrent: b.isCurrent,
                                      parentSHA: pSHA,
                                      aheadOfParent: a?.aheadOfParent,
-                                     aheadOfTrunk: a?.aheadOfTrunk)
+                                     aheadOfTrunk: a?.aheadOfTrunk,
+                                     merged: a?.aheadOfTrunk.map { $0 == 0 })
             }
         }
 
@@ -118,6 +123,17 @@ struct BranchGraphView: View {
         return out
     }
 
+    /// Ahead of the trunk — real forks, work that is not on the trunk yet.
+    private var liveRows: [Row] { rows.filter { $0.merged != true } }
+    /// Ancestors of the trunk. These are BEHIND it, already folded in.
+    ///
+    /// The bug this split fixes (2026-09-02): every branch was drawn as a fork above the
+    /// trunk. In Nuptia all 15 branches are merged — `git branch --merged main` agrees —
+    /// so the graph read as "fifteen branches building on each other off main" when the
+    /// truth was "fifteen dead branches already folded into main". Inverting the meaning
+    /// is worse than drawing nothing.
+    private var mergedRows: [Row] { rows.filter { $0.merged == true } }
+
     private var height: CGFloat { CGFloat(rows.count + 1) * laneGap + 30 }
 
     // MARK: - View
@@ -136,7 +152,7 @@ struct BranchGraphView: View {
             dot(Theme.textSecondary); caption("on a remote")
             dot(.orange); caption("local only")
             if hasAncestry {
-                caption("· nested by what each branch builds on")
+                caption("· above the trunk = ahead of it · below = already merged in")
                 if ancestryStale, let age = ancestryAge {
                     Text("· ancestry \(age.formatted(.relative(presentation: .named)))")
                         .font(.system(size: 10, design: .monospaced))
@@ -163,23 +179,32 @@ struct BranchGraphView: View {
     }
 
     private func draw(_ ctx: GraphicsContext) {
-        let rows = self.rows
+        let live = liveRows, merged = mergedRows
         let top: CGFloat = 10
         func y(_ i: Int) -> CGFloat { top + CGFloat(i) * laneGap + 13 }
         func x(_ d: Int) -> CGFloat { trunkX + CGFloat(d + 1) * indent }
-        let trunkY = y(rows.count)
+        // The trunk sits BETWEEN the two groups: forks above it, history below.
+        let trunkY = y(live.count)
+        let rows = live + merged
 
+        let bottom = y(rows.count + (merged.isEmpty ? 0 : 1))
         ctx.stroke(Path { p in
             p.move(to: CGPoint(x: trunkX, y: top))
-            p.addLine(to: CGPoint(x: trunkX, y: trunkY))
+            p.addLine(to: CGPoint(x: trunkX, y: max(trunkY, bottom)))
         }, with: .color(Color.accentColor.opacity(0.5)), lineWidth: 2)
 
+        // Merged rows are pushed one slot down to leave room for the trunk node.
+        func slot(_ i: Int) -> Int { i < live.count ? i : i + 1 }
+
         var pos: [String: CGPoint] = [:]
-        for (i, r) in rows.enumerated() { pos[r.sha] = CGPoint(x: x(r.depth), y: y(i)) }
+        for (i, r) in rows.enumerated() { pos[r.sha] = CGPoint(x: x(r.depth), y: y(slot(i))) }
 
         for (i, r) in rows.enumerated() {
-            let c = CGPoint(x: x(r.depth), y: y(i))
-            let color: Color = r.onRemote ? Color.secondary : .orange
+            let c = CGPoint(x: x(r.depth), y: y(slot(i)))
+            // Merged branches are history, not work: muted, never orange-as-alarm.
+            let color: Color = r.merged == true
+                ? Color.secondary.opacity(0.45)
+                : (r.onRemote ? Color.secondary : .orange)
             // An edge to the branch this one builds on, or to the trunk.
             let from = r.parentSHA.flatMap { pos[$0] } ?? CGPoint(x: trunkX, y: trunkY)
 
@@ -209,31 +234,9 @@ struct BranchGraphView: View {
     }
 
     private var labels: some View {
-        let rows = self.rows
+        let live = liveRows, merged = mergedRows
         return VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
-                HStack(spacing: 6) {
-                    Text(r.names.joined(separator: "  ·  "))
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(r.isCurrent ? Theme.textPrimary : Theme.textSecondary)
-                        .lineLimit(1)
-                    if r.isCurrent { tag("HEAD", Theme.textSecondary) }
-                    if r.names.count > 1 { tag("same commit", .orange.opacity(0.9)) }
-                    // The number that makes nesting mean something.
-                    if r.parentSHA != nil, let n = r.aheadOfParent {
-                        tag("+\(n)", Theme.textSecondary)
-                    } else if let n = r.aheadOfTrunk, n > 0 {
-                        tag("+\(n) on trunk", Theme.textSecondary)
-                    }
-                    Spacer(minLength: 0)
-                    Text(String(r.sha.prefix(7)))
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(Theme.textSecondary)
-                }
-                .frame(height: laneGap, alignment: .center)
-                .padding(.leading, trunkX + CGFloat(r.depth + 1) * indent + 13)
-                .padding(.trailing, 4)
-            }
+            ForEach(Array(live.enumerated()), id: \.offset) { _, r in row(r) }
 
             if let t = trunkBranch {
                 HStack(spacing: 6) {
@@ -242,6 +245,10 @@ struct BranchGraphView: View {
                         .foregroundStyle(Theme.textPrimary).lineLimit(1)
                     tag("TRUNK", Color.accentColor)
                     if trunkNames.count > 1 { tag("same commit", .orange.opacity(0.9)) }
+                    // Say what the split means, right where the eye crosses it.
+                    if !merged.isEmpty {
+                        tag("\(merged.count) merged below", Theme.textSecondary)
+                    }
                     Spacer(minLength: 0)
                     Text(String(t.sha.prefix(7)))
                         .font(.system(size: 10, design: .monospaced))
@@ -251,8 +258,39 @@ struct BranchGraphView: View {
                 .padding(.leading, trunkX + 13)
                 .padding(.trailing, 4)
             }
+
+            ForEach(Array(merged.enumerated()), id: \.offset) { _, r in row(r) }
         }
         .padding(.top, 1)
         .allowsHitTesting(false)
+    }
+
+    private func row(_ r: Row) -> some View {
+        let isMerged = r.merged == true
+        return HStack(spacing: 6) {
+            Text(r.names.joined(separator: "  ·  "))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(isMerged ? Theme.textSecondary.opacity(0.65)
+                                          : (r.isCurrent ? Theme.textPrimary : Theme.textSecondary))
+                .lineLimit(1)
+            if r.isCurrent { tag("HEAD", Theme.textSecondary) }
+            if r.names.count > 1 { tag("same commit", .orange.opacity(0.9)) }
+            if isMerged {
+                // The actionable fact about these: nothing is on them that is not on
+                // the trunk, so deleting them loses nothing.
+                tag("merged", Theme.textSecondary.opacity(0.7))
+            } else if r.parentSHA != nil, let n = r.aheadOfParent {
+                tag("+\(n)", Theme.textSecondary)
+            } else if let n = r.aheadOfTrunk, n > 0 {
+                tag("+\(n) on trunk", Theme.textSecondary)
+            }
+            Spacer(minLength: 0)
+            Text(String(r.sha.prefix(7)))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary.opacity(isMerged ? 0.65 : 1))
+        }
+        .frame(height: laneGap, alignment: .center)
+        .padding(.leading, trunkX + CGFloat(r.depth + 1) * indent + 13)
+        .padding(.trailing, 4)
     }
 }
