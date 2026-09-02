@@ -46,10 +46,14 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         public let aheadOfParent: Int?
         /// Commits on this branch that are not on the trunk.
         public let aheadOfTrunk: Int?
+        /// Commits on the trunk that are not on this branch — how far back it sits.
+        /// Only meaningful when `aheadOfTrunk == 0`: such a branch never forked, it is
+        /// a label on the trunk's own history, and this says where.
+        public let behindTrunk: Int?
 
         public init(name: String, sha: String, tipOnRemote: Bool, isCurrent: Bool,
                     parent: String? = nil, aheadOfParent: Int? = nil,
-                    aheadOfTrunk: Int? = nil) {
+                    aheadOfTrunk: Int? = nil, behindTrunk: Int? = nil) {
             self.name = name
             self.sha = sha
             self.tipOnRemote = tipOnRemote
@@ -57,6 +61,7 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
             self.parent = parent
             self.aheadOfParent = aheadOfParent
             self.aheadOfTrunk = aheadOfTrunk
+            self.behindTrunk = behindTrunk
         }
     }
 
