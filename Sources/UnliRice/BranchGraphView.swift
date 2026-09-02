@@ -1,201 +1,258 @@
 import SwiftUI
 import UnliRiceCore
 
-/// A trunk-and-lanes drawing of a repository's branches.
+/// A tree of a repository's branches.
 ///
-/// **What this is, precisely.** It is a *ref* graph, not a commit graph. Refs record where
-/// each branch points; they do not record ancestry. Drawing true topology — who descends
-/// from whom, how far apart two branches are — needs a walk over commit objects, which are
-/// zlib-deflated when loose and inside packfiles when not. A partial reader would render
-/// confident-looking history that stops at the first packed commit, which on any
-/// established repo is almost immediately. So this draws only what refs can prove:
+/// **Two modes, and the difference is stated on screen.** Refs record where branches
+/// point, never how they relate — so the in-app scanner alone can only draw a flat fan
+/// off the trunk. When `check-repos.sh --json` has published ancestry, this draws the
+/// real thing: each branch hanging off the branch it actually builds on, with the number
+/// of commits between them.
 ///
-///   * the trunk, and every branch as a lane leaving it
-///   * branches sharing a tip SHA collapsed onto ONE node, because they are the same commit
-///   * whether each tip exists on a remote
-///
-/// Distance along a lane carries no meaning and is deliberately uniform — nothing here
-/// implies "3 commits ahead", because refs cannot support that claim.
+/// The app never computes ancestry itself. It is sandboxed and cannot run git, and a
+/// partial commit-object reader would answer confidently and wrongly on any established
+/// repo. Unknown is rendered as unknown, and the legend says which mode you are looking at.
 struct BranchGraphView: View {
     let snapshot: GitRepoScanner.Snapshot
+    /// Published by the script. Nil when it has never run for this repo.
+    var ancestry: RepoSnapshotFile.Repo?
+    var ancestryAge: Date?
+    var ancestryStale: Bool = false
 
     private let laneGap: CGFloat = 26
-    private let trunkX: CGFloat = 74
+    private let trunkX: CGFloat = 52
+    private let indent: CGFloat = 20
     private let nodeR: CGFloat = 5.5
 
-    /// The trunk branch, and the SHA it points at. Everything else forks from here.
-    private var trunk: GitRepoScanner.Branch? {
+    // MARK: - Model
+
+    /// Branches sharing a tip SHA are one point in history, not several — three abandoned
+    /// worktree branches sit on 6fdce21, and separate rows would invent a divergence.
+    private struct Row {
+        let sha: String
+        let names: [String]
+        let onRemote: Bool
+        let isCurrent: Bool
+        let parentSHA: String?
+        let aheadOfParent: Int?
+        let aheadOfTrunk: Int?
+        var depth: Int = 0
+    }
+
+    private var trunkBranch: GitRepoScanner.Branch? {
         guard let name = snapshot.defaultBranch else { return nil }
         return snapshot.branches.first { $0.name == name }
     }
 
-    /// Branches sharing a tip are one point in history. Unli Rice has three abandoned
-    /// worktree branches all sitting on 6fdce21; drawing them as three separate lanes
-    /// would invent a divergence that does not exist.
-    ///
-    /// Branches sitting on the TRUNK'S OWN SHA are excluded — they have not diverged from
-    /// it at all, so they belong on the trunk node as extra labels rather than as forks.
-    /// `feature/design-system` is exactly this: it points at main's tip, so drawing it as
-    /// a lane invented a branch that does not exist.
-    private var clusters: [(sha: String, names: [String], onRemote: Bool, isCurrent: Bool)] {
-        let trunkSHA = trunk?.sha
-        return Dictionary(grouping: snapshot.branches.filter { $0.sha != trunkSHA }, by: \.sha)
-            .map { sha, group in
-                (sha: sha,
-                 names: group.map(\.name).sorted(),
-                 onRemote: group.contains { $0.tipOnRemote },
-                 isCurrent: group.contains { $0.isCurrent })
-            }
-            .sorted { a, b in
-                if a.isCurrent != b.isCurrent { return a.isCurrent }
-                if a.onRemote != b.onRemote { return !a.onRemote }
-                return a.names[0] < b.names[0]
-            }
-    }
-
-    /// Every branch that IS the trunk commit — `main` plus anything pointing at it.
     private var trunkNames: [String] {
-        guard let trunkSHA = trunk?.sha else { return [] }
-        return snapshot.branches.filter { $0.sha == trunkSHA }.map(\.name).sorted()
+        guard let sha = trunkBranch?.sha else { return [] }
+        return snapshot.branches.filter { $0.sha == sha }.map(\.name).sorted()
     }
 
-    private var height: CGFloat { CGFloat(clusters.count + 1) * laneGap + 34 }
+    private var hasAncestry: Bool { ancestry?.hasAncestry == true }
+
+    /// Rows in draw order, already nested. Without ancestry every row is depth 0, which is
+    /// the honest flat fan; with it, depth is the length of the parent chain.
+    private var rows: [Row] {
+        let trunkSHA = trunkBranch?.sha
+        let byName = Dictionary(snapshot.branches.map { ($0.name, $0) }) { a, _ in a }
+        let anc = Dictionary((ancestry?.branches ?? []).map { ($0.name, $0) }) { a, _ in a }
+
+        // Group by tip SHA, carrying whichever ancestry the members supply.
+        var grouped: [String: Row] = [:]
+        for b in snapshot.branches where b.sha != trunkSHA {
+            let a = anc[b.name]
+            // A parent is usable only if it resolves to a SHA we are actually drawing,
+            // and it must be neither the trunk (those hang off the trunk directly), nor
+            // this same commit (an alias, not a parent), nor itself.
+            var pSHA: String?
+            if let p = a?.parent, p != b.name,
+               let pb = byName[p], pb.sha != trunkSHA, pb.sha != b.sha {
+                pSHA = pb.sha
+            }
+            if let e = grouped[b.sha] {
+                grouped[b.sha] = Row(sha: b.sha,
+                                     names: (e.names + [b.name]).sorted(),
+                                     onRemote: e.onRemote || b.tipOnRemote,
+                                     isCurrent: e.isCurrent || b.isCurrent,
+                                     parentSHA: e.parentSHA ?? pSHA,
+                                     aheadOfParent: e.aheadOfParent ?? a?.aheadOfParent,
+                                     aheadOfTrunk: e.aheadOfTrunk ?? a?.aheadOfTrunk)
+            } else {
+                grouped[b.sha] = Row(sha: b.sha, names: [b.name],
+                                     onRemote: b.tipOnRemote, isCurrent: b.isCurrent,
+                                     parentSHA: pSHA,
+                                     aheadOfParent: a?.aheadOfParent,
+                                     aheadOfTrunk: a?.aheadOfTrunk)
+            }
+        }
+
+        func key(_ r: Row) -> (Int, Int, String) {
+            (r.isCurrent ? 0 : 1, r.onRemote ? 1 : 0, r.names.first ?? "")
+        }
+        let kids = Dictionary(grouping: grouped.values.compactMap { r -> (String, Row)? in
+            guard let p = r.parentSHA, grouped[p] != nil else { return nil }
+            return (p, r)
+        }, by: \.0).mapValues { $0.map(\.1) }
+
+        // Depth-first, so a child always sits directly beneath its parent.
+        var out: [Row] = []
+        var visited = Set<String>()
+        func walk(_ r: Row, _ depth: Int) {
+            guard visited.insert(r.sha).inserted else { return }   // cycle guard
+            var r = r
+            r.depth = depth
+            out.append(r)
+            for k in (kids[r.sha] ?? []).sorted(by: { key($0) < key($1) }) {
+                walk(k, depth + 1)
+            }
+        }
+        for r in grouped.values.filter({ $0.parentSHA == nil || grouped[$0.parentSHA!] == nil })
+            .sorted(by: { key($0) < key($1) }) {
+            walk(r, 0)
+        }
+        // Anything still unvisited sits in a cycle the guard broke — draw it, don't drop it.
+        for r in grouped.values.sorted(by: { key($0) < key($1) }) where !visited.contains(r.sha) {
+            walk(r, 0)
+        }
+        return out
+    }
+
+    private var height: CGFloat { CGFloat(rows.count + 1) * laneGap + 30 }
+
+    // MARK: - View
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                legendDot(Theme.textSecondary, filled: false)
-                Text("on a remote").font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                legendDot(.orange, filled: false)
-                Text("local only").font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                Text("· forks from \(snapshot.defaultBranch ?? "the trunk") · lane length is not a commit count")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-            }
+            legend
+            Canvas { ctx, _ in draw(ctx) }
+                .frame(height: height)
+                .overlay(alignment: .topLeading) { labels }
+        }
+    }
 
-            Canvas { ctx, size in
-                let clusters = self.clusters
-                guard !clusters.isEmpty else { return }
-
-                let trunkTop: CGFloat = 12
-                let trunkBottom = CGFloat(clusters.count) * laneGap + 6
-
-                // The trunk. It stops at the last fork because there is nothing below it.
-                ctx.stroke(
-                    Path { p in
-                        p.move(to: CGPoint(x: trunkX, y: trunkTop))
-                        p.addLine(to: CGPoint(x: trunkX, y: trunkBottom))
-                    },
-                    with: .color(Color.accentColor.opacity(0.55)), lineWidth: 2)
-
-                // The trunk's own node. Branches fork ABOVE it; it is the common origin,
-                // so it sits at the foot of the line rather than being one lane among many.
-                if trunk != nil {
-                    let ty = trunkBottom
-                    let d = CGRect(x: trunkX - nodeR, y: ty - nodeR,
-                                   width: nodeR * 2, height: nodeR * 2)
-                    ctx.fill(Path(ellipseIn: d.insetBy(dx: -3, dy: -3)),
-                             with: .color(Color(nsColor: .windowBackgroundColor)))
-                    ctx.fill(Path(ellipseIn: d.insetBy(dx: -1, dy: -1)),
-                             with: .color(Color.accentColor))
+    private var legend: some View {
+        HStack(spacing: 11) {
+            dot(Theme.textSecondary); caption("on a remote")
+            dot(.orange); caption("local only")
+            if hasAncestry {
+                caption("· nested by what each branch builds on")
+                if ancestryStale, let age = ancestryAge {
+                    Text("· ancestry \(age.formatted(.relative(presentation: .named)))")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.orange)
                 }
-
-                for (i, c) in clusters.enumerated() {
-                    let y = trunkTop + CGFloat(i) * laneGap + 14
-                    let endX = min(size.width - 16, trunkX + 46)
-                    let color: Color = c.onRemote ? Color.secondary : .orange
-
-                    // Curve out of the trunk, the way a git graph renderer draws a fork.
-                    ctx.stroke(
-                        Path { p in
-                            p.move(to: CGPoint(x: trunkX, y: y - laneGap + 2))
-                            p.addCurve(
-                                to: CGPoint(x: endX, y: y),
-                                control1: CGPoint(x: trunkX, y: y),
-                                control2: CGPoint(x: trunkX + 16, y: y))
-                        },
-                        with: .color(color.opacity(0.7)), lineWidth: 2)
-
-                    let dot = CGRect(x: endX - nodeR, y: y - nodeR,
-                                     width: nodeR * 2, height: nodeR * 2)
-                    ctx.fill(Path(ellipseIn: dot.insetBy(dx: -2, dy: -2)),
-                             with: .color(Color(nsColor: .windowBackgroundColor)))
-                    ctx.stroke(Path(ellipseIn: dot), with: .color(color), lineWidth: 2)
-                    if c.isCurrent {
-                        ctx.fill(Path(ellipseIn: dot.insetBy(dx: 1.5, dy: 1.5)),
-                                 with: .color(color))
-                    }
-                }
+            } else {
+                // Say why it is flat, so it does not read as "nothing is nested".
+                caption("· flat — run check-repos.sh --json for real nesting")
             }
-            .frame(height: height)
-            .overlay(alignment: .topLeading) { labels }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func dot(_ c: Color) -> some View {
+        Circle().strokeBorder(c, lineWidth: 2).frame(width: 9, height: 9)
+    }
+    private func caption(_ s: String) -> some View {
+        Text(s).font(.system(size: 10, design: .monospaced))
+            .foregroundStyle(Theme.textSecondary).lineLimit(1)
+    }
+    private func tag(_ s: String, _ c: Color) -> some View {
+        Text(s).font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+            .foregroundStyle(c)
+    }
+
+    private func draw(_ ctx: GraphicsContext) {
+        let rows = self.rows
+        let top: CGFloat = 10
+        func y(_ i: Int) -> CGFloat { top + CGFloat(i) * laneGap + 13 }
+        func x(_ d: Int) -> CGFloat { trunkX + CGFloat(d + 1) * indent }
+        let trunkY = y(rows.count)
+
+        ctx.stroke(Path { p in
+            p.move(to: CGPoint(x: trunkX, y: top))
+            p.addLine(to: CGPoint(x: trunkX, y: trunkY))
+        }, with: .color(Color.accentColor.opacity(0.5)), lineWidth: 2)
+
+        var pos: [String: CGPoint] = [:]
+        for (i, r) in rows.enumerated() { pos[r.sha] = CGPoint(x: x(r.depth), y: y(i)) }
+
+        for (i, r) in rows.enumerated() {
+            let c = CGPoint(x: x(r.depth), y: y(i))
+            let color: Color = r.onRemote ? Color.secondary : .orange
+            // An edge to the branch this one builds on, or to the trunk.
+            let from = r.parentSHA.flatMap { pos[$0] } ?? CGPoint(x: trunkX, y: trunkY)
+
+            ctx.stroke(Path { p in
+                p.move(to: from)
+                p.addCurve(to: c,
+                           control1: CGPoint(x: from.x, y: c.y),
+                           control2: CGPoint(x: from.x + 8, y: c.y))
+            }, with: .color(color.opacity(0.6)), lineWidth: 1.8)
+
+            let d = CGRect(x: c.x - nodeR, y: c.y - nodeR, width: nodeR * 2, height: nodeR * 2)
+            ctx.fill(Path(ellipseIn: d.insetBy(dx: -2.5, dy: -2.5)),
+                     with: .color(Color(nsColor: .windowBackgroundColor)))
+            ctx.stroke(Path(ellipseIn: d), with: .color(color), lineWidth: 2)
+            if r.isCurrent {
+                ctx.fill(Path(ellipseIn: d.insetBy(dx: 1.5, dy: 1.5)), with: .color(color))
+            }
+        }
+
+        if trunkBranch != nil {
+            let d = CGRect(x: trunkX - nodeR, y: trunkY - nodeR,
+                           width: nodeR * 2, height: nodeR * 2)
+            ctx.fill(Path(ellipseIn: d.insetBy(dx: -3, dy: -3)),
+                     with: .color(Color(nsColor: .windowBackgroundColor)))
+            ctx.fill(Path(ellipseIn: d.insetBy(dx: -1, dy: -1)), with: .color(Color.accentColor))
         }
     }
 
     private var labels: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(clusters.enumerated()), id: \.offset) { i, c in
+        let rows = self.rows
+        return VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
                 HStack(spacing: 6) {
-                    // Several names on one node is the interesting case, not a rendering
-                    // problem: those branches are literally the same commit.
-                    Text(c.names.joined(separator: "  ·  "))
+                    Text(r.names.joined(separator: "  ·  "))
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(c.isCurrent ? Theme.textPrimary : Theme.textSecondary)
+                        .foregroundStyle(r.isCurrent ? Theme.textPrimary : Theme.textSecondary)
                         .lineLimit(1)
-                    if c.isCurrent {
-                        Text("HEAD")
-                            .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    if c.names.count > 1 {
-                        Text("same commit")
-                            .font(.system(size: 8.5, design: .monospaced))
-                            .foregroundStyle(.orange.opacity(0.9))
+                    if r.isCurrent { tag("HEAD", Theme.textSecondary) }
+                    if r.names.count > 1 { tag("same commit", .orange.opacity(0.9)) }
+                    // The number that makes nesting mean something.
+                    if r.parentSHA != nil, let n = r.aheadOfParent {
+                        tag("+\(n)", Theme.textSecondary)
+                    } else if let n = r.aheadOfTrunk, n > 0 {
+                        tag("+\(n) on trunk", Theme.textSecondary)
                     }
                     Spacer(minLength: 0)
-                    Text(String(c.sha.prefix(7)))
+                    Text(String(r.sha.prefix(7)))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
                 }
                 .frame(height: laneGap, alignment: .center)
-                .padding(.leading, trunkX + 60)
+                .padding(.leading, trunkX + CGFloat(r.depth + 1) * indent + 13)
                 .padding(.trailing, 4)
             }
 
-            if let t = trunk {
+            if let t = trunkBranch {
                 HStack(spacing: 6) {
                     Text(trunkNames.joined(separator: "  ·  "))
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    Text("TRUNK")
-                        .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Color.accentColor)
-                    if trunkNames.count > 1 {
-                        Text("same commit")
-                            .font(.system(size: 8.5, design: .monospaced))
-                            .foregroundStyle(.orange.opacity(0.9))
-                    }
+                        .foregroundStyle(Theme.textPrimary).lineLimit(1)
+                    tag("TRUNK", Color.accentColor)
+                    if trunkNames.count > 1 { tag("same commit", .orange.opacity(0.9)) }
                     Spacer(minLength: 0)
                     Text(String(t.sha.prefix(7)))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(Theme.textSecondary)
                 }
                 .frame(height: laneGap, alignment: .center)
-                .padding(.leading, trunkX + 60)
+                .padding(.leading, trunkX + 13)
                 .padding(.trailing, 4)
             }
         }
-        .padding(.top, 2)
+        .padding(.top, 1)
         .allowsHitTesting(false)
-    }
-
-    private func legendDot(_ c: Color, filled: Bool) -> some View {
-        Circle()
-            .strokeBorder(c, lineWidth: 2)
-            .background(Circle().fill(filled ? c : .clear))
-            .frame(width: 9, height: 9)
     }
 }

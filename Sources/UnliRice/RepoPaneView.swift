@@ -18,6 +18,11 @@ struct RepoPaneView: View {
     @State private var snapshots: [GitRepoScanner.Snapshot] = []
     @State private var scanning = false
     @State private var scanned = false
+    /// Published by check-repos.sh --json, keyed by repo name. Empty when the script has
+    /// never run — the graph then draws a flat fan and says so.
+    @State private var ancestry: [String: RepoSnapshotFile.Repo] = [:]
+    @State private var ancestryAge: Date?
+    @State private var ancestryStale = false
 
     var body: some View {
         ScrollView {
@@ -110,7 +115,10 @@ struct RepoPaneView: View {
 
             // The graph first — it answers "what is the shape of this repo" at a glance;
             // the list below answers "what exactly is each branch".
-            BranchGraphView(snapshot: s)
+            BranchGraphView(snapshot: s,
+                            ancestry: ancestry[s.name],
+                            ancestryAge: ancestryAge,
+                            ancestryStale: ancestryStale)
 
             Divider().opacity(0.35)
 
@@ -218,37 +226,21 @@ struct RepoPaneView: View {
             return out
         }.value
 
-        publishSnapshot(snapshots)
+        ancestry = loadAncestry()
     }
 
-    /// Publish the scan into the vault folder so Capture can show it on the phone.
+    /// Read the ancestry the script published, if any.
     ///
-    /// The phone has no repositories and no way to reach the Mac's filesystem, so the only
-    /// honest transport is a file both devices already share. This writes names and flags
-    /// only — never a filesystem path — because the phone must not be handed anything that
-    /// looks like something it could act on. Failure is silent by design: the Repos pane
-    /// works whether or not a shared folder has ever been configured, and a missing
-    /// snapshot is a normal state on the reading side, not an error on the writing side.
-    private func publishSnapshot(_ snaps: [GitRepoScanner.Snapshot]) {
-        guard !snaps.isEmpty else { return }
+    /// The app does NOT write this file. It used to, and that was a bug in the making:
+    /// the in-app scanner cannot compute ancestry — refs do not record it — so its
+    /// snapshot would have overwritten the script's richer one with a poorer one every
+    /// time the pane was opened. `check-repos.sh --json` is the sole producer; this is a
+    /// pure reader, and the graph degrades to a flat fan when the file is absent.
+    private func loadAncestry() -> [String: RepoSnapshotFile.Repo] {
         let folder = store.dataURL.deletingLastPathComponent()
-
-        let file = RepoSnapshotFile(
-            deviceLabel: Host.current().localizedName ?? "This Mac",
-            repos: snaps.map { s in
-                RepoSnapshotFile.Repo(
-                    name: s.name,
-                    currentBranch: s.currentBranch,
-                    detachedHead: s.detachedHead,
-                    branches: s.branches.map {
-                        .init(name: $0.name, sha: $0.sha,
-                              tipOnRemote: $0.tipOnRemote, isCurrent: $0.isCurrent)
-                    },
-                    remoteBranchCount: s.remoteBranchCount,
-                    worktrees: s.worktrees.map {
-                        .init(name: $0.name, branch: $0.branch, missing: $0.missing)
-                    })
-            })
-        try? file.write(toFolder: folder)
+        guard let file = try? RepoSnapshotFile.read(fromFolder: folder) else { return [:] }
+        ancestryAge = file.generatedAt
+        ancestryStale = file.isStale()
+        return Dictionary(uniqueKeysWithValues: file.repos.map { ($0.name, $0) })
     }
 }
