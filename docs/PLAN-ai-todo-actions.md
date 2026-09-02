@@ -1,9 +1,16 @@
 # PLAN — Letting an LLM file a to-do item
 
 **Intent:** `docs/intent/INTENT-004-ai-todo-actions.md`
-**Stage:** 2 (Claude's plan). **Not built.** Next stop is Codex's pre-mortem, then a
-stage-4 revision, then the swarm. Nothing in this file has been implemented.
-**Verified against:** working tree at `a962a26`
+**Stage:** revised at the founder's direction and **dispatched to the swarm without the
+Codex stage-3 pre-mortem** — a deliberate skip of the studio pipeline, recorded here
+because the pipeline exists to catch exactly what an unreviewed plan gets wrong.
+**Verified against:** working tree at `4b714f2`
+
+**Revision (2026-09-03, founder brief):** two changes to the version Codex never saw.
+§2.4 is reversed — Capture gets the same list *and* the same "Done" action as the Mac,
+not a read-only view. And §2.7 is new: the list is only half the feature if the founder
+has to remember to open it, so every LLM session now reads the open items for the project
+it is in and offers to batch them.
 
 ## 1. The finding that shapes the design
 
@@ -159,14 +166,34 @@ section says so explicitly rather than leaving it implied.
 
 - Same query shape as 2.3, using `store.noteService.listNotes(includeArchived: false)`
   — `CaptureStore` already exposes `noteService` (`CaptureStore.swift:168`).
-- **No "Done" button on the phone in this plan.** The pane's header text already says
-  "Read-only — tap an item to leave a note about it," and the existing `noteSheet`
-  flow already lets you leave a thought against any item, `.aiFlagged` included, for
-  free. Archiving stays Mac-only; the phone's read-only framing doesn't need
-  re-litigating for this feature. (Open question for the pre-mortem: is that the
-  right call, or does "flag something in the studio the same week I file it" want to
-  work from the phone too?)
+- **The phone gets the same list and the same "Done" action as the Mac.** (Reversed
+  from the pre-revision plan, which scoped archiving to the Mac.) `CaptureStore`
+  already holds a full `NoteService`, and the phone already writes to the log today
+  via `appendToProjectNote` — archiving is the same class of write, not a new
+  capability. Add:
+
+  ```swift
+  public func archiveTodo(noteID: UUID) {
+      _ = try? noteService.archiveNote(id: noteID, reason: "done", source: "human")
+      sync()
+  }
+  ```
+
+  `source: "human"` matches the Mac (`AppStore.swift:1435`) — a founder tap on either
+  device is the same actor, and using a device-specific source would fragment the
+  audit trail for no gain. Confirm `sync()` is the right post-write call by checking
+  what `appendToProjectNote` does after its write, and mirror that exactly.
+- **The header copy must change.** It currently reads "From your Mac's last snapshot.
+  Read-only — tap an item to leave a note about it." That is now false for one section.
+  Reword so read-only is scoped to the git-derived items rather than the whole pane —
+  the git items genuinely are read-only on the phone (it has no repositories), and the
+  distinction is the honest one. Do not delete the read-only language wholesale; a
+  pane that quietly stops saying what it cannot do is how the "unknown becomes a
+  positive claim" bug class started.
 - `kindBlurb` / label: same text as 2.3, mirrored.
+- The existing `noteSheet` "leave a note about this" flow stays available on
+  `.aiFlagged` rows too — Done and "leave a thought" are different actions and both
+  make sense here.
 - **Sync-timing question, unresolved here:** the rest of this view reads a
   `RepoSnapshotFile` published by the Mac — a photograph, explicitly stale-tolerant.
   Notes sync on a different path (`ShardWriter`/the event log mirror), and it's not
@@ -174,7 +201,87 @@ section says so explicitly rather than leaving it implied.
   `store.sharedFolderURL` being set, or whether the two can disagree about freshness
   in a way that's visible here. Flagged for the pre-mortem, not resolved.
 
-### 2.5 Tests — `Tests/UnliRiceCoreTests/StudioTodoTests.swift`
+### 2.6 `Scripts/unlirice-prompt-hook.py` — every LLM reads the list, and offers to batch
+
+This is the half that makes the feature work without the founder remembering to look.
+A filed item that only surfaces in a pane you have to open is a note in a drawer.
+
+**The prior decision this builds on, unchanged:** `docs/PLAN-studio-cockpit.md:37`
+records that this hook "is registered in no settings file, so it currently does
+nothing," and that wiring it up is "per-machine settings the user installs — not
+something the app does for them." That still holds. **This plan changes what the hook
+says, never where it is installed.** See §4.
+
+Extend `main()` so `additionalContext` carries the project's open to-dos:
+
+1. **Identify the project** from `os.getcwd()` — the folder name directly under
+   `~/Documents/Projects`. If cwd is not under that root, inject the existing static
+   line unchanged and stop. A session in an unknown directory must not guess a project.
+2. **Read the corpus** via `corpus_folder()`, which already exists in this file and
+   already mirrors `DataLocation`'s precedence.
+3. **Fold `events.jsonl`** for notes carrying tags `todo` + the project name lowercased,
+   excluding archived. See the drift guard below.
+4. **Inject**, when and only when there is at least one:
+
+   ```
+   Unli Rice vault active: consult the vault's notes if relevant, and say so
+   explicitly if no relevant notes exist.
+
+   Open to-do items filed for <project> (3):
+   - Bump the ClearSpace Marketing URL field — filed by claude, 12 days ago
+   - <title> — filed by <creator>, <relative date>
+   Before you finish a change in this project, ask the founder whether any of these
+   should be done in the same pass. Do not act on one without asking; they were
+   deferred on purpose, and the reason may still hold.
+   ```
+
+   The last two sentences are the requirement, not decoration. The failure mode this
+   guards against is an agent reading three deferred items as a work queue and
+   clearing it unprompted — every one of these was deferred by someone who had a
+   reason, and "the redirect went live so the bump is no longer urgent" is exactly the
+   kind of reason that does not survive being skimmed by a fresh session.
+
+**The drift risk, and the guard.** Folding the event log in Python duplicates
+`Sources/UnliRiceCore/Projector.swift`, which is the source of truth. Two rules keep
+that honest:
+
+- **Fold conservatively and fail open.** The hook needs `created`, `tagged`, `untagged`,
+  `archived`, `unarchived` and nothing else. On *any* unrecognized event kind,
+  malformed line, unreadable file, or unexpected schema, inject the existing static
+  line and stop — never a partial list. A hook that silently under-reports is the
+  drawer problem again; a hook that fails loudly on every prompt gets uninstalled.
+  Print the reason to stderr, which `record_context_delivery` already establishes as
+  this file's diagnostic channel.
+- **Pin it with a test.** Add a fixture corpus under `Tests/` and a test asserting the
+  Python fold and `Projector` agree on which notes are open-and-tagged for a project.
+  Without this, the two implementations drift the first time an `EventKind` is added
+  and nothing tells anyone.
+- **Never fail prompt submission.** The existing `record_context_delivery` already
+  wraps everything in a bare `except` for exactly this reason. Hold that line: a
+  broken corpus must cost the founder a missing list, never a blocked prompt.
+
+**Size guard.** Cap the injected list (10 items, then "and N more — open the To do
+pane"). This text goes into *every prompt of every session in that project*; an
+uncapped list is a per-turn tax on the founder's context budget, and
+`PLAN-studio-cockpit.md` already names the 119,551-character lesson.
+
+### 2.7 `AGENTS.md` — the reading half of the contract
+
+§2.1 covers filing. Add the other direction to the same section, since every other
+project's `AGENTS.md` already points here:
+
+```
+Before you finish work on a project, check whether it has open to-do items — the
+prompt hook injects them if one is installed, and `search_notes` for the project's
+tag finds them if not. If there are any and you are already changing that project,
+ask the founder whether to fold them into this pass. Ask; do not just do them. They
+were deferred deliberately and the reason may still hold.
+```
+
+Belt and braces with the hook on purpose: the hook is per-machine and may not be
+installed, `AGENTS.md` is in the repo and always is. Neither alone reaches every agent.
+
+### 2.8 Tests — `Tests/UnliRiceCoreTests/StudioTodoTests.swift`
 
 - A note tagged `todo` + a matching project tag produces one `.aiFlagged` item with
   the right `noteID`.
@@ -189,14 +296,15 @@ section says so explicitly rather than leaving it implied.
 
 ## 3. Order of work
 
-1. §2.2 — the `Kind` case, `Item` field, and `derive` parameter, with tests. Nothing
-   calls the new parameter yet; existing behaviour is unchanged (default `[:]`).
-2. §2.1 — the `AGENTS.md` section. Cheap, unblocks nothing else, but should land
-   before or alongside the read path so the convention exists the moment it's
-   readable.
+1. §2.2 — the `Kind` case, `Item` field, and `derive` parameter, with tests (§2.8).
+   Nothing calls the new parameter yet; existing behaviour is unchanged (default `[:]`).
+2. §2.1 + §2.7 — the `AGENTS.md` sections, both directions. Cheap, and the convention
+   must exist before anything can be filed against it.
 3. §2.3 — Mac pane: query, render, "Done" button.
-4. §2.4 — phone pane: query, render only. Resolve the sync-timing question first if
-   the pre-mortem flags it as load-bearing.
+4. §2.4 — phone pane: query, render, "Done", and the header rewording.
+5. §2.6 — the prompt hook, last. It is the only piece that touches every session in
+   every project, so it lands once the thing it advertises actually exists. Build the
+   fold + its agreement test before the injection text.
 
 ## 4. Explicitly not in this plan
 
@@ -205,9 +313,16 @@ section says so explicitly rather than leaving it implied.
 - Editing a filed item's title or body after creation.
 - A reply thread beyond the existing "leave a note" sheet.
 - A new MCP tool. `create_note` / `tag_note` / `archive_note` are enough.
-- Archiving from the phone.
 - Deduplicating near-identical items across sessions.
 - Retiring or changing `.declared` / memory.md's Next step field.
+- **Installing the hook into any settings file.** `Scripts/unlirice-prompt-hook.py` is
+  registered nowhere today, and `PLAN-studio-cockpit.md` already settled that wiring it
+  up is per-machine configuration the founder installs, not something this codebase
+  does for them. The swarm changes what the hook *says*; a global
+  `~/.claude/settings.json` edit reaches every session the founder has on this machine
+  and is theirs to make. **Founder step, after the build lands.**
+- An agent *acting* on a to-do it found. The contract is ask-then-batch, never
+  batch-then-report.
 
 ## 5. For the pre-mortem
 
@@ -228,6 +343,22 @@ section says so explicitly rather than leaving it implied.
   answered — I did not verify how `ShardWriter`'s sync path relates to
   `store.sharedFolderURL`'s gating, and this plan should not be built past that point
   without an answer.
-- **No "Done" on the phone** trades a real capability (flag it in the studio, resolve
-  it from the studio, same week) for not touching the read-only framing. That trade
-  might be wrong — flag it rather than assume my call is right.
+- **The Python fold in §2.6 is the single biggest risk in this plan** and the reason a
+  pre-mortem would have earned its place. It duplicates `Projector.swift` in a second
+  language, in a file that runs on every prompt of every session, where a bug is
+  invisible (a silently short list) rather than loud. The fail-open rule and the
+  agreement test are the mitigations; whether they are sufficient is the question to
+  attack first.
+- **Injecting into every prompt has a standing cost.** The hook fires on
+  `UserPromptSubmit`, not session start, so the list rides along on every turn for the
+  life of the session. The 10-item cap bounds it, but the right design might be
+  session-start-only, or a cache keyed on the corpus mtime. Not resolved here.
+- **"Ask before batching" is a text instruction, not an enforced boundary.** Nothing
+  stops an agent from clearing three deferred items and reporting it afterwards. That
+  is the same class of limit as every other instruction in `AGENTS.md`, but it is worth
+  saying out loud that this feature hands agents a *list of work* and asks politely.
+- **Capture's "Done" writes to the log from the phone**, which the pre-revision plan
+  deliberately avoided. `appendToProjectNote` is the precedent that makes it defensible,
+  but the sync-timing question above is now load-bearing rather than cosmetic: an
+  archive written on the phone and a stale read on the Mac could disagree about whether
+  an item is open.

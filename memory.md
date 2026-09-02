@@ -45,9 +45,14 @@ ContentView,ProfileBuilderView,WhyNotTextFileView}.swift`,
 Planned only, not built: `docs/intent/INTENT-003-keyboard-capture.md` +
 `docs/PLAN-keyboard-capture.md`, and `docs/intent/INTENT-004-ai-todo-actions.md` +
 `docs/PLAN-ai-todo-actions.md`.
-**Next step:** Send both `docs/PLAN-keyboard-capture.md` and `docs/PLAN-ai-todo-actions.md`
-to Codex for their stage-3 pre-mortems, then revise each at stage 4 before any dispatch —
-the founder hasn't said which goes first. Still open and untouched: the two untracked
+**Next step:** `docs/PLAN-ai-todo-actions.md` is **with the Antigravity swarm**, dispatched
+2026-09-03 at founder direction **without its Codex stage-3 pre-mortem** — a deliberate
+pipeline skip, recorded in the plan's header. When it reports, check `git diff`, not its
+SUCCESS line. Two things the swarm is explicitly NOT doing and the founder must: install
+`Scripts/unlirice-prompt-hook.py` into per-machine settings (it is registered nowhere
+today), and decide whether the Python event-log fold in §2.6 is safe enough to keep.
+`docs/PLAN-keyboard-capture.md` is still stage 2 awaiting its own pre-mortem. Still open
+and untouched: the two untracked
 screenshot folders (`Screenshots/app-panes/`, `Screenshots/repos-pane/`, 5 files each,
 2026-09-02) need a founder decision, and the 1.2 gate work is unstarted — both
 `MARKETING_VERSION` values are still "1.1" (`project.yml:64` and `:187`),
@@ -96,6 +101,8 @@ is still a stray duplicate, flagged and deliberately left for the founder to del
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/PLAN-keyboard-capture.md` is stage 2 and **not settled** — it has not had its Codex
   pre-mortem, so it must not be dispatched to the swarm yet.
-- `docs/PLAN-ai-todo-actions.md` is stage 2 and **not settled**, same reason. It also
-  depends on a documentation change in this repo's own `AGENTS.md` (§2.1 of the plan) —
-  build order matters: land that before or alongside the read path, not after.
+- `docs/PLAN-ai-todo-actions.md` went to the swarm **without a Codex pre-mortem**, at
+  explicit founder direction. Treat its output with more suspicion than usual, and read
+  §5 "For the pre-mortem" as a list of things nobody checked rather than things settled.
+  Its §2.6 Python fold of `events.jsonl` duplicates `Projector.swift` in a second
+  language and is the named top risk.
