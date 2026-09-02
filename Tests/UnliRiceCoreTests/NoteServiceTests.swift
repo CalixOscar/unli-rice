@@ -260,4 +260,22 @@ final class NoteServiceTests: XCTestCase {
         XCTAssertEqual(reprojected.tags, ["durable"])
         XCTAssertEqual(reprojected.sources, ["claude", "gemini"])
     }
+
+    // MARK: - Plan §6 Tests (18, 20)
+
+    func testTransactionLogNegativeLimitThrows() throws {
+        XCTAssertThrowsError(try service.transactionLog(limit: -1)) { error in
+            guard let serviceError = error as? NoteServiceError,
+                  case .invalidLimit(let val) = serviceError else {
+                return XCTFail("Expected NoteServiceError.invalidLimit(-1), got \(error)")
+            }
+            XCTAssertEqual(val, -1)
+        }
+    }
+
+    func testTransactionLogZeroLimitReturnsEmpty() throws {
+        _ = try service.createNote(title: "Note", body: "Body", source: "claude")
+        let logs = try service.transactionLog(limit: 0)
+        XCTAssertEqual(logs.count, 0)
+    }
 }

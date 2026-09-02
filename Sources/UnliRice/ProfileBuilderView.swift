@@ -48,6 +48,16 @@ struct ProfileBuilderView: View {
                 }
                 Spacer()
 
+                Button("Cancel") {
+                    store.showHome()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11.5))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .solidControl(cornerRadius: 6)
+
                 // Template picker dropdown. Templates are starting points, not
                 // packages: load one whole, pull a single step from one, or mix
                 // steps from different templates.
@@ -109,6 +119,16 @@ struct ProfileBuilderView: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+
+            if let error = store.errorMessage {
+                Text(error)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.crit)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.bgField)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
             }
 
             // Navigation Buttons

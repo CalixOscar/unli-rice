@@ -16,7 +16,7 @@ import UnliRiceCore
 struct TodoView: View {
     @ObservedObject var store: CaptureStore
 
-    @State private var todo = StudioTodo(items: [])
+    @State private var todo = StudioTodo.unread()
     @State private var status = ""
     @State private var loaded = false
     @State private var noteFor: StudioTodo.Item?
@@ -33,10 +33,8 @@ struct TodoView: View {
                     if !loaded {
                         ProgressView().padding(.vertical, 24)
                     } else if todo.items.isEmpty {
-                        card("Nothing outstanding",
-                             status.isEmpty
-                             ? "Every branch tip is on a remote and no project names a next step."
-                             : status)
+                        let emptyState = TodoEmptyState.for(coverage: todo.coverage)
+                        card(emptyState.headline, phoneEmptyBody(for: emptyState))
                     } else {
                         ForEach(StudioTodo.Kind.allCases, id: \.rawValue) { kind in
                             let items = todo.items.filter { $0.kind == kind }
@@ -124,6 +122,19 @@ struct TodoView: View {
         .background(Theme.bgField, in: RoundedRectangle(cornerRadius: 12))
     }
 
+    private func phoneEmptyBody(for state: TodoEmptyState) -> String {
+        switch state {
+        case .unread:
+            return status.isEmpty ? "The snapshot could not be read." : status
+        case .emptySnapshot:
+            return "The snapshot was read and listed no repositories."
+        case .nothingOutstanding:
+            return "Every branch tip is on a remote, no worktree holds uncommitted work, and no memory.md names a next step."
+        case .qualified(let message):
+            return "Every branch tip in the snapshot is on a remote, but: \(message)."
+        }
+    }
+
     // MARK: - The note
 
     private func noteSheet(_ item: StudioTodo.Item) -> some View {
@@ -203,6 +214,7 @@ struct TodoView: View {
     private func load() {
         defer { loaded = true }
         guard let folder = store.sharedFolderURL else {
+            todo = StudioTodo.unread()
             status = "No shared folder set up yet — choose one in Settings."
             return
         }
@@ -216,12 +228,12 @@ struct TodoView: View {
                    + snap.generatedAt.formatted(.relative(presentation: .named))
                    + (snap.isStale() ? " · may be out of date" : "")
         } catch let e as RepoSnapshotFile.ReadError {
-            todo = StudioTodo(items: [])
+            todo = StudioTodo.unread()
             status = e == .missing
                 ? "Your Mac has not published a snapshot yet."
                 : (e.localizedDescription)
         } catch {
-            todo = StudioTodo(items: [])
+            todo = StudioTodo.unread()
             status = "The snapshot could not be read."
         }
     }

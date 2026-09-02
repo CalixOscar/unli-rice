@@ -3,11 +3,13 @@ import Foundation
 public enum NoteServiceError: Error, CustomStringConvertible {
     case noteNotFound(UUID)
     case projectionFailed
+    case invalidLimit(Int)
 
     public var description: String {
         switch self {
         case .noteNotFound(let id): return "No note found with id \(id)"
         case .projectionFailed: return "Failed to project note state after write"
+        case .invalidLimit(let limit): return "Invalid limit: \(limit) (must be non-negative)"
         }
     }
 }
@@ -207,7 +209,8 @@ public final class NoteService {
     }
 
     public func transactionLog(limit: Int = 50) throws -> [Event] {
-        Array(try store.readAll().sorted { $0.timestamp > $1.timestamp }.prefix(limit))
+        guard limit >= 0 else { throw NoteServiceError.invalidLimit(limit) }
+        return Array(try store.readAll().sorted { $0.timestamp > $1.timestamp }.prefix(limit))
     }
 
     // MARK: - Private

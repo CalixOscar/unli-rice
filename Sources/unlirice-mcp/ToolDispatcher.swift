@@ -24,9 +24,12 @@ struct ToolDispatcher {
 
     func dispatch(name: String, arguments: [String: Any]) -> [String: Any] {
         do {
+            guard let tool = MCPTool(rawValue: name) else {
+                throw ToolDispatchError.unknownTool(name)
+            }
             let payload: Any
-            switch name {
-            case "create_note":
+            switch tool {
+            case .createNote:
                 let note = try service.createNote(
                     title: try string(arguments, "title"),
                     body: try string(arguments, "body"),
@@ -34,7 +37,7 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "append_to_note":
+            case .appendToNote:
                 let note = try service.appendToNote(
                     id: try uuid(arguments, "id"),
                     text: try string(arguments, "text"),
@@ -42,7 +45,7 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "tag_note":
+            case .tagNote:
                 let note = try service.tagNote(
                     id: try uuid(arguments, "id"),
                     tag: try string(arguments, "tag"),
@@ -50,7 +53,7 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "untag_note":
+            case .untagNote:
                 let note = try service.untagNote(
                     id: try uuid(arguments, "id"),
                     tag: try string(arguments, "tag"),
@@ -58,7 +61,7 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "archive_note":
+            case .archiveNote:
                 let note = try service.archiveNote(
                     id: try uuid(arguments, "id"),
                     reason: try string(arguments, "reason"),
@@ -66,14 +69,14 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "unarchive_note":
+            case .unarchiveNote:
                 let note = try service.unarchiveNote(
                     id: try uuid(arguments, "id"),
                     source: try string(arguments, "source")
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "flag_for_review":
+            case .flagForReview:
                 let note = try service.flagForReview(
                     id: try uuid(arguments, "id"),
                     reason: try string(arguments, "reason"),
@@ -81,7 +84,7 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "resolve_review":
+            case .resolveReview:
                 let note = try service.resolveReview(
                     id: try uuid(arguments, "id"),
                     flagId: try uuid(arguments, "flag_id"),
@@ -90,29 +93,29 @@ struct ToolDispatcher {
                 )
                 payload = try JSONRPC.plain(note)
 
-            case "get_note":
+            case .getNote:
                 if let note = try service.getNote(id: try uuid(arguments, "id")) {
                     payload = try JSONRPC.plain(note)
                 } else {
                     payload = ["found": false]
                 }
 
-            case "list_notes":
+            case .listNotes:
                 let includeArchived = (arguments["include_archived"] as? Bool) ?? false
                 payload = try JSONRPC.plain(try service.listNotes(includeArchived: includeArchived))
 
-            case "search_notes":
+            case .searchNotes:
                 let includeArchived = (arguments["include_archived"] as? Bool) ?? false
                 payload = try JSONRPC.plain(
                     try service.searchNotes(query: try string(arguments, "query"), includeArchived: includeArchived)
                 )
 
-            case "note_history":
+            case .noteHistory:
                 payload = try JSONRPC.plain(
                     try service.noteHistory(id: try uuid(arguments, "id"))
                 )
 
-            case "pending_reviews":
+            case .pendingReviews:
                 let reviews = try service.pendingReviews()
                 payload = reviews.map { entry -> [String: Any] in
                     let notePayload = (try? JSONRPC.plain(entry.note)) ?? [:]
@@ -120,12 +123,15 @@ struct ToolDispatcher {
                     return ["note": notePayload, "flag": flagPayload]
                 }
 
-            case "transaction_log":
-                let limit = (arguments["limit"] as? Int) ?? 50
-                payload = try JSONRPC.plain(try service.transactionLog(limit: limit))
-
-            default:
-                throw ToolDispatchError.unknownTool(name)
+            case .transactionLog:
+                if let rawLimit = arguments["limit"] as? Int {
+                    guard rawLimit >= 0 else {
+                        throw ToolDispatchError.invalidArgument("limit must be non-negative, got \(rawLimit)")
+                    }
+                    payload = try JSONRPC.plain(try service.transactionLog(limit: rawLimit))
+                } else {
+                    payload = try JSONRPC.plain(try service.transactionLog())
+                }
             }
 
             let text = try jsonString(payload)

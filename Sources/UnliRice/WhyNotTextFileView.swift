@@ -21,8 +21,8 @@ struct WhyNotTextFileView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     advantageCard(
                         number: "1",
-                        title: "Every write is signed",
-                        body: "Each event carries exact source and device identity. A markdown file cannot tell you whether Claude, Cursor, or Codex wrote a line, or when it was added."
+                        title: "Every write is attributed",
+                        body: "Each event records its supplied source and timestamp, with a device label when available. Unli Rice's note tools append changes rather than overwrite earlier entries. Clients identify themselves — this is attributed history, not authenticated identity or tamper detection. A markdown file cannot tell you who added a line, or when."
                     )
 
                     advantageCard(

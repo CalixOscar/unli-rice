@@ -164,7 +164,7 @@ struct ContentView: View {
 
             sidebarRow(
                 "More",
-                active: store.showingMore || store.showingSetup || store.showingProfileBuilder
+                active: store.showingMore || store.showingSetup
                     || store.showingProfileManager
                     || store.showingTrustCenter || store.showingNotices || store.showingArchived
                     || store.showingAutomation
@@ -215,7 +215,9 @@ struct ContentView: View {
                 TodoPaneView()
             } else if store.showingRepos {
                 RepoPaneView()
-            } else if store.showingMore || store.showingSetup || store.showingProfileBuilder || store.showingProfileManager || store.showingTrustCenter || store.showingNotices || store.showingArchived || store.showingAutomation {
+            } else if store.showingProfileBuilder {
+                ProfileBuilderView()
+            } else if store.showingMore || store.showingSetup || store.showingProfileManager || store.showingTrustCenter || store.showingNotices || store.showingArchived || store.showingAutomation {
                 MoreView()
             } else if store.showingNeedsYou || store.showingReviewQueue {
                 NeedsYouView()

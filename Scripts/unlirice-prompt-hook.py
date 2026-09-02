@@ -9,6 +9,7 @@ Markdown off the filesystem and nothing on the app side can observe that, so the
 hook writes `lastContextDeliveredAt` rather than pretending a tool call occurred.
 """
 
+import fcntl
 import json
 import os
 import sys
@@ -61,37 +62,46 @@ def corpus_folder():
 def record_context_delivery():
     folder = corpus_folder()
     conn_file = os.path.join(folder, "connections.json")
+    lock_file = os.path.join(folder, "connections.lock")
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     try:
         os.makedirs(folder, exist_ok=True)
-        envelope = {"version": 1, "clients": []}
-        if os.path.exists(conn_file):
-            with open(conn_file, "r", encoding="utf-8") as f:
-                loaded = json.load(f)
-            if isinstance(loaded, dict) and loaded.get("version") == 1:
-                envelope = loaded
+        lock_fd = os.open(lock_file, os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            try:
+                envelope = {"version": 1, "clients": []}
+                if os.path.exists(conn_file):
+                    with open(conn_file, "r", encoding="utf-8") as f:
+                        loaded = json.load(f)
+                    if isinstance(loaded, dict) and loaded.get("version") == 1:
+                        envelope = loaded
 
-        clients = envelope.get("clients", [])
-        for client in clients:
-            # Matches MCPConnectionActivityStore.identity(name:version:) — the
-            # id is the bare client name when no version is known.
-            if client.get("id") == CLIENT_NAME:
-                client["lastSeenAt"] = now_iso
-                client["lastContextDeliveredAt"] = now_iso
-                break
-        else:
-            clients.append({
-                "id": CLIENT_NAME,
-                "clientName": CLIENT_NAME,
-                "firstSeenAt": now_iso,
-                "lastSeenAt": now_iso,
-                "lastContextDeliveredAt": now_iso,
-            })
+                clients = envelope.get("clients", [])
+                for client in clients:
+                    # Matches MCPConnectionActivityStore.identity(name:version:) — the
+                    # id is the bare client name when no version is known.
+                    if client.get("id") == CLIENT_NAME:
+                        client["lastSeenAt"] = now_iso
+                        client["lastContextDeliveredAt"] = now_iso
+                        break
+                else:
+                    clients.append({
+                        "id": CLIENT_NAME,
+                        "clientName": CLIENT_NAME,
+                        "firstSeenAt": now_iso,
+                        "lastSeenAt": now_iso,
+                        "lastContextDeliveredAt": now_iso,
+                    })
 
-        envelope["clients"] = clients
-        with open(conn_file, "w", encoding="utf-8") as f:
-            json.dump(envelope, f, indent=2)
+                envelope["clients"] = clients
+                with open(conn_file, "w", encoding="utf-8") as f:
+                    json.dump(envelope, f, indent=2)
+            finally:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            os.close(lock_fd)
     except Exception as exc:  # noqa: BLE001
         # Never fail prompt submission over a receipt write — but say so on
         # stderr rather than vanishing, so a broken path stays debuggable.

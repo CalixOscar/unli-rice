@@ -240,8 +240,12 @@ struct HomeView: View {
     }
 
     private var silenceDiagnosisCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !store.routinesEnabled {
+        let hasNoRoutines = !store.routinesEnabled
+        let hasNoClaude = store.claudeProjectsURL == nil
+        let diagnostic = store.unwrittenClientsDiagnostic
+
+        return VStack(alignment: .leading, spacing: 8) {
+            if hasNoRoutines {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Background collecting is off, so nothing is being added on its own.")
@@ -263,7 +267,9 @@ struct HomeView: View {
                 .padding(12)
                 .background(Theme.bgField)
                 .cornerRadius(6)
-            } else if store.claudeProjectsURL == nil {
+            }
+
+            if hasNoClaude {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Your Claude Code sessions aren't being indexed — they're on this Mac but Unli Rice can't see them yet.")
@@ -284,7 +290,9 @@ struct HomeView: View {
                 .padding(12)
                 .background(Theme.bgField)
                 .cornerRadius(6)
-            } else if let diagnostic = store.unwrittenClientsDiagnostic {
+            }
+
+            if let diagnostic {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(diagnostic)
@@ -305,7 +313,9 @@ struct HomeView: View {
                 .padding(12)
                 .background(Theme.bgField)
                 .cornerRadius(6)
-            } else {
+            }
+
+            if !hasNoRoutines && !hasNoClaude && diagnostic == nil {
                 HStack {
                     Text("Nothing new since then.")
                         .font(.system(size: 12, design: .monospaced))

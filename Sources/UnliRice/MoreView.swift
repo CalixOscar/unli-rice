@@ -1,38 +1,37 @@
 import SwiftUI
 import UnliRiceCore
 
+public enum MoreDestination: String, CaseIterable, Identifiable, Sendable {
+    case setup = "Setup & Tools"
+    case whyNotTextFile = "Why not just a text file?"
+    case profiles = "Separate memories"
+    case houseRules = "What your AI should always do"
+    case folder = "The folder your AI can read"
+    case automation = "What Runs on Its Own"
+    case trustCenter = "Trust Center"
+    case notifications = "Notifications"
+    case archived = "Archived Notes"
+
+    public var id: String { rawValue }
+
+    public var icon: String {
+        switch self {
+        case .setup: return "gearshape.fill"
+        case .whyNotTextFile: return "doc.text.magnifyingglass"
+        case .profiles: return "person.2.fill"
+        case .houseRules: return "text.badge.checkmark"
+        case .folder: return "folder.fill"
+        case .automation: return "bolt.fill"
+        case .trustCenter: return "shield.checkmark.fill"
+        case .notifications: return "bell.fill"
+        case .archived: return "archivebox.fill"
+        }
+    }
+}
+
 /// Central hub view for all relocated secondary features behind "More".
 struct MoreView: View {
     @EnvironmentObject var store: AppStore
-    @State private var selectedDestination: MoreDestination = .setup
-
-    enum MoreDestination: String, CaseIterable, Identifiable {
-        case setup = "Setup & Tools"
-        case whyNotTextFile = "Why not just a text file?"
-        case profiles = "Separate memories"
-        case houseRules = "What your AI should always do"
-        case folder = "The folder your AI can read"
-        case automation = "What Runs on Its Own"
-        case trustCenter = "Trust Center"
-        case notifications = "Notifications"
-        case archived = "Archived Notes"
-
-        var id: String { rawValue }
-
-        var icon: String {
-            switch self {
-            case .setup: return "gearshape.fill"
-            case .whyNotTextFile: return "doc.text.magnifyingglass"
-            case .profiles: return "person.2.fill"
-            case .houseRules: return "text.badge.checkmark"
-            case .folder: return "folder.fill"
-            case .automation: return "bolt.fill"
-            case .trustCenter: return "shield.checkmark.fill"
-            case .notifications: return "bell.fill"
-            case .archived: return "archivebox.fill"
-            }
-        }
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,17 +39,17 @@ struct MoreView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(MoreDestination.allCases) { item in
-                        Button(action: { selectedDestination = item }) {
+                        Button(action: { store.moreDestination = item }) {
                             HStack(spacing: 6) {
                                 Image(systemName: item.icon)
                                     .font(.system(size: 11))
                                 Text(item.rawValue)
-                                    .font(.system(size: 12, weight: selectedDestination == item ? .bold : .regular))
+                                    .font(.system(size: 12, weight: store.moreDestination == item ? .bold : .regular))
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .foregroundStyle(selectedDestination == item ? Theme.accentColor : Theme.textSecondary)
-                            .selectedControl(cornerRadius: 6, accent: Theme.accentColor, selected: selectedDestination == item)
+                            .foregroundStyle(store.moreDestination == item ? Theme.accentColor : Theme.textSecondary)
+                            .selectedControl(cornerRadius: 6, accent: Theme.accentColor, selected: store.moreDestination == item)
                         }
                         .buttonStyle(.plain)
                     }
@@ -64,7 +63,7 @@ struct MoreView: View {
 
             // Content view for selected destination
             Group {
-                switch selectedDestination {
+                switch store.moreDestination {
                 case .setup:
                     SetupView()
                 case .whyNotTextFile:

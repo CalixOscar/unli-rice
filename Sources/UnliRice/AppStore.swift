@@ -60,6 +60,7 @@ final class AppStore: ObservableObject {
     @Published var showingProfileManager: Bool = false
     @Published var showingFirstRun: Bool = false
     @Published var showingMore: Bool = false
+    @Published var moreDestination: MoreDestination = .setup
 
     @Published public private(set) var profileRegistry = ProfileRegistry()
 
@@ -160,22 +161,19 @@ final class AppStore: ObservableObject {
 
     /// Dynamic diagnostic sentence for connected tools that haven't written notes yet.
     var unwrittenClientsDiagnostic: String? {
-        let noteSources = Set(notes.flatMap(\.sources).map { $0.lowercased() })
-        let eventSources = Set(recentEvents.map { $0.source.lowercased() })
+        let cutoff = Date().addingTimeInterval(-7 * 86400)
+        let active = connectionActivities.filter { $0.lastSeenAt >= cutoff }
+        let noteSources = Set(notes.flatMap(\.sources))
+        let eventSources = Set(recentEvents.map(\.source))
         let allKnownWriters = noteSources.union(eventSources)
 
-        for activity in recentConnectionActivities {
-            let name = activity.clientName.lowercased()
-            let hasToolCall = activity.lastToolName != nil || activity.lastToolCallAt != nil
-            let hasWritten = hasToolCall || allKnownWriters.contains(name) || allKnownWriters.contains(name.replacingOccurrences(of: "-", with: ""))
+        guard let unwritten = UnwrittenClients.firstUnwritten(
+            among: active,
+            knownWriterSources: allKnownWriters
+        ) else { return nil }
 
-            if !hasWritten {
-                let displayName = displayClientName(for: activity.clientName)
-                let count = connectionActivities.filter { $0.clientName.lowercased() == name }.count
-                return "\(displayName) has connected \(count) time\(count == 1 ? "" : "s") but hasn't written a note yet. Standing instructions may not be reaching it."
-            }
-        }
-        return nil
+        let displayName = displayClientName(for: unwritten.clientName)
+        return "\(displayName): No successful write has been observed for this client. Standing instructions may not be reaching it."
     }
 
     /// Assembles the prose summary of what the AI knows about the user from standing profile notes and capsule.
@@ -1126,6 +1124,7 @@ final class AppStore: ObservableObject {
     func showMore() {
         closeAllPanes()
         showingMore = true
+        moreDestination = .setup
         statusMessage = "More — Tools, settings, map, retrospectives, and secondary views."
     }
 
@@ -1133,7 +1132,9 @@ final class AppStore: ObservableObject {
     /// that is where `ConnectView` — and the only folder picker — lives.
     func showNotesFolder() {
         closeAllPanes()
+        showingMore = true
         showingSetup = true
+        moreDestination = .setup
         statusMessage = corpusFallbackMessage ?? "Setup — where your notes are stored."
     }
 
@@ -1191,7 +1192,9 @@ final class AppStore: ObservableObject {
 
     func showSetup() {
         closeAllPanes()
+        showingMore = true
         showingSetup = true
+        moreDestination = .setup
         statusMessage = "Setup — AI tool connections, profiles, house rules, and automation."
     }
 
@@ -1204,11 +1207,15 @@ final class AppStore: ObservableObject {
     func showHouseRules() {
         closeAllPanes()
         showingMore = true
+        moreDestination = .houseRules
+        statusMessage = "House Rules — what your AI should always do."
     }
 
     func showProfileManager() {
         closeAllPanes()
+        showingMore = true
         showingProfileManager = true
+        moreDestination = .profiles
         statusMessage = "Profiles — manage multi-vault profiles and master profile guardrails."
     }
 
@@ -1271,7 +1278,9 @@ final class AppStore: ObservableObject {
 
     func showArchived() {
         closeAllPanes()
+        showingMore = true
         showingArchived = true
+        moreDestination = .archived
         archiveSelection = []
         // No cap: the list scrolls now, and a hidden 51st archived note is one
         // the user can neither restore nor trash.
@@ -1295,13 +1304,17 @@ final class AppStore: ObservableObject {
 
     func showAutomation() {
         closeAllPanes()
+        showingMore = true
         showingAutomation = true
+        moreDestination = .automation
         statusMessage = "Automation — what runs on its own, and what only runs when you ask."
     }
 
     func showTrustCenter() {
         closeAllPanes()
+        showingMore = true
         showingTrustCenter = true
+        moreDestination = .trustCenter
         refreshTrustCenter()
         statusMessage = "Trust Center — connection evidence, recovery points, and note history."
     }
@@ -1363,7 +1376,8 @@ final class AppStore: ObservableObject {
     /// connects a second AI tool later, which has nothing to do with being new.
     func showGetStarted() {
         closeAllPanes()
-        showingGetStarted = true
+        showingMore = true
+        moreDestination = .setup
         statusMessage = "Get Started — connect an AI assistant to these notes."
     }
 

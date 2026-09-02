@@ -28,6 +28,12 @@ public struct MCPConnectionActivity: Codable, Identifiable, Equatable, Sendable 
     /// distinguishing both from a client that got nothing at all.
     public var lastContextDeliveredAt: Date?
 
+    /// When this client last called a tool that appends an Event.
+    ///
+    /// Distinct from `lastToolCallAt`, which a search satisfies. Nil means no write
+    /// has been observed — not that none happened, but that nothing here saw one.
+    public var lastWriteAt: Date?
+
     public init(
         id: String,
         clientName: String,
@@ -37,7 +43,8 @@ public struct MCPConnectionActivity: Codable, Identifiable, Equatable, Sendable 
         lastToolName: String? = nil,
         lastToolCallAt: Date? = nil,
         lastToolSucceeded: Bool? = nil,
-        lastContextDeliveredAt: Date? = nil
+        lastContextDeliveredAt: Date? = nil,
+        lastWriteAt: Date? = nil
     ) {
         self.id = id
         self.clientName = clientName
@@ -48,6 +55,7 @@ public struct MCPConnectionActivity: Codable, Identifiable, Equatable, Sendable 
         self.lastToolCallAt = lastToolCallAt
         self.lastToolSucceeded = lastToolSucceeded
         self.lastContextDeliveredAt = lastContextDeliveredAt
+        self.lastWriteAt = lastWriteAt
     }
 }
 
@@ -127,11 +135,15 @@ public final class MCPConnectionActivityStore: @unchecked Sendable {
         succeeded: Bool,
         at date: Date = Date()
     ) throws -> MCPConnectionActivity {
-        try mutate(clientName: clientName, clientVersion: clientVersion, at: date) { activity in
+        let isWrite = MCPTool(rawValue: toolName)?.isWrite ?? false
+        return try mutate(clientName: clientName, clientVersion: clientVersion, at: date) { activity in
             activity.lastSeenAt = date
             activity.lastToolName = toolName
             activity.lastToolCallAt = date
             activity.lastToolSucceeded = succeeded
+            if isWrite && succeeded {
+                activity.lastWriteAt = date
+            }
         }
     }
 

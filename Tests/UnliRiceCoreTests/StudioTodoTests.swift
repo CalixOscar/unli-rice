@@ -162,4 +162,103 @@ extension StudioTodoTests {
         XCTAssertTrue(many.items.contains { $0.title == "2 branches are ahead of main" },
                       many.items.map(\.title).description)
     }
+
+    // MARK: - Regression & Coverage Tests (Plan §6 1-10)
+
+    func testDeriveWithNoWorktreeDirtHasNoneCoverage() {
+        let snap = snapshot([repo("X", [branch("main")])])
+        let t = StudioTodo.derive(from: snap)
+        XCTAssertEqual(t.coverage.dirt, .none)
+    }
+
+    func testDerivePartialWorktreeDirtCoverage() {
+        let snap = snapshot([repo("X", [branch("main")]), repo("Y", [branch("main")])])
+        let t = StudioTodo.derive(from: snap, worktreeDirt: ["X": 0])
+        XCTAssertEqual(t.coverage.dirt, .partial(missing: ["Y"]))
+    }
+
+    func testStudioTodoUnread() {
+        let unread = StudioTodo.unread()
+        XCTAssertTrue(unread.items.isEmpty)
+        XCTAssertFalse(unread.coverage.snapshotRead)
+    }
+
+    func testInitItemsDefaultsToUnknownCoverage() {
+        let t = StudioTodo(items: [])
+        XCTAssertEqual(t.coverage.dirt, .none)
+        XCTAssertFalse(t.coverage.snapshotRead)
+    }
+
+    func testReadNoStepSuppressesSnapshotNextStepFallback() {
+        let r = RepoSnapshotFile.Repo(
+            name: "X", currentBranch: "main", detachedHead: false,
+            branches: [branch("main")],
+            remoteBranchCount: 1, worktrees: [], trunk: "main",
+            nextStep: "snapshot step")
+
+        let suppressed = StudioTodo.derive(from: snapshot([r]), nextSteps: ["X": .readNoStep])
+        XCTAssertFalse(suppressed.items.contains { $0.title == "snapshot step" })
+
+        let unreadFallback = StudioTodo.derive(from: snapshot([r]), nextSteps: ["X": .unreadable])
+        XCTAssertTrue(unreadFallback.items.contains { $0.title == "snapshot step" })
+    }
+
+    func testReadNoStepCountsTowardCoverageNextSteps() {
+        let r1 = repo("X", [branch("main")])
+        let r2 = repo("Y", [branch("main")])
+        let snap = snapshot([r1, r2])
+
+        let partial = StudioTodo.derive(from: snap, nextSteps: ["X": .readNoStep, "Y": .unreadable])
+        XCTAssertEqual(partial.coverage.nextSteps, .partial(missing: ["Y"]))
+
+        let complete = StudioTodo.derive(from: snap, nextSteps: ["X": .readNoStep, "Y": .step("do this")])
+        XCTAssertEqual(complete.coverage.nextSteps, .complete)
+    }
+
+    func testEmptyStateUnreadWhenSnapshotNotRead() {
+        let cov = StudioTodo.Coverage(snapshotRead: false, repositories: [], dirt: .none, nextSteps: .none)
+        let state = TodoEmptyState.for(coverage: cov)
+        XCTAssertEqual(state, .unread)
+        XCTAssertNotEqual(state, .nothingOutstanding)
+    }
+
+    func testEmptyStateEmptySnapshotWhenNoRepos() {
+        let cov = StudioTodo.Coverage(snapshotRead: true, repositories: [], dirt: .none, nextSteps: .none)
+        let state = TodoEmptyState.for(coverage: cov)
+        XCTAssertEqual(state, .emptySnapshot)
+    }
+
+    func testEmptyStateQualifiedWhenPartialDirt() {
+        let cov = StudioTodo.Coverage(
+            snapshotRead: true,
+            repositories: ["X", "Y"],
+            dirt: .partial(missing: ["Y"]),
+            nextSteps: .complete
+        )
+        let state = TodoEmptyState.for(coverage: cov)
+        switch state {
+        case .qualified(let msg):
+            XCTAssertTrue(msg.contains("dirt not measured for 1 of 2 repositories"), msg)
+        default:
+            XCTFail("Expected .qualified, got \(state)")
+        }
+    }
+
+    func testEmptyStateNothingOutstandingOnlyWhenComplete() {
+        let complete = StudioTodo.Coverage(
+            snapshotRead: true,
+            repositories: ["X"],
+            dirt: .complete,
+            nextSteps: .complete
+        )
+        XCTAssertEqual(TodoEmptyState.for(coverage: complete), .nothingOutstanding)
+
+        let incomplete = StudioTodo.Coverage(
+            snapshotRead: true,
+            repositories: ["X"],
+            dirt: .none,
+            nextSteps: .complete
+        )
+        XCTAssertNotEqual(TodoEmptyState.for(coverage: incomplete), .nothingOutstanding)
+    }
 }

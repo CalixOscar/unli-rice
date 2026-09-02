@@ -133,4 +133,99 @@ final class ConnectionActivityTests: XCTestCase {
         XCTAssertNotNil(activity.lastContextDeliveredAt)
         XCTAssertNil(activity.lastToolCallAt)
     }
+
+    // MARK: - Plan §6 Tests (16, 17, 19, 21)
+
+    func testRecordSearchNotesLeavesLastWriteAtNil() throws {
+        try store.recordToolCall(
+            clientName: "Codex",
+            clientVersion: "1.0",
+            toolName: "search_notes",
+            succeeded: true,
+            at: Date()
+        )
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertNil(activity.lastWriteAt)
+    }
+
+    func testRecordWriteToolCallSetsLastWriteAtOnlyOnSuccess() throws {
+        let t1 = Date(timeIntervalSince1970: 500)
+        try store.recordToolCall(
+            clientName: "Agent",
+            clientVersion: "1.0",
+            toolName: "create_note",
+            succeeded: false,
+            at: t1
+        )
+        var activity = try XCTUnwrap(store.list().first)
+        XCTAssertNil(activity.lastWriteAt)
+
+        let t2 = Date(timeIntervalSince1970: 600)
+        try store.recordToolCall(
+            clientName: "Agent",
+            clientVersion: "1.0",
+            toolName: "create_note",
+            succeeded: true,
+            at: t2
+        )
+        activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.lastWriteAt, t2)
+    }
+
+    func testActivityJsonWithoutLastWriteAtDecodesWithNil() throws {
+        let legacy = """
+        {"version":1,"clients":[{"id":"LegacyClient","clientName":"LegacyClient",\
+        "firstSeenAt":"2026-08-04T10:00:00Z","lastSeenAt":"2026-08-04T10:00:00Z"}]}
+        """
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(legacy.utf8).write(to: root.appendingPathComponent("connections.json"))
+
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.clientName, "LegacyClient")
+        XCTAssertNil(activity.lastWriteAt)
+    }
+
+    func testRoundTripPythonHookAndSwiftCompatibility() throws {
+        let hookJson = """
+        {
+          "version": 1,
+          "clients": [
+            {
+              "id": "Claude Code",
+              "clientName": "Claude Code",
+              "firstSeenAt": "2026-08-04T03:52:02Z",
+              "lastSeenAt": "2026-08-04T03:52:02Z",
+              "lastContextDeliveredAt": "2026-08-04T03:52:02Z",
+              "lastWriteAt": "2026-08-04T03:53:00Z"
+            }
+          ]
+        }
+        """
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data(hookJson.utf8).write(to: root.appendingPathComponent("connections.json"))
+
+        // Swift loads it
+        let activity = try XCTUnwrap(store.list().first)
+        XCTAssertEqual(activity.id, "Claude Code")
+        XCTAssertNotNil(activity.lastWriteAt)
+
+        // Swift modifies it
+        try store.recordToolCall(
+            clientName: "Claude Code",
+            clientVersion: nil,
+            toolName: "append_to_note",
+            succeeded: true,
+            at: Date(timeIntervalSince1970: 1785815600)
+        )
+
+        // Re-read file raw data to check envelope version and fields
+        let fileData = try Data(contentsOf: store.fileURL)
+        let jsonObj = try XCTUnwrap(JSONSerialization.jsonObject(with: fileData) as? [String: Any])
+        XCTAssertEqual(jsonObj["version"] as? Int, 1)
+
+        let clients = try XCTUnwrap(jsonObj["clients"] as? [[String: Any]])
+        let claudClient = try XCTUnwrap(clients.first(where: { ($0["id"] as? String) == "Claude Code" }))
+        XCTAssertNotNil(claudClient["lastWriteAt"])
+        XCTAssertNotNil(claudClient["lastContextDeliveredAt"])
+    }
 }

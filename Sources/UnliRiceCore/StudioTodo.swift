@@ -11,6 +11,23 @@ import Foundation
 ///
 /// It adds no `EventKind` and writes nothing. Locked decision #3 — propose, never apply —
 /// holds: this reports, and the founder acts.
+/// The result of trying to read one project's memory.md.
+///
+/// `.readNoStep` is the case the loader could not express before: the file was
+/// read successfully and names no next step. Collapsing it into "unreadable"
+/// let the snapshot's older copy win, resurrecting steps already completed.
+public enum MemoryRead: Equatable, Sendable {
+    case unreadable
+    case readNoStep
+    case step(String)
+}
+
+extension MemoryRead: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self = .step(value)
+    }
+}
+
 public struct StudioTodo: Equatable, Sendable {
 
     /// Why an item exists. Ordering of the enum is the ordering of urgency, and it is
@@ -59,24 +76,154 @@ public struct StudioTodo: Equatable, Sendable {
         }
     }
 
+    /// What this list actually looked at.
+    ///
+    /// Separate from the items, because "found nothing" and "never looked" are
+    /// different answers and only one of them licenses the words "nothing
+    /// outstanding". Measured against the snapshot's OWN repository set: a set of
+    /// measured names alone cannot tell partial coverage from complete, and
+    /// reporting partial as complete is the bug this type exists to prevent.
+    public struct Coverage: Equatable, Sendable {
+
+        public enum Extent: Equatable, Sendable {
+            /// Nothing was inspected. The list is uninformed, not empty.
+            case none
+            /// Some repositories were inspected; `missing` names those that were not.
+            case partial(missing: Set<String>)
+            /// Every repository in the snapshot was inspected.
+            case complete
+        }
+
+        /// False means no snapshot was read at all — the whole list is uninformed.
+        public let snapshotRead: Bool
+        /// Every repository the snapshot contained. Empty with `snapshotRead == true`
+        /// is its own answer: a snapshot that found no repositories.
+        public let repositories: Set<String>
+        /// How much of `repositories` had its uncommitted-file count measured.
+        public let dirt: Extent
+        /// How much of `repositories` had its memory.md read — successfully, whether
+        /// or not a step was found. See `MemoryRead`.
+        public let nextSteps: Extent
+        /// When the snapshot was produced. Every finding is only as current as this.
+        public let generatedAt: Date?
+
+        public init(
+            snapshotRead: Bool,
+            repositories: Set<String>,
+            dirt: Extent,
+            nextSteps: Extent,
+            generatedAt: Date? = nil
+        ) {
+            self.snapshotRead = snapshotRead
+            self.repositories = repositories
+            self.dirt = dirt
+            self.nextSteps = nextSteps
+            self.generatedAt = generatedAt
+        }
+
+        public var gapSummary: String? {
+            guard snapshotRead, !repositories.isEmpty else { return nil }
+            var gaps: [String] = []
+            switch dirt {
+            case .none:
+                gaps.append("dirt not measured")
+            case .partial(let missing):
+                gaps.append("dirt not measured for \(missing.count) of \(repositories.count) repositories")
+            case .complete:
+                break
+            }
+            switch nextSteps {
+            case .none:
+                gaps.append("next steps not read")
+            case .partial(let missing):
+                gaps.append("next steps not read for \(missing.count) of \(repositories.count) repositories")
+            case .complete:
+                break
+            }
+            return gaps.isEmpty ? nil : gaps.joined(separator: " · ")
+        }
+    }
+
     public let items: [Item]
-    public init(items: [Item]) { self.items = items }
+    public let coverage: Coverage
+
+    public init(items: [Item], coverage: Coverage) {
+        self.items = items
+        self.coverage = coverage
+    }
+
+    public init(items: [Item]) {
+        self.items = items
+        self.coverage = Coverage(
+            snapshotRead: false,
+            repositories: [],
+            dirt: .none,
+            nextSteps: .none,
+            generatedAt: nil
+        )
+    }
+
+    public static func unread() -> StudioTodo {
+        StudioTodo(
+            items: [],
+            coverage: Coverage(
+                snapshotRead: false,
+                repositories: [],
+                dirt: .none,
+                nextSteps: .none,
+                generatedAt: nil
+            )
+        )
+    }
 
     public var atRisk: [Item] { items.filter { $0.kind == .atRisk } }
 
     // MARK: - Derivation
 
+    private static func computeExtent(inspected: Set<String>, against repositories: Set<String>) -> Coverage.Extent {
+        guard !repositories.isEmpty else { return .complete }
+        let measured = inspected.intersection(repositories)
+        if measured.isEmpty {
+            return .none
+        } else if measured == repositories {
+            return .complete
+        } else {
+            return .partial(missing: repositories.subtracting(measured))
+        }
+    }
+
     /// Build the list from a published snapshot plus whatever notes are readable.
     ///
-    /// `nextSteps` maps project name to the `**Next step:**` line of its memory.md. It
+    /// `nextSteps` maps project name to the result of reading its memory.md. It
     /// is passed in rather than read here so this stays testable and free of I/O — the
     /// same reason `DataLocation` takes its persisted path as an argument.
     public static func derive(
         from snapshot: RepoSnapshotFile,
-        nextSteps: [String: String] = [:],
+        nextSteps: [String: MemoryRead] = [:],
         worktreeDirt: [String: Int] = [:]
     ) -> StudioTodo {
         var out: [Item] = []
+        let reposSet = Set(snapshot.repos.map(\.name))
+
+        let dirtExtent = computeExtent(inspected: Set(worktreeDirt.keys), against: reposSet)
+
+        let readNextSteps = Set(nextSteps.compactMap { (repo, read) -> String? in
+            switch read {
+            case .readNoStep, .step:
+                return repo
+            case .unreadable:
+                return nil
+            }
+        })
+        let nextStepsExtent = computeExtent(inspected: readNextSteps, against: reposSet)
+
+        let coverage = Coverage(
+            snapshotRead: true,
+            repositories: reposSet,
+            dirt: dirtExtent,
+            nextSteps: nextStepsExtent,
+            generatedAt: snapshot.generatedAt
+        )
 
         for repo in snapshot.repos {
             let p = repo.name
@@ -107,24 +254,36 @@ public struct StudioTodo: Equatable, Sendable {
                     fix: nil))
             }
 
-            // 3. What the founder said was next. Not inferred — written down.
-            // .whitespacesAndNewlines, not .whitespaces: the latter excludes newlines,
-            // so a field containing only "  \n  " passed the guard and produced a task
-            // with an empty title.
-            // The caller's own reading of memory.md wins — it is live, where the
-            // snapshot's copy is as old as the last publish. The snapshot is the
-            // fallback, and the only source a phone has.
-            let declared = nextSteps[p] ?? repo.nextStep
-            if let step = declared,
-               !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                out.append(Item(
-                    id: "\(p)/next-step",
-                    project: p,
-                    kind: .declared,
-                    title: step.trimmingCharacters(in: .whitespacesAndNewlines),
-                    evidence: nextSteps[p] != nil ? "From \(p)/memory.md"
-                                                  : "From \(p)/memory.md, as of the last snapshot",
-                    fix: nil))
+            // 3. What the founder said was next.
+            let mem = nextSteps[p]
+            switch mem {
+            case .step(let step):
+                let trimmed = step.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    out.append(Item(
+                        id: "\(p)/next-step",
+                        project: p,
+                        kind: .declared,
+                        title: trimmed,
+                        evidence: "From \(p)/memory.md",
+                        fix: nil))
+                }
+            case .readNoStep:
+                // File was read and explicitly names no next step.
+                // Suppress snapshot fallback!
+                break
+            case .unreadable, .none:
+                // Falls back to snapshot's copy
+                if let declared = repo.nextStep,
+                   !declared.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    out.append(Item(
+                        id: "\(p)/next-step",
+                        project: p,
+                        kind: .declared,
+                        title: declared.trimmingCharacters(in: .whitespacesAndNewlines),
+                        evidence: "From \(p)/memory.md, as of the last snapshot",
+                        fix: nil))
+                }
             }
 
             // 4. Finished work nobody else can see. Distinct from at-risk: it exists on
@@ -166,7 +325,7 @@ public struct StudioTodo: Equatable, Sendable {
         // Most urgent first, then by project so one project's items stay together.
         return StudioTodo(items: out.sorted {
             ($0.kind, $0.project, $0.title) < ($1.kind, $1.project, $1.title)
-        })
+        }, coverage: coverage)
     }
 
     /// Pull the `**Next step:**` field out of a memory.md body.

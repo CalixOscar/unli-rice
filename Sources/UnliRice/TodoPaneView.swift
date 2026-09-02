@@ -59,22 +59,28 @@ struct TodoPaneView: View {
             // pane is what turned "why is this empty" from an afternoon of elimination
             // into one launch.
             if !sourceNote.isEmpty {
-                Text(sourceNote)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .textSelection(.enabled)
+                HStack(spacing: 8) {
+                    Text(sourceNote)
+                    if let gap = todo.coverage.gapSummary {
+                        Text("·")
+                        Text(gap)
+                            .foregroundStyle(Theme.brass)
+                    }
+                }
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+                .textSelection(.enabled)
             }
         }
     }
 
     private var empty: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("Nothing outstanding")
+        let state = TodoEmptyState.for(coverage: todo.coverage)
+        return VStack(alignment: .leading, spacing: 5) {
+            Text(state.headline)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Every branch tip is on a remote, no worktree holds uncommitted work, "
-                 + "and no memory.md names a next step. If that seems wrong, publish a "
-                 + "fresh snapshot: check-repos.sh --publish")
+            Text(emptyBody(for: state))
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -82,6 +88,22 @@ struct TodoPaneView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .liquidGlass(cornerRadius: 12)
+    }
+
+    private func emptyBody(for state: TodoEmptyState) -> String {
+        let folder = store.dataURL.deletingLastPathComponent().path
+        switch state {
+        case .unread:
+            return "The snapshot at \(folder) could not be read, so this pane knows nothing about any repository. If you haven't published one yet, run: check-repos.sh --publish"
+        case .emptySnapshot:
+            return "The snapshot was read and listed no repositories. If that seems wrong, publish a fresh snapshot: check-repos.sh --publish"
+        case .nothingOutstanding:
+            let asOf = todo.coverage.generatedAt.map { " as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
+            return "Every branch tip is on a remote, no worktree holds uncommitted work, and no memory.md names a next step\(asOf). If that seems wrong, publish a fresh snapshot: check-repos.sh --publish"
+        case .qualified(let message):
+            let asOf = todo.coverage.generatedAt.map { ", as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
+            return "Every branch tip in the snapshot is on a remote, but: \(message)\(asOf). If that seems wrong, publish a fresh snapshot: check-repos.sh --publish"
+        }
     }
 
     private func section(_ kind: StudioTodo.Kind, _ items: [StudioTodo.Item]) -> some View {
@@ -171,13 +193,13 @@ struct TodoPaneView: View {
             defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
 
             guard let snap = try? RepoSnapshotFile.read(fromFolder: folder) else {
-                return (StudioTodo(items: []),
+                return (StudioTodo.unread(),
                         "no readable snapshot in \(folder.path) — run check-repos.sh --publish")
             }
 
             // memory.md lives in each project, under folders already granted for
             // scanning. Missing is normal: only one project has one so far.
-            var steps: [String: String] = [:]
+            var steps: [String: MemoryRead] = [:]
             let opened = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
             defer { for (u, ok) in opened where ok { u.stopAccessingSecurityScopedResource() } }
             for (root, _) in opened {
@@ -185,18 +207,30 @@ struct TodoPaneView: View {
                     at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
                 else { continue }
                 for kid in kids {
+                    let name = kid.lastPathComponent
                     let m = kid.appendingPathComponent("memory.md")
-                    guard let body = try? String(contentsOf: m, encoding: .utf8),
-                          let step = StudioTodo.nextStep(fromMemory: body) else { continue }
-                    steps[kid.lastPathComponent] = step
+                    if FileManager.default.fileExists(atPath: m.path) {
+                        do {
+                            let body = try String(contentsOf: m, encoding: .utf8)
+                            if let step = StudioTodo.nextStep(fromMemory: body) {
+                                steps[name] = .step(step)
+                            } else {
+                                steps[name] = .readNoStep
+                            }
+                        } catch {
+                            steps[name] = .unreadable
+                        }
+                    } else {
+                        steps[name] = .readNoStep
+                    }
                 }
             }
 
-            let dirt = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, 0) })
-            let t = StudioTodo.derive(from: snap, nextSteps: steps, worktreeDirt: dirt)
+            let t = StudioTodo.derive(from: snap, nextSteps: steps)
             byName = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, $0) })
+            let readCount = steps.values.filter { $0 != .unreadable }.count
             return (t, "\(t.items.count) items from \(snap.repos.count) repos · "
-                     + "\(steps.count) memory.md · snapshot "
+                     + "\(readCount) memory.md · snapshot "
                      + snap.generatedAt.formatted(.relative(presentation: .named))
                      + " · \(folder.path)")
         }.value
