@@ -1974,3 +1974,87 @@ will be saved in the wrong place*. Exact paths and counts stay in the detail
 text for anyone who wants them.
 
 296 tests, zero failures.
+
+## The studio cockpit: reading git without git (2026-09-02)
+
+Points 3–7 of the studio research doc. Point 2 — moving `Projects` into the vault —
+was explicitly deferred by the founder and is not built.
+
+### The constraint that shaped everything
+
+The Mac app is sandboxed and on the App Store, so `Process`/`NSTask` is unavailable
+and no entitlement grants it. There is no `git` subprocess to call. `GitRepoScanner`
+therefore reads the plumbing directly — `HEAD`, `refs/`, `packed-refs`, `worktrees/`
+and `commondir` — and the same constraint decides the whole interaction model: the UI
+reports and proposes, and every "fix" it offers is copied text. It could not push a
+branch or delete a ref however a button were labelled.
+
+**Do not pass `.skipsHiddenFiles` to an enumerator under `.git`.** `.git` is itself a
+hidden directory, so on a real volume the enumerator yields nothing. It surfaced as 13
+packed branches found where 21 existed — a plausible number, which is what made it
+expensive. There is now an opt-in integration test behind `UNLIRICE_TEST_REPO`.
+
+### The branch graph, and three wrong versions of it
+
+The founder asked for "a line showing when a branch split from the main and when it
+reconnected, like a train line that diverts to let an oncoming train pass". Each
+rejection was a modelling error, not a drawing error:
+
+1. Merged branches were drawn as descendants of their own merge commit — the graph
+   ran backwards. *"Should not main be the working tree and everything else branches?"*
+2. Merged branches were drawn as forks that never rejoined. *"Should not two merged
+   branches show as one connecting the chicken bone onto the main tree?"*
+3. Turnouts met the trunk at 90°. *"Imagine a train, that 90 degree angle is hard to
+   pass for a long one."* Control points at both ends now lie along the line they
+   meet, so the rail is tangent to each.
+
+The modelling fix underneath all three: **a loop belongs to a merge commit, not to a
+branch.** Fork is `merge-base(M^1, M^2)` and rejoin is `M`. Attributing loops to
+branches gave fourteen branches the same fork and rejoint point, which looked
+plausible and was meaningless.
+
+### A to-do list that cannot be ticked off
+
+`StudioTodo` derives every item from the state that makes it true, so an item
+disappears when the work is done rather than when someone remembers to mark it. A
+checklist you tick is a second source of truth, and this codebase has already paid for
+notes that disagree with the repo (see the corpus fork above). Ordering is
+`atRisk < declared < unshared < clutter`, because work that can be permanently lost
+has to outrank tidying or the list buries its own most important line.
+
+Two sources, deliberately: git says what is at risk, `memory.md`'s **Next step:** says
+what you meant to do. Neither alone is the list.
+
+### The rating prompt is a ladder
+
+Apple allows three prompts per 365 days and silently drops the rest, so the budget is
+the entire design. UnliDisk's plan records the failure mode: one threshold, a permanent
+boolean, the other two thrown away. Here it is note-count milestones 100/500/2000, one
+ask per 120 days, three per install, always spending the *highest* rung reached.
+
+**No custom star UI.** Asking how someone feels and routing only the happy ones to the
+store is review manipulation under Guideline 1.1.7. `ReviewPrompt` is pure and knows
+nothing about StoreKit, because a real prompt spends a real slot and cannot be
+exercised by hand.
+
+One bug worth recording: the first wiring recorded the ask *before* requesting it,
+behind a `keyWindow` guard that could return early — spending a rung on a prompt never
+requested, undetectably, because a used rung never asks again.
+
+343 tests, 0 failures, 2 skipped (verified: `swift test` 2026-09-02).
+
+### Why this arc nearly went unrecorded
+
+Both `lint-memory.sh` and `lint-project-notes.sh` run from pre-commit *only when their
+file is staged*. They are content validators: they check the shape of what you wrote
+and can never check that you wrote nothing. 22 commits landed after the split into
+`memory.md`, nine of them shipping the features above, and neither file was staged
+once — so every commit passed every check while `memory.md` still named a merged
+branch as current, a superseded next step, a test count 25 low, and six "unbacked
+commits" that were all pushed.
+
+pre-commit now measures drift as well as shape: commits since `memory.md` last
+changed, warning at 3 and blocking at 10 (waivable with `STUDIO_ALLOW_STALE_MEMORY=1`),
+and a warn-only notice at 15 for this file. The asymmetry is deliberate — this file is
+a record and should sit still through long work, and blocking would buy filler entries
+written to satisfy a hook.
