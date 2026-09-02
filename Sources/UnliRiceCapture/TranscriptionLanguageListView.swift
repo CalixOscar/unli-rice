@@ -8,8 +8,18 @@ public struct TranscriptionLanguageListView: View {
         self.store = store
     }
 
+    /// What "Follow system" actually resolves to. This is the KEYBOARD-derived locale,
+    /// not the region setting — see `KeyboardLocales`. Showing the region here while
+    /// transcribing in a keyboard language would be a label that lies.
     private var systemLanguageName: String {
-        Locale.current.localizedString(forIdentifier: Locale.current.identifier) ?? Locale.current.identifier
+        let resolved = KeyboardLocales.preferred()
+        return Locale.current.localizedString(forIdentifier: resolved.identifier)
+            ?? resolved.identifier
+    }
+
+    /// Nil when there were no readable keyboards and we fell back to the region setting.
+    private var systemLanguageReason: String {
+        KeyboardLocales.explanation() ?? "From your iPhone's Language & Region setting"
     }
 
     public var body: some View {
@@ -40,7 +50,8 @@ public struct TranscriptionLanguageListView: View {
                         }
                     }
                 } footer: {
-                    Text("Uses your iPhone's primary language setting.")
+                    Text(systemLanguageReason + ". Change it here if you speak a different "
+                         + "language than you type.")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textLight)
                 }
@@ -62,7 +73,11 @@ public struct TranscriptionLanguageListView: View {
                     Text("Available Languages")
                         .foregroundStyle(Theme.textSecondary)
                 } footer: {
-                    Text("Transcription models run on-device. Downloading a language model requires an internet connection once.")
+                    Text("Transcription models run on-device. Downloading a language model "
+                         + "requires an internet connection once.\n\nOne language is used per "
+                         + "recording. Mixed-language speech — switching between two languages "
+                         + "in one sentence — is not supported, and picking either language "
+                         + "will not transcribe the other.")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textLight)
                 }

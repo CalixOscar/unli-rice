@@ -36,11 +36,27 @@ public enum TranscriptionLanguageError: Error, LocalizedError {
 }
 
 public enum TranscriptionLanguages {
-    /// Returns the locales supported by SpeechTranscriber, sorted by localized display name.
-    public static func supported() async -> [Locale] {
+    /// Returns the locales supported by SpeechTranscriber.
+    ///
+    /// Ordering is deliberate: the languages the user has KEYBOARDS for come first, in the
+    /// order iOS reports them, then everything else alphabetically. The supported list runs
+    /// to dozens of entries, and a strict A-Z ordering buries the two or three a given
+    /// person will ever pick. Matching is by language code, so an `en` keyboard surfaces
+    /// `en-US`, `en-GB` and `en-PH` together rather than only an exact identifier match.
+    public static func supported(preferring keyboardLocales: [Locale] = []) async -> [Locale] {
         let locales = await SpeechTranscriber.supportedLocales
         let currentLocale = Locale.current
+
+        let preferredCodes = keyboardLocales.compactMap { $0.language.languageCode?.identifier }
+        func rank(_ l: Locale) -> Int {
+            guard let code = l.language.languageCode?.identifier,
+                  let i = preferredCodes.firstIndex(of: code) else { return Int.max }
+            return i
+        }
+
         return locales.sorted { a, b in
+            let ra = rank(a), rb = rank(b)
+            if ra != rb { return ra < rb }
             let nameA = currentLocale.localizedString(forIdentifier: a.identifier) ?? a.identifier
             let nameB = currentLocale.localizedString(forIdentifier: b.identifier) ?? b.identifier
             return nameA.localizedCaseInsensitiveCompare(nameB) == .orderedAscending
