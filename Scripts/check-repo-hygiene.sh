@@ -56,13 +56,27 @@ done
 # `swift test` glob the source directory, so a new file compiles and its tests pass
 # — while the checked-in .xcodeproj still carries a fixed file list and fails with
 # "Cannot find 'X' in scope". The SPM build being green is what makes it invisible.
-PBX=$(ls -1 ./*.xcodeproj/project.pbxproj 2>/dev/null | head -1)
-if [ -n "$PBX" ]; then
+# EVERY project file, not the first one the glob happens to return. iCloud leaves
+# duplicates like "UnliRice 2.xcodeproj" beside the real one, and `head -1` picked a
+# stale copy — which reported a file as missing that had just been regenerated into
+# the live project. A check that cries wolf is the one people learn to ignore.
+PBX_LIST=$(ls -1d ./*.xcodeproj 2>/dev/null || true)
+if [ -n "$PBX_LIST" ]; then
   MISSING=""
   for f in $(git diff --cached --name-only --diff-filter=A | grep -E '^Sources/.*\.swift$'); do
     base=$(basename "$f")
-    grep -qF "$base" "$PBX" || MISSING="$MISSING $base"
+    found=0
+    for proj in $PBX_LIST; do
+      [ -f "$proj/project.pbxproj" ] || continue
+      grep -qF "$base" "$proj/project.pbxproj" && { found=1; break; }
+    done
+    [ "$found" -eq 1 ] || MISSING="$MISSING $base"
   done
+  DUPES=$(printf '%s\n' "$PBX_LIST" | grep -cE ' [0-9]+\.xcodeproj$' || true)
+  [ "${DUPES:-0}" -gt 0 ] && warn "$DUPES duplicate .xcodeproj folder(s) beside the real one
+           iCloud collision copies (\"Name 2.xcodeproj\"). Harmless to delete — the
+           project is generated from project.yml — but they confuse tools that glob."
+
   if [ -n "$MISSING" ]; then
     warn "new source file(s) not in the Xcode project:$MISSING
            swift build globs the directory and will pass; Xcode carries a fixed file

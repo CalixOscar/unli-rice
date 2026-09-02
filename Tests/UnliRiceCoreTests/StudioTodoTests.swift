@@ -147,3 +147,19 @@ extension StudioTodoTests {
         XCTAssertFalse(t.items[0].evidence.contains("snapshot"))
     }
 }
+
+extension StudioTodoTests {
+    /// The noun has to be pluralised too. "3 branch are ahead" shipped, the same slip
+    /// as "3 branch tipes" — both from deriving one word form instead of writing both.
+    func testAheadOfTrunkPluralisesTheNounAndTheVerb() {
+        let one = StudioTodo.derive(from: snapshot([repo("X", [branch("a", ahead: 2)])]))
+        XCTAssertTrue(one.items.contains { $0.title == "1 branch is ahead of main" },
+                      one.items.map(\.title).description)
+
+        let many = StudioTodo.derive(from: snapshot([
+            repo("X", [branch("a", ahead: 2), branch("b", ahead: 3)])
+        ]))
+        XCTAssertTrue(many.items.contains { $0.title == "2 branches are ahead of main" },
+                      many.items.map(\.title).description)
+    }
+}

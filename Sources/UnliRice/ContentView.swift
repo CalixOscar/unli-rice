@@ -127,6 +127,11 @@ struct ContentView: View {
                 store.showAllNotes()
             }
 
+            sidebarRow("Repos", active: store.showingRepos) {
+                store.selectNote(nil)
+                store.showRepos()
+            }
+
             let needsYouBadge = store.pending.count + store.unreadNoticeCount
             if needsYouBadge > 0 {
                 sidebarRow(
@@ -139,27 +144,22 @@ struct ContentView: View {
                 }
             }
 
-            // Back out of More's horizontal chip bar and into the sidebar
-            // proper. Neither is a setting: the map is a way of reading the
-            // corpus, and the year-so-far is the payoff for having kept one.
-            sidebarRow("Map", active: store.showingGraph) {
-                store.selectNote(nil)
-                store.showGraph()
-            }
-
+            // These are top-level destinations, not settings buried in More's chip
+            // bar: the map is a way of reading the corpus, the year-so-far is the
+            // payoff for having kept one, and To do is what to act on next.
             sidebarRow("To do", active: store.showingTodo) {
                 store.selectNote(nil)
                 store.showTodo()
             }
 
-            sidebarRow("Repos", active: store.showingRepos) {
-                store.selectNote(nil)
-                store.showRepos()
-            }
-
             sidebarRow("Your year so far", active: store.showingRetrospective) {
                 store.selectNote(nil)
                 store.showRetrospective()
+            }
+
+            sidebarRow("Map", active: store.showingGraph) {
+                store.selectNote(nil)
+                store.showGraph()
             }
 
             sidebarRow(

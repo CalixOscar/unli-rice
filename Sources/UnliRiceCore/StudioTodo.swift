@@ -137,7 +137,12 @@ public struct StudioTodo: Equatable, Sendable {
                     id: "\(p)/open-branches",
                     project: p,
                     kind: .unshared,
-                    title: "\(openWork.count) branch \(openWork.count == 1 ? "is" : "are") ahead of \(repo.trunk ?? "the trunk")",
+                    // Pluralise the NOUN as well as the verb. "3 branch are ahead" was
+                    // the same slip as "3 branch tipes" — deriving one form from another
+                    // instead of writing both.
+                    title: openWork.count == 1
+                        ? "1 branch is ahead of \(repo.trunk ?? "the trunk")"
+                        : "\(openWork.count) branches are ahead of \(repo.trunk ?? "the trunk")",
                     evidence: openWork.map { "\($0.name) +\($0.aheadOfTrunk ?? 0)" }
                                       .sorted().prefix(3).joined(separator: ", "),
                     fix: nil))

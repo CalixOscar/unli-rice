@@ -53,6 +53,9 @@ struct TodoPaneView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            // Always visible, not only on failure. The equivalent line on the Repos
+            // pane is what turned "why is this empty" from an afternoon of elimination
+            // into one launch.
             if !sourceNote.isEmpty {
                 Text(sourceNote)
                     .font(.system(size: 10.5, design: .monospaced))
@@ -159,7 +162,7 @@ struct TodoPaneView: View {
 
             guard let snap = try? RepoSnapshotFile.read(fromFolder: folder) else {
                 return (StudioTodo(items: []),
-                        "no snapshot in \(folder.path) — run check-repos.sh --publish")
+                        "no readable snapshot in \(folder.path) — run check-repos.sh --publish")
             }
 
             // memory.md lives in each project, under folders already granted for
@@ -181,8 +184,10 @@ struct TodoPaneView: View {
 
             let dirt = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, 0) })
             let t = StudioTodo.derive(from: snap, nextSteps: steps, worktreeDirt: dirt)
-            return (t, "\(snap.repos.count) repos · \(steps.count) memory.md · snapshot "
-                     + snap.generatedAt.formatted(.relative(presentation: .named)))
+            return (t, "\(t.items.count) items from \(snap.repos.count) repos · "
+                     + "\(steps.count) memory.md · snapshot "
+                     + snap.generatedAt.formatted(.relative(presentation: .named))
+                     + " · \(folder.path)")
         }.value
 
         todo = result.0

@@ -626,8 +626,9 @@ final class AppStore: ObservableObject {
         reload()
         refreshTrustCenter()
 
-        // State 1 & State 2: Open on FirstRun for someone who has no user-authored notes yet
-        if !hasUserAuthoredNotes {
+        // State 1 & State 2: FirstRun is for someone who genuinely has no notes — not
+        // for someone whose notes could not be read. See `corpusLoaded`.
+        if corpusLoaded && !hasUserAuthoredNotes {
             showingFirstRun = true
         } else {
             showingHome = true
@@ -1026,10 +1027,25 @@ final class AppStore: ObservableObject {
             if let selected = selectedNoteID, noteIndex[selected] == nil {
                 selectedNoteID = nil
             }
+            corpusLoaded = true
         } catch {
             errorMessage = "\(error)"
+            // Deliberately NOT setting corpusLoaded: an unreadable corpus and an empty
+            // one are different facts, and conflating them is what sent someone with
+            // 499 notes to the new-user screen.
         }
     }
+
+    /// Whether the last `reload()` actually read the corpus.
+    ///
+    /// Without this, "I could not read your notes" and "you have no notes" are the same
+    /// state — `notes` is empty either way. That is how a signature change, which
+    /// invalidates the security-scoped bookmark to the data folder, presented as first
+    /// run to someone whose corpus holds 499 notes and 1209 ingest events. Worse than
+    /// confusing: a new-user screen invites you to start writing, and a fresh corpus
+    /// alongside an unreadable one is exactly the stranded-notes problem the app already
+    /// has a notice for.
+    private(set) var corpusLoaded = false
 
     /// Looks up any known note by id — active or archived — for resolving a
     /// wiki-link target or a backlink in the detail view.
