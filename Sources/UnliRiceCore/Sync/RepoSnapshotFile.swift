@@ -19,7 +19,10 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
     /// version rather than silently decode a subset and render a half-truth.
     /// v2 adds ancestry (`parent`, `aheadOfParent`, `aheadOfTrunk`, `trunk`). All of it
     /// is optional, so a v1 file still decodes and simply renders without nesting.
-    public static let currentVersion = 2
+    /// v3 adds the junctions a branch's history actually has: where it forked from the
+    /// trunk and where (if ever) it rejoined. Still all optional, so v1 and v2 files
+    /// decode and render with less detail rather than failing.
+    public static let currentVersion = 3
 
     /// Written by the Mac, atomically, into the shared folder root.
     public static let filename = "repos.json"
@@ -46,6 +49,21 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         public let aheadOfParent: Int?
         /// Commits on this branch that are not on the trunk.
         public let aheadOfTrunk: Int?
+        /// One of "loop", "open" or "tick" — the three shapes a branch's history can
+        /// have relative to the trunk, and only one can be true of a given branch.
+        ///   loop — it left the trunk and came back, closed by a merge commit
+        ///   open — it left and has not come back
+        ///   tick — it never left; the label sits on the trunk's own line
+        public let shape: String?
+        /// Where it left the trunk, and how many trunk commits sit between there and
+        /// the tip. Distance is what lets the graph place the junction to scale.
+        public let forkSha: String?
+        public let forkBack: Int?
+        /// Where it rejoined. Nil for "open" and "tick".
+        public let rejoinSha: String?
+        public let rejoinBack: Int?
+        /// Commits that were on the siding — the length of the detour.
+        public let sidingCommits: Int?
         /// Commits on the trunk that are not on this branch — how far back it sits.
         /// Only meaningful when `aheadOfTrunk == 0`: such a branch never forked, it is
         /// a label on the trunk's own history, and this says where.
@@ -53,7 +71,10 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
 
         public init(name: String, sha: String, tipOnRemote: Bool, isCurrent: Bool,
                     parent: String? = nil, aheadOfParent: Int? = nil,
-                    aheadOfTrunk: Int? = nil, behindTrunk: Int? = nil) {
+                    aheadOfTrunk: Int? = nil, behindTrunk: Int? = nil,
+                    shape: String? = nil, forkSha: String? = nil, forkBack: Int? = nil,
+                    rejoinSha: String? = nil, rejoinBack: Int? = nil,
+                    sidingCommits: Int? = nil) {
             self.name = name
             self.sha = sha
             self.tipOnRemote = tipOnRemote
@@ -62,6 +83,12 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
             self.aheadOfParent = aheadOfParent
             self.aheadOfTrunk = aheadOfTrunk
             self.behindTrunk = behindTrunk
+            self.shape = shape
+            self.forkSha = forkSha
+            self.forkBack = forkBack
+            self.rejoinSha = rejoinSha
+            self.rejoinBack = rejoinBack
+            self.sidingCommits = sidingCommits
         }
     }
 
@@ -77,6 +104,37 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         }
     }
 
+    /// A fork-and-rejoin in the trunk's history.
+    ///
+    /// Loops belong to MERGE COMMITS, not to branches. Attributing one to every branch
+    /// whose tip happens to sit upstream of a merge reported the same pair for fourteen
+    /// branches in one repo, which says nothing. A branch is only *on* a loop when its
+    /// tip is one of the siding's commits — and a loop whose branch label was since
+    /// deleted is still real history, which is why these are carried per repo.
+    public struct Loop: Codable, Equatable, Sendable {
+        public let mergeSha: String
+        public let forkSha: String
+        /// Trunk commits between the junction and the trunk tip. Larger is older.
+        public let forkBack: Int
+        public let rejoinBack: Int
+        /// How many commits ran on the siding.
+        public let commits: Int
+        public let subject: String
+
+        public init(mergeSha: String, forkSha: String, forkBack: Int,
+                    rejoinBack: Int, commits: Int, subject: String) {
+            self.mergeSha = mergeSha
+            self.forkSha = forkSha
+            self.forkBack = forkBack
+            self.rejoinBack = rejoinBack
+            self.commits = commits
+            self.subject = subject
+        }
+
+        /// Trunk commits the siding ran alongside. Zero means it rejoined immediately.
+        public var trunkSpan: Int { max(0, forkBack - rejoinBack) }
+    }
+
     public struct Repo: Codable, Equatable, Sendable {
         public let name: String
         public let currentBranch: String?
@@ -86,6 +144,9 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         public let worktrees: [Worktree]
         /// The branch the ancestry is measured against.
         public let trunk: String?
+        /// Commits on the trunk. The scale every junction position is measured against.
+        public let trunkLength: Int?
+        public let loops: [Loop]?
 
         /// True when a producer supplied ancestry. The UI uses this to choose between
         /// drawing real nesting and drawing a flat fan, rather than inferring it from
@@ -94,7 +155,8 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
 
         public init(name: String, currentBranch: String?, detachedHead: Bool,
                     branches: [Branch], remoteBranchCount: Int, worktrees: [Worktree],
-                    trunk: String? = nil) {
+                    trunk: String? = nil, trunkLength: Int? = nil,
+                    loops: [Loop]? = nil) {
             self.name = name
             self.currentBranch = currentBranch
             self.detachedHead = detachedHead
@@ -102,6 +164,8 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
             self.remoteBranchCount = remoteBranchCount
             self.worktrees = worktrees
             self.trunk = trunk
+            self.trunkLength = trunkLength
+            self.loops = loops
         }
 
         public var branchesNotOnAnyRemote: [Branch] { branches.filter { !$0.tipOnRemote } }
