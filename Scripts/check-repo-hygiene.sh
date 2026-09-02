@@ -48,7 +48,30 @@ for f in $STRAY; do
            <!-- lint-allow plan-location \"reason, 2026-09-02\" -->"
 done
 
-# --- 2. branch drift ---------------------------------------------------------
+# --- 2. a new source file that the Xcode project has never heard of ----------
+# Warns, does not block: not every repo generates its project, and a file can be
+# legitimately added in one commit and wired up in the next.
+#
+# This exists because it has now happened twice in one day. `swift build` and
+# `swift test` glob the source directory, so a new file compiles and its tests pass
+# — while the checked-in .xcodeproj still carries a fixed file list and fails with
+# "Cannot find 'X' in scope". The SPM build being green is what makes it invisible.
+PBX=$(ls -1 ./*.xcodeproj/project.pbxproj 2>/dev/null | head -1)
+if [ -n "$PBX" ]; then
+  MISSING=""
+  for f in $(git diff --cached --name-only --diff-filter=A | grep -E '^Sources/.*\.swift$'); do
+    base=$(basename "$f")
+    grep -qF "$base" "$PBX" || MISSING="$MISSING $base"
+  done
+  if [ -n "$MISSING" ]; then
+    warn "new source file(s) not in the Xcode project:$MISSING
+           swift build globs the directory and will pass; Xcode carries a fixed file
+           list and will fail with \"Cannot find 'X' in scope\". Regenerate first:
+             xcodegen generate"
+  fi
+fi
+
+# --- 3. branch drift ---------------------------------------------------------
 # A WARNING and deliberately not an error. Refusing a commit because a branch has
 # grown would block the one action that makes work recoverable, which is exactly
 # backwards. The job here is to be seen at commit 3 rather than discovered at 22.
