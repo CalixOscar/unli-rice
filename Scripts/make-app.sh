@@ -30,7 +30,12 @@ mkdir -p "$MACOS" "$RESOURCES" "$LAUNCHAGENTS"
 # The GUI, plus the two executables it needs to be able to point at: the MCP
 # server (Get Started writes its path into other tools' configs) and the
 # background agent (launchd runs it directly).
-for binary in UnliRice unlirice-mcp unlirice-agent; do
+# The GUI's SwiftPM product is "UnliRiceApp" but it ships as "UnliRice" inside the
+# bundle — CFBundleExecutable below and the Mac App Store record both expect that
+# name. The product was renamed only to stop it colliding with the "unlirice" CLI
+# product on a case-insensitive filesystem; see Package.swift.
+cp "$BIN/UnliRiceApp" "$MACOS/UnliRice"
+for binary in unlirice-mcp unlirice-agent; do
     cp "$BIN/$binary" "$MACOS/$binary"
 done
 

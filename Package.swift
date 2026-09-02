@@ -20,7 +20,16 @@ let package = Package(
         .executable(name: "janitor-calibrate", targets: ["janitor-calibrate"]),
         .executable(name: "unlirice-agent", targets: ["unlirice-agent"]),
         .executable(name: "unlirice", targets: ["unlirice-cli"]),
-        .executable(name: "UnliRice", targets: ["UnliRice"])
+        // Product name deliberately differs from the target's. SwiftPM names an
+        // executable's binary after its PRODUCT, and macOS is case-insensitive by
+        // default — so a product named "UnliRice" and the CLI product "unlirice"
+        // resolved to the SAME FILE in .build/. They overwrote each other on every
+        // build, which produced intermittent "_UnliRice_main undefined" link errors
+        // and, worse, a .app bundle containing the CLI binary: launching it printed
+        // command-line help instead of opening a window. Verified 2026-09-02 by
+        // `stat -f %i` reporting one inode for both paths. The CLI keeps its name
+        // because `unlirice project init` is a documented user-facing command.
+        .executable(name: "UnliRiceApp", targets: ["UnliRice"])
     ],
     // No external dependencies, on purpose. The whole package now builds and
     // runs under plain `swift build` — no xcodebuild, no Metal shader
