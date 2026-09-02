@@ -96,3 +96,55 @@ final class RepoSnapshotFileTests: XCTestCase {
         XCTAssertFalse(raw.lowercased().contains("\"path\""))
     }
 }
+
+/// Decodes a snapshot written by the real `check-repos.sh --json`, not one this test
+/// encoded itself. A Codable round-trip proves the model is self-consistent; it proves
+/// nothing about whether a shell script and a Swift decoder agree on the same JSON —
+/// which is the actual seam here, and the one that will break silently.
+///
+///   UNLIRICE_TEST_SNAPSHOT=/path/to/repos.json swift test --filter ProducedSnapshot
+final class RepoSnapshotProducedSnapshotTests: XCTestCase {
+
+    func testDecodesASnapshotWrittenByTheScript() throws {
+        guard let path = ProcessInfo.processInfo.environment["UNLIRICE_TEST_SNAPSHOT"] else {
+            throw XCTSkip("set UNLIRICE_TEST_SNAPSHOT to a check-repos.sh --json output")
+        }
+        let url = URL(fileURLWithPath: path)
+        let file = try RepoSnapshotFile.read(fromFolder: url.deletingLastPathComponent())
+
+        XCTAssertEqual(file.version, RepoSnapshotFile.currentVersion)
+        XCTAssertFalse(file.repos.isEmpty)
+        XCTAssertFalse(file.deviceLabel.isEmpty)
+
+        for r in file.repos {
+            XCTAssertFalse(r.branches.isEmpty, "\(r.name) decoded with no branches")
+            for b in r.branches {
+                XCTAssertEqual(b.sha.count, 40, "\(r.name)/\(b.name) has a bad sha")
+                // A parent must name a branch that exists, or the graph draws an edge
+                // to nowhere.
+                if let p = b.parent {
+                    XCTAssertTrue(r.branches.contains { $0.name == p },
+                                  "\(r.name)/\(b.name) has parent '\(p)' which is not a branch")
+                    XCTAssertNotEqual(p, b.name, "a branch cannot be its own parent")
+                    XCTAssertNotNil(b.aheadOfParent)
+                    XCTAssertGreaterThan(b.aheadOfParent ?? 0, 0,
+                                         "parenting must be by STRICT ancestry; distance 0 is an alias")
+                }
+            }
+            // No cycles: following parents must terminate.
+            for b in r.branches {
+                var seen: Set<String> = [b.name]
+                var cur = b.parent
+                var hops = 0
+                while let c = cur, hops < 64 {
+                    XCTAssertTrue(seen.insert(c).inserted, "cycle in \(r.name) at \(c)")
+                    cur = r.branches.first { $0.name == c }?.parent
+                    hops += 1
+                }
+                XCTAssertLessThan(hops, 64, "parent chain did not terminate in \(r.name)")
+            }
+        }
+        print("\n—— decoded \(file.repos.count) repos, ancestry present in "
+              + "\(file.repos.filter(\.hasAncestry).count) ——\n")
+    }
+}

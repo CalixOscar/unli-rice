@@ -17,7 +17,9 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
 
     /// Bumped when the shape changes. A phone on an older build must refuse an unknown
     /// version rather than silently decode a subset and render a half-truth.
-    public static let currentVersion = 1
+    /// v2 adds ancestry (`parent`, `aheadOfParent`, `aheadOfTrunk`, `trunk`). All of it
+    /// is optional, so a v1 file still decodes and simply renders without nesting.
+    public static let currentVersion = 2
 
     /// Written by the Mac, atomically, into the shared folder root.
     public static let filename = "repos.json"
@@ -28,11 +30,33 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         public let tipOnRemote: Bool
         public let isCurrent: Bool
 
-        public init(name: String, sha: String, tipOnRemote: Bool, isCurrent: Bool) {
+        // MARK: Ancestry — nil unless a producer that can read commits filled it in.
+        //
+        // Refs alone cannot answer these; they need the commit graph. The app's own
+        // in-process scanner deliberately leaves them nil rather than guessing, and
+        // check-repos.sh fills them using real git. Optionality IS the honesty
+        // mechanism: a missing value renders as "unknown", never as zero.
+
+        /// The nearest branch that is a STRICT ancestor of this one — the branch this
+        /// one builds on. Strict matters: two branches at the same commit are aliases,
+        /// not parent and child, and treating them as related produced mutual cycles
+        /// (elegant-chebyshev naming serene-wu naming elegant-chebyshev).
+        public let parent: String?
+        /// Commits on this branch that are not on `parent`.
+        public let aheadOfParent: Int?
+        /// Commits on this branch that are not on the trunk.
+        public let aheadOfTrunk: Int?
+
+        public init(name: String, sha: String, tipOnRemote: Bool, isCurrent: Bool,
+                    parent: String? = nil, aheadOfParent: Int? = nil,
+                    aheadOfTrunk: Int? = nil) {
             self.name = name
             self.sha = sha
             self.tipOnRemote = tipOnRemote
             self.isCurrent = isCurrent
+            self.parent = parent
+            self.aheadOfParent = aheadOfParent
+            self.aheadOfTrunk = aheadOfTrunk
         }
     }
 
@@ -55,15 +79,24 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         public let branches: [Branch]
         public let remoteBranchCount: Int
         public let worktrees: [Worktree]
+        /// The branch the ancestry is measured against.
+        public let trunk: String?
+
+        /// True when a producer supplied ancestry. The UI uses this to choose between
+        /// drawing real nesting and drawing a flat fan, rather than inferring it from
+        /// whether some branch happens to have a parent.
+        public var hasAncestry: Bool { branches.contains { $0.parent != nil || $0.aheadOfTrunk != nil } }
 
         public init(name: String, currentBranch: String?, detachedHead: Bool,
-                    branches: [Branch], remoteBranchCount: Int, worktrees: [Worktree]) {
+                    branches: [Branch], remoteBranchCount: Int, worktrees: [Worktree],
+                    trunk: String? = nil) {
             self.name = name
             self.currentBranch = currentBranch
             self.detachedHead = detachedHead
             self.branches = branches
             self.remoteBranchCount = remoteBranchCount
             self.worktrees = worktrees
+            self.trunk = trunk
         }
 
         public var branchesNotOnAnyRemote: [Branch] { branches.filter { !$0.tipOnRemote } }
