@@ -119,6 +119,7 @@ struct ContentView: View {
                 active: !store.showingHome && !store.showingNeedsYou && !store.showingMore
                     && !store.showingSetup && !store.showingProfileBuilder && !store.showingProfileManager
                     && !store.showingGraph && !store.showingRetrospective && !store.showingRepos
+                    && !store.showingTodo
                     && !store.showingTrustCenter
                     && !store.showingNotices && !store.showingArchived && !store.showingAutomation
             ) {
@@ -144,6 +145,11 @@ struct ContentView: View {
             sidebarRow("Map", active: store.showingGraph) {
                 store.selectNote(nil)
                 store.showGraph()
+            }
+
+            sidebarRow("To do", active: store.showingTodo) {
+                store.selectNote(nil)
+                store.showTodo()
             }
 
             sidebarRow("Repos", active: store.showingRepos) {
@@ -205,6 +211,8 @@ struct ContentView: View {
                 MapPaneView()
             } else if store.showingRetrospective {
                 RetrospectiveView()
+            } else if store.showingTodo {
+                TodoPaneView()
             } else if store.showingRepos {
                 RepoPaneView()
             } else if store.showingMore || store.showingSetup || store.showingProfileBuilder || store.showingProfileManager || store.showingTrustCenter || store.showingNotices || store.showingArchived || store.showingAutomation {

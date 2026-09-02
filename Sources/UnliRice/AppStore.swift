@@ -85,6 +85,8 @@ final class AppStore: ObservableObject {
     /// already granted as `scanRoots`. It scans refs directly and never runs git; the
     /// App Sandbox forbids `Process` outright. See `GitRepoScanner`.
     @Published var showingRepos: Bool = false
+    /// Derived from repos and notes; nothing is stored and nothing is ticked off.
+    @Published var showingTodo: Bool = false
     @Published var showingNotices: Bool = false
 
     /// Operational trust and recovery: connection evidence, verified snapshots,
@@ -1083,6 +1085,7 @@ final class AppStore: ObservableObject {
         showingAutomation = false
         showingFirstRun = false
         showingMore = false
+        showingTodo = false
         // Repos was missing here, and the routing chain checks it BEFORE More,
         // Needs You and Notes — so once opened it shadowed all three and they
         // silently stopped rendering. A pane added to the chain must be added here
@@ -1298,6 +1301,12 @@ final class AppStore: ObservableObject {
     /// worktree or runs `gc` — decision #3 (propose, never apply) applies to a user's
     /// repository at least as much as to their notes, and the sandbox forbids the
     /// subprocess any of those would need anyway.
+    func showTodo() {
+        closeAllPanes()
+        showingTodo = true
+        statusMessage = "To do — what is outstanding, derived from your repos and notes."
+    }
+
     func showRepos() {
         closeAllPanes()
         showingRepos = true
