@@ -127,6 +127,11 @@ struct ContentView: View {
                 store.showAllNotes()
             }
 
+            sidebarRow("To do", active: store.showingTodo) {
+                store.selectNote(nil)
+                store.showTodo()
+            }
+
             sidebarRow("Repos", active: store.showingRepos) {
                 store.selectNote(nil)
                 store.showRepos()
@@ -145,13 +150,8 @@ struct ContentView: View {
             }
 
             // These are top-level destinations, not settings buried in More's chip
-            // bar: the map is a way of reading the corpus, the year-so-far is the
-            // payoff for having kept one, and To do is what to act on next.
-            sidebarRow("To do", active: store.showingTodo) {
-                store.selectNote(nil)
-                store.showTodo()
-            }
-
+            // bar: the map is a way of reading the corpus, and the year-so-far is
+            // the payoff for having kept one.
             sidebarRow("Your year so far", active: store.showingRetrospective) {
                 store.selectNote(nil)
                 store.showRetrospective()
