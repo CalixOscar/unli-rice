@@ -519,6 +519,39 @@ public final class CaptureStore: ObservableObject {
         sync()
     }
 
+    /// Append a thought to the one note that belongs to a project, creating it the
+    /// first time.
+    ///
+    /// **The title is the key**, deliberately. Titles are permanent in this codebase —
+    /// there is no retitle event, and `Projector.resolveLinks` matches wiki-links by
+    /// title precisely because of that — so looking a note up by title cannot disagree
+    /// with the corpus the way a stored id-to-project mapping could.
+    ///
+    /// Uses `.appended` only. No new `EventKind`, and nothing is ever overwritten.
+    public func appendToProjectNote(title: String, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let existing = ((try? noteService.listNotes(includeArchived: true)) ?? [])
+            .first { $0.title.caseInsensitiveCompare(title) == .orderedSame }
+
+        do {
+            if let note = existing {
+                try appendToCapture(noteID: note.id, text: trimmed)
+            } else {
+                // createNote takes no tags; tagging is its own event, which is why it
+                // is a second call rather than a parameter.
+                let note = try noteService.createNote(title: title, body: trimmed,
+                                                      source: "human")
+                _ = try? noteService.tagNote(id: note.id, tag: "repo", source: "human")
+                rebuildCaptures()
+                sync()
+            }
+        } catch {
+            state = .error("Could not save the note: \(error.localizedDescription)")
+        }
+    }
+
     public func startRecording() {
         Task {
             do {

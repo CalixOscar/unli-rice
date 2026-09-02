@@ -112,3 +112,38 @@ final class StudioTodoTests: XCTestCase {
         XCTAssertNil(StudioTodo.nextStep(fromMemory: "**Next step:**\n**Gotchas:** none"))
     }
 }
+
+/// The phone has no access to the Mac's project folders, so a next step it cannot read
+/// is one it cannot show. These cover the snapshot-carried fallback.
+extension StudioTodoTests {
+
+    func testSnapshotNextStepIsUsedWhenTheCallerHasNone() {
+        let r = RepoSnapshotFile.Repo(
+            name: "X", currentBranch: "main", detachedHead: false,
+            branches: [.init(name: "main", sha: String(repeating: "a", count: 40),
+                             tipOnRemote: true, isCurrent: true)],
+            remoteBranchCount: 1, worktrees: [], trunk: "main",
+            nextStep: "Push the backlog")
+
+        let t = StudioTodo.derive(from: .init(deviceLabel: "t", repos: [r]))
+        XCTAssertEqual(t.items.count, 1)
+        XCTAssertEqual(t.items[0].title, "Push the backlog")
+        XCTAssertTrue(t.items[0].evidence.contains("as of the last snapshot"),
+                      "a phone should be told the step is a photograph, not live")
+    }
+
+    /// A live read beats the snapshot's copy, which is only as fresh as the last publish.
+    func testALiveReadWinsOverTheSnapshotCopy() {
+        let r = RepoSnapshotFile.Repo(
+            name: "X", currentBranch: "main", detachedHead: false,
+            branches: [.init(name: "main", sha: String(repeating: "a", count: 40),
+                             tipOnRemote: true, isCurrent: true)],
+            remoteBranchCount: 1, worktrees: [], trunk: "main",
+            nextStep: "stale")
+
+        let t = StudioTodo.derive(from: .init(deviceLabel: "t", repos: [r]),
+                                  nextSteps: ["X": "fresh"])
+        XCTAssertEqual(t.items[0].title, "fresh")
+        XCTAssertFalse(t.items[0].evidence.contains("snapshot"))
+    }
+}

@@ -677,6 +677,10 @@ public struct CaptureView: View {
                     }
 
                     Section {
+                        NavigationLink(destination: TodoView(store: store)) {
+                            Text("To do")
+                                .foregroundStyle(Theme.textPrimary)
+                        }
                         NavigationLink(destination: ReposSnapshotView(store: store)) {
                             Text("Repos on your Mac")
                                 .foregroundStyle(Theme.textPrimary)

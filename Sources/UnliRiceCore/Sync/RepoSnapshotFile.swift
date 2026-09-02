@@ -147,6 +147,10 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         /// Commits on the trunk. The scale every junction position is measured against.
         public let trunkLength: Int?
         public let loops: [Loop]?
+        /// This project's `**Next step:**`, carried so a device that cannot read the
+        /// project folder can still show it. Additive and optional, so a snapshot
+        /// without it decodes unchanged and no version bump is needed.
+        public let nextStep: String?
 
         /// True when a producer supplied ancestry. The UI uses this to choose between
         /// drawing real nesting and drawing a flat fan, rather than inferring it from
@@ -156,7 +160,7 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         public init(name: String, currentBranch: String?, detachedHead: Bool,
                     branches: [Branch], remoteBranchCount: Int, worktrees: [Worktree],
                     trunk: String? = nil, trunkLength: Int? = nil,
-                    loops: [Loop]? = nil) {
+                    loops: [Loop]? = nil, nextStep: String? = nil) {
             self.name = name
             self.currentBranch = currentBranch
             self.detachedHead = detachedHead
@@ -166,6 +170,7 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
             self.trunk = trunk
             self.trunkLength = trunkLength
             self.loops = loops
+            self.nextStep = nextStep
         }
 
         public var branchesNotOnAnyRemote: [Branch] { branches.filter { !$0.tipOnRemote } }

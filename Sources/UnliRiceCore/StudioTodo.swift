@@ -111,14 +111,19 @@ public struct StudioTodo: Equatable, Sendable {
             // .whitespacesAndNewlines, not .whitespaces: the latter excludes newlines,
             // so a field containing only "  \n  " passed the guard and produced a task
             // with an empty title.
-            if let step = nextSteps[p],
+            // The caller's own reading of memory.md wins — it is live, where the
+            // snapshot's copy is as old as the last publish. The snapshot is the
+            // fallback, and the only source a phone has.
+            let declared = nextSteps[p] ?? repo.nextStep
+            if let step = declared,
                !step.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 out.append(Item(
                     id: "\(p)/next-step",
                     project: p,
                     kind: .declared,
                     title: step.trimmingCharacters(in: .whitespacesAndNewlines),
-                    evidence: "From \(p)/memory.md",
+                    evidence: nextSteps[p] != nil ? "From \(p)/memory.md"
+                                                  : "From \(p)/memory.md, as of the last snapshot",
                     fix: nil))
             }
 
