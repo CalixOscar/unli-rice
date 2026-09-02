@@ -29,17 +29,17 @@ extension AppStore {
         guard let milestone = ReviewPrompt.milestoneToAsk(noteCount: notes.count,
                                                           state: state) else { return }
 
-        // Recorded whether or not the system chooses to display the sheet. StoreKit
-        // gives no callback, so treating "shown" as knowable would mean re-asking every
-        // launch once a milestone is passed.
+        // Ask first, record second. Recording before a call that might not happen is how
+        // a rung gets spent on a prompt nobody saw — and there is no way to notice,
+        // because the milestone is then permanently marked used.
+        SKStoreReviewController.requestReview()
+
+        // But recorded whether or not the system chose to *display* it. StoreKit gives no
+        // callback by design, so treating "shown" as knowable would mean re-asking on
+        // every launch once a milestone is passed — the nagging this exists to prevent.
         let updated = ReviewPrompt.recordAsk(state, milestone: milestone)
         if let data = try? JSONEncoder().encode(updated) {
             UserDefaults.standard.set(data, forKey: Self.reviewStateKey)
-        }
-
-        if let scene = NSApplication.shared.keyWindow {
-            _ = scene
-            SKStoreReviewController.requestReview()
         }
     }
 }
