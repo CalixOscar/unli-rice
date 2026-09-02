@@ -25,10 +25,14 @@ struct BranchGraphView: View {
     var ancestry: RepoSnapshotFile.Repo?
     var ancestryAge: Date?
     var ancestryStale: Bool = false
+    /// Vertical scale. Sidings in a busy repo sit within a few commits of each other,
+    /// so at 1x their turnouts crowd; zoom gives them room without changing what is
+    /// drawn or claimed.
+    var zoom: CGFloat = 1
 
     private let trunkX: CGFloat = 26
-    private let sidingX: CGFloat = 62
-    private let rowH: CGFloat = 22
+    private let sidingX: CGFloat = 74
+    private var rowH: CGFloat { 22 * zoom }
     private let nodeR: CGFloat = 4.5
 
     // MARK: - Model
@@ -110,7 +114,13 @@ struct BranchGraphView: View {
     }
 
     private var height: CGFloat {
-        max(CGFloat(features.count + 2) * rowH, 120)
+        // A repo whose only branch is the trunk has nothing to draw, so it gets one row
+        // rather than a screen of empty canvas — which is what a fixed floor produced,
+        // and zoom multiplied.
+        guard !features.isEmpty else { return rowH * 1.6 }
+        // +3 rows of slack: a long siding's rejoin junction hangs below its own row,
+        // and clipping it would cut the loop open at the bottom of the canvas.
+        return CGFloat(features.count + 3) * rowH + rowH * 2
     }
 
     // MARK: - View
@@ -121,7 +131,7 @@ struct BranchGraphView: View {
             if hasAncestry {
                 HStack(alignment: .top, spacing: 0) {
                     Canvas { ctx, size in draw(ctx, size) }
-                        .frame(width: sidingX + 46, height: height)
+                        .frame(width: sidingX + 34, height: height)
                     labels
                 }
             } else {
@@ -134,7 +144,7 @@ struct BranchGraphView: View {
         HStack(spacing: 11) {
             if hasAncestry {
                 shapeKey("loop", Color.secondary); shapeKey("open", .orange)
-                caption("· position = commits back along \(snapshot.defaultBranch ?? "the trunk")")
+                caption("· row order = age · loop height = how long it ran alongside")
                 if ancestryStale, let age = ancestryAge {
                     Text("· \(age.formatted(.relative(presentation: .named)))")
                         .font(.system(size: 10, design: .monospaced)).foregroundStyle(.orange)
@@ -172,16 +182,19 @@ struct BranchGraphView: View {
     private func draw(_ ctx: GraphicsContext, _ size: CGSize) {
         let f = features
         guard !f.isEmpty else { return }
-        let s = span
         let top: CGFloat = 14
         let bottom = height - 14
 
-        // Distance back along the trunk maps to distance down the line.
-        func y(_ back: Int) -> CGFloat {
-            let t = CGFloat(min(max(back, s.top), s.bottom) - s.top)
-                  / CGFloat(max(s.bottom - s.top, 1))
-            return top + t * (bottom - top)
-        }
+        // A row per feature, matching the labels beside it.
+        //
+        // Positioning by commit distance instead was tried first and is worse: features
+        // cluster where the work happened, so four sidings 186-224 commits back collapsed
+        // into a tangle at the foot of the line while their labels sat evenly spaced
+        // beside it, lining up with nothing. Rows are ordered oldest-last, so the sequence
+        // is still true; the exact distance is in the "N back" column, and how long each
+        // siding RAN is carried by the height of its loop below.
+        func rowY(_ i: Int) -> CGFloat { top + CGFloat(i) * rowH + rowH * 0.5 }
+        _ = bottom
 
         ctx.stroke(Path { p in
             p.move(to: CGPoint(x: trunkX, y: top))
@@ -192,39 +205,54 @@ struct BranchGraphView: View {
         let tip = CGRect(x: trunkX - 5, y: top - 5, width: 10, height: 10)
         ctx.fill(Path(ellipseIn: tip), with: .color(Color.accentColor))
 
-        for feat in f {
+        for (i, feat) in f.enumerated() {
             let color: Color = feat.shape == "open"
                 ? .orange
                 : (feat.orphanLoop ? Color.secondary.opacity(0.4) : Color.secondary)
-            let yFork = y(feat.forkBack)
+            let yFork = rowY(i + 1)   // +1 leaves the first row for the trunk label
 
             switch feat.shape {
             case "loop":
-                let yJoin = y(feat.rejoinBack ?? feat.forkBack)
-                // Out at the fork, alongside, back in at the merge — a passing loop.
+                // Height = how long it ran alongside the trunk, to scale against the
+                // longest siding in this repo, floored so a 2-commit detour is still
+                // visibly a detour rather than a kink.
+                let spanCommits = max(0, feat.forkBack - (feat.rejoinBack ?? feat.forkBack))
+                let longest = max(1, f.map { max(0, $0.forkBack - ($0.rejoinBack ?? $0.forkBack)) }.max() ?? 1)
+                let h = minLoop + (CGFloat(spanCommits) / CGFloat(longest)) * (rowH * 3.2)
+                let yJoin = yFork + h
+                // A turnout, not a right angle. The control points at BOTH ends lie
+                // along the line they meet — vertical on the trunk, vertical on the
+                // siding — so the rail is tangent to each and a long train can take it.
+                // Horizontal control points put the tangent across the trunk, which is
+                // the 90-degree corner this replaces.
+                let t = taper(between: yFork, and: yJoin)
                 ctx.stroke(Path { p in
                     p.move(to: CGPoint(x: trunkX, y: yFork))
-                    p.addCurve(to: CGPoint(x: sidingX, y: yFork + 6),
-                               control1: CGPoint(x: sidingX - 12, y: yFork),
-                               control2: CGPoint(x: sidingX, y: yFork))
-                    p.addLine(to: CGPoint(x: sidingX, y: max(yJoin - 6, yFork + 6)))
+                    p.addCurve(to: CGPoint(x: sidingX, y: yFork + t),
+                               control1: CGPoint(x: trunkX, y: yFork + t * 0.62),
+                               control2: CGPoint(x: sidingX, y: yFork + t * 0.38))
+                    if yJoin - t > yFork + t {
+                        p.addLine(to: CGPoint(x: sidingX, y: yJoin - t))
+                    }
                     p.addCurve(to: CGPoint(x: trunkX, y: yJoin),
-                               control1: CGPoint(x: sidingX, y: yJoin),
-                               control2: CGPoint(x: sidingX - 12, y: yJoin))
-                }, with: .color(color.opacity(0.8)), lineWidth: 1.8)
+                               control1: CGPoint(x: sidingX, y: yJoin - t * 0.38),
+                               control2: CGPoint(x: trunkX, y: yJoin - t * 0.62))
+                }, with: .color(color.opacity(0.85)), lineWidth: 1.8)
                 junction(ctx, CGPoint(x: trunkX, y: yFork), color)
                 junction(ctx, CGPoint(x: trunkX, y: yJoin), color)
 
             case "open":
-                // Leaves and does not return: no second junction, open end.
+                // Leaves on the same shallow turnout and does not come back.
+                let t = openTaper
                 ctx.stroke(Path { p in
                     p.move(to: CGPoint(x: trunkX, y: yFork))
-                    p.addCurve(to: CGPoint(x: sidingX, y: yFork - 10),
-                               control1: CGPoint(x: sidingX - 14, y: yFork),
-                               control2: CGPoint(x: sidingX, y: yFork - 2))
+                    p.addCurve(to: CGPoint(x: sidingX, y: yFork + t),
+                               control1: CGPoint(x: trunkX, y: yFork + t * 0.62),
+                               control2: CGPoint(x: sidingX, y: yFork + t * 0.38))
+                    p.addLine(to: CGPoint(x: sidingX, y: yFork + t + 7))
                 }, with: .color(color), lineWidth: 1.8)
                 junction(ctx, CGPoint(x: trunkX, y: yFork), color)
-                let e = CGRect(x: sidingX - nodeR, y: yFork - 10 - nodeR,
+                let e = CGRect(x: sidingX - nodeR, y: yFork + t + 7 - nodeR,
                                width: nodeR * 2, height: nodeR * 2)
                 ctx.fill(Path(ellipseIn: e.insetBy(dx: -2, dy: -2)),
                          with: .color(Color(nsColor: .windowBackgroundColor)))
@@ -239,6 +267,17 @@ struct BranchGraphView: View {
             }
         }
     }
+
+    /// How far the turnout takes to diverge. Shallower is better, but it cannot be
+    /// longer than the loop itself — a 2-commit siding has almost no room, so the taper
+    /// shrinks with it and the shape degenerates to a narrow lens rather than a kink.
+    private func taper(between a: CGFloat, and b: CGFloat) -> CGFloat {
+        min(18, max(5, (b - a) * 0.42))
+    }
+    private var openTaper: CGFloat { 18 * min(zoom, 1.6) }
+    /// Loops shorter than this would be invisible at trunk scale. Positions stay true;
+    /// only the drawn height is floored, so a short siding still reads as a siding.
+    private var minLoop: CGFloat { 13 * zoom }
 
     private func junction(_ ctx: GraphicsContext, _ p: CGPoint, _ c: Color) {
         let r = CGRect(x: p.x - 3, y: p.y - 3, width: 6, height: 6)

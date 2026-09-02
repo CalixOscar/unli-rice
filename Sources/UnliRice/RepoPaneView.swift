@@ -23,6 +23,8 @@ struct RepoPaneView: View {
     @State private var ancestry: [String: RepoSnapshotFile.Repo] = [:]
     @State private var ancestryAge: Date?
     @State private var ancestryStale = false
+    /// Persisted: a zoom you have to reset on every launch is worse than no zoom.
+    @AppStorage("unliRice.reposGraphZoom") private var zoom: Double = 1.0
     /// Why ancestry is or is not present. Everything used to go through `try?` and
     /// return empty, so "no file", "not allowed to read it" and "decoded but empty" all
     /// rendered identically as a flat graph — which is why this took elimination rather
@@ -95,6 +97,28 @@ struct RepoPaneView: View {
 
             // Diagnostic, deliberately always visible rather than only on failure: the
             // path it reads is the one thing that cannot be guessed from outside.
+            HStack(spacing: 10) {
+                Image(systemName: "minus.magnifyingglass")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.textSecondary)
+                Slider(value: $zoom, in: 0.6...3.0)
+                    .frame(width: 150)
+                    .controlSize(.mini)
+                Image(systemName: "plus.magnifyingglass")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.textSecondary)
+                Text(String(format: "%.1f×", zoom))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 30, alignment: .leading)
+                Button("Reset") { zoom = 1.0 }
+                    .buttonStyle(.link)
+                    .font(.system(size: 10))
+                    .disabled(abs(zoom - 1.0) < 0.01)
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 2)
+
             Text(ancestryStatus.line)
                 .font(.system(size: 10.5, design: .monospaced))
                 .foregroundStyle(ancestryStatus.isProblem ? .orange : Theme.textSecondary)
@@ -161,7 +185,8 @@ struct RepoPaneView: View {
             BranchGraphView(snapshot: s,
                             ancestry: ancestry[s.name],
                             ancestryAge: ancestryAge,
-                            ancestryStale: ancestryStale)
+                            ancestryStale: ancestryStale,
+                            zoom: CGFloat(zoom))
 
             Divider().opacity(0.35)
 
