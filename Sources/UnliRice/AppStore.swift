@@ -634,6 +634,14 @@ final class AppStore: ObservableObject {
             showingHome = true
         }
 
+        // After the corpus is loaded and the opening pane is decided, so the note count
+        // is real and the sheet never lands on top of first run.
+        if corpusLoaded && !showingFirstRun {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                self?.offerRatingIfEarned()
+            }
+        }
+
         backgroundAgentInstalled = BackgroundAgent.isInstalled()
         migrateRoutineStampsIfNeeded()
         // Written on every launch, not only on change: this file is what the

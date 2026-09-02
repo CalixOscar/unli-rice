@@ -18,6 +18,8 @@ struct TodoPaneView: View {
     @State private var loading = false
     @State private var loaded = false
     @State private var sourceNote: String = ""
+    /// Kept so a prompt can carry the repo state the item was derived from.
+    @State private var repos: [String: RepoSnapshotFile.Repo] = [:]
 
     var body: some View {
         ScrollView {
@@ -126,6 +128,13 @@ struct TodoPaneView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            // Only on declared next steps. At-risk and clutter items already carry an
+            // exact command, and a menu on every row adds a decision to every line —
+            // which teaches you to ignore it on the rows where the command was faster.
+            if kind == .declared {
+                AITodoMenu(item: item, repo: repos[item.project])
+                    .padding(.top, 2)
+            }
             if let fix = item.fix {
                 // Shown, never run. This pane reports; the founder acts.
                 Text(fix)
@@ -156,6 +165,7 @@ struct TodoPaneView: View {
         let folder = store.dataURL.deletingLastPathComponent()
         let roots = store.scanRoots
 
+        var byName: [String: RepoSnapshotFile.Repo] = [:]
         let result: (StudioTodo, String) = await Task.detached(priority: .userInitiated) {
             let needsStop = folder.startAccessingSecurityScopedResource()
             defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
@@ -184,6 +194,7 @@ struct TodoPaneView: View {
 
             let dirt = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, 0) })
             let t = StudioTodo.derive(from: snap, nextSteps: steps, worktreeDirt: dirt)
+            byName = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, $0) })
             return (t, "\(t.items.count) items from \(snap.repos.count) repos · "
                      + "\(steps.count) memory.md · snapshot "
                      + snap.generatedAt.formatted(.relative(presentation: .named))
@@ -192,5 +203,41 @@ struct TodoPaneView: View {
 
         todo = result.0
         sourceNote = result.1
+        repos = byName
+    }
+}
+
+/// "Fix with AI" for one to-do item, mirroring `AIReviewMenu`.
+///
+/// Same contract, deliberately: it lists the tools the user has configured and copies a
+/// prompt for whichever they pick. It does not inspect another tool's config to claim a
+/// live connection, and it does not act — the app is sandboxed and cannot run `Process`,
+/// so it could not perform the fix even if the label implied it.
+struct AITodoMenu: View {
+    @EnvironmentObject var store: AppStore
+    let item: StudioTodo.Item
+    let repo: RepoSnapshotFile.Repo?
+
+    var body: some View {
+        Menu {
+            ForEach(store.availableTargets) { target in
+                Button {
+                    store.copyTodoPrompt(for: target, item: item, repo: repo)
+                } label: {
+                    Text(target.displayName)
+                }
+            }
+            Divider()
+            Text("Copies this next step, plus the repository state it came from, to paste into the LLM.")
+                .foregroundColor(Theme.textPrimary)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu")
+                Text("Fix with AI…")
+            }
+            .font(.system(size: 11))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 }
