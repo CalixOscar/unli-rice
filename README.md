@@ -36,7 +36,7 @@ swift build
 swift test
 
 swift run unlirice-mcp        # the MCP stdio server
-swift run UnliRice            # the GUI
+swift run UnliRiceApp         # the GUI
 swift run unlirice-agent      # one unattended maintenance tick, then exits
 swift run janitor-calibrate   # dry-run the janitor's thresholds, writes nothing
 ```
