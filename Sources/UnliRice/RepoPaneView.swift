@@ -23,6 +23,41 @@ struct RepoPaneView: View {
     @State private var ancestry: [String: RepoSnapshotFile.Repo] = [:]
     @State private var ancestryAge: Date?
     @State private var ancestryStale = false
+    /// Why ancestry is or is not present. Everything used to go through `try?` and
+    /// return empty, so "no file", "not allowed to read it" and "decoded but empty" all
+    /// rendered identically as a flat graph — which is why this took elimination rather
+    /// than one launch to diagnose. The path is included because the folder the app
+    /// actually reads is the thing that is hard to guess from outside.
+    @State private var ancestryStatus: AncestryStatus = .notLoaded
+
+    enum AncestryStatus {
+        case notLoaded
+        case loaded(repos: Int, withAncestry: Int, path: String)
+        case missing(path: String)
+        case denied(path: String)
+        case unreadable(path: String, reason: String)
+
+        var line: String {
+            switch self {
+            case .notLoaded:
+                return "ancestry: not loaded yet"
+            case .loaded(let n, let a, let p):
+                return "ancestry: \(a)/\(n) repos from \(p)"
+            case .missing(let p):
+                return "ancestry: no repos.json in \(p)"
+            case .denied(let p):
+                return "ancestry: could not open \(p) — sandbox denied the read"
+            case .unreadable(let p, let r):
+                return "ancestry: \(p) — \(r)"
+            }
+        }
+
+        var isProblem: Bool {
+            if case .loaded(_, let a, _) = self { return a == 0 }
+            if case .notLoaded = self { return false }
+            return true
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -56,6 +91,14 @@ struct RepoPaneView: View {
                  + "deletes, prunes or rewrites anything.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Diagnostic, deliberately always visible rather than only on failure: the
+            // path it reads is the one thing that cannot be guessed from outside.
+            Text(ancestryStatus.line)
+                .font(.system(size: 10.5, design: .monospaced))
+                .foregroundStyle(ancestryStatus.isProblem ? .orange : Theme.textSecondary)
+                .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -238,9 +281,37 @@ struct RepoPaneView: View {
     /// pure reader, and the graph degrades to a flat fan when the file is absent.
     private func loadAncestry() -> [String: RepoSnapshotFile.Repo] {
         let folder = store.dataURL.deletingLastPathComponent()
-        guard let file = try? RepoSnapshotFile.read(fromFolder: folder) else { return [:] }
-        ancestryAge = file.generatedAt
-        ancestryStale = file.isStale()
-        return Dictionary(uniqueKeysWithValues: file.repos.map { ($0.name, $0) })
+        // Security-scoped access, in a start/stop pair. A sandboxed read of a
+        // user-granted folder needs it, and the pair is a no-op on one that is not scoped.
+        let needsStop = folder.startAccessingSecurityScopedResource()
+        defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
+
+        let path = folder.path
+        // Distinguish "not there" from "not allowed", which look identical from a `try?`.
+        let fileURL = folder.appendingPathComponent(RepoSnapshotFile.filename)
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            ancestryStatus = .missing(path: path)
+            return [:]
+        }
+        if !FileManager.default.isReadableFile(atPath: fileURL.path) {
+            ancestryStatus = .denied(path: path)
+            return [:]
+        }
+
+        do {
+            let file = try RepoSnapshotFile.read(fromFolder: folder)
+            ancestryAge = file.generatedAt
+            ancestryStale = file.isStale()
+            ancestryStatus = .loaded(repos: file.repos.count,
+                                     withAncestry: file.repos.filter(\.hasAncestry).count,
+                                     path: path)
+            return Dictionary(uniqueKeysWithValues: file.repos.map { ($0.name, $0) })
+        } catch {
+            ancestryStatus = .unreadable(
+                path: path,
+                reason: (error as? RepoSnapshotFile.ReadError)?.localizedDescription
+                        ?? String(describing: error))
+            return [:]
+        }
     }
 }
