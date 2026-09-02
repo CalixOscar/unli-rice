@@ -2058,3 +2058,66 @@ changed, warning at 3 and blocking at 10 (waivable with `STUDIO_ALLOW_STALE_MEMO
 and a warn-only notice at 15 for this file. The asymmetry is deliberate — this file is
 a record and should sit still through long work, and blocking would buy filler entries
 written to satisfy a hook.
+
+## Unknown stays unknown (2026-09-03)
+
+Codex reviewed the repo at `8c95a8b` and returned a post-mortem: useful core, not yet
+trustworthy enough for strangers. It was deliberately **not** actioned as a checklist.
+Three commits had landed since the review, and its own headline finding — that `memory.md`
+disagreed with the checkout — had already been found and fixed independently, which is
+evidence both that its method works and that its snapshot ages fast. Every claim was
+re-verified at HEAD first. Five survived; two were already fixed; the rest were founder
+decisions or separate efforts.
+
+The five were not five bugs. They were one:
+
+> **An unknown silently becoming a positive claim.**
+
+No measurement became zero dirty files. An unreadable snapshot became "no worktree holds
+uncommitted work". Any tool call, including a search, became a write. Caller-supplied
+attribution became "every write is signed". A flag with no destination became a button
+that looked like it worked.
+
+The repo had already written the rule down and then not applied it consistently —
+`RepoSnapshotFile.Branch` says *"Optionality IS the honesty mechanism: a missing value
+renders as 'unknown', never as zero."* `8c95a8b` ("an unreadable corpus was shown as 'you
+are a new user'") was the same bug one pane over.
+
+### What the pre-mortem changed
+
+Codex's stage-3 pass found four things the plan had wrong, all confirmed against the repo:
+
+- **Coverage as a set of measured names still rounds partial up to complete.** With repos
+  X and Y where only X was measured, the design would have pronounced both clean. Coverage
+  became three-state against the snapshot's own repository set.
+- **`nextSteps.keys` meant "a step parsed", not "the file was readable"** — so a `memory.md`
+  read successfully with its next step cleared was indistinguishable from an unreadable
+  one, and the snapshot's older copy won. A step you had just finished came back. This was
+  a defect the original review missed entirely.
+- **Write evidence was being collapsed away.** `recentConnectionActivities` keeps only the
+  newest record per client name while records are keyed per name+version, so an upgrade
+  discarded the earlier version's write receipt.
+- **Auditing flags misses broken actions.** `showHouseRules()` opened the hub with nothing
+  selected, and `showGetStarted()` had no rendering branch at all — which would have
+  swallowed the profile builder at the exact moment it succeeded.
+
+Two of its points were sharpened rather than accepted as written. The prompt hook does not
+strip unknown fields (it is untyped Python JSON); its real failure is a lost update, fixed
+by taking the same `connections.lock`. And bumping the envelope version would have been a
+trap, not a fix: `load()` requires strict version equality while the hook hardcodes `1`
+on both read and write, so a bump would have made the two reject each other's files.
+
+One objection was declined. The plan had wrongly asserted a `-32602` mapping that does not
+exist, and Codex was right about that — but its remedy took an imprecise phrase in the
+intent doc as binding. MCP puts invalid tool *arguments* in the tool-execution error
+channel, and changing it would have altered the contract for all fourteen tools to fix one.
+`transaction_log` with a negative limit now returns `isError: true` and the server survives.
+
+343 tests before, 366 after, 0 failures, 2 skipped (verified: `swift test` 2026-09-03).
+
+### The test that would have lied
+
+`MCPToolCatalogTests` was first specified as comparing two hand-maintained lists, which
+cannot detect drift — adding a dispatcher case changes neither list. It became an
+exhaustive `switch` over a `CaseIterable` enum that `ToolDispatcher` itself switches on, so
+a new tool now fails to compile until it is classified as a read or a write.
