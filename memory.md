@@ -31,8 +31,11 @@ Simulator (verified: `xcodebuild` 2026-09-03). Zero commits exist on no remote (
 findings survived re-verification at HEAD, and they turned out to be one bug class: an
 unknown silently becoming a positive claim. `docs/PLAN-unknown-stays-unknown.md` went
 through a Codex pre-mortem, a stage-4 revision, and the Antigravity swarm; it is **built,
-verified and pushed**. Now stage 2 on the next one: `docs/PLAN-keyboard-capture.md`, adding
-a way to originate a note by typing on the phone, which today can only start as speech.
+verified and pushed**. Two plans are now queued at stage 2, neither pre-mortemed:
+`docs/PLAN-keyboard-capture.md` (typing a note into Capture) and, new this session,
+`docs/PLAN-ai-todo-actions.md` (a section in the To Do pane, Mac and Capture, for action
+items an LLM in any project files via `create_note`/`tag_note` — no new MCP tool, no
+schema change). Both are plan-only per the studio pipeline; neither is built.
 **Files touched:** Built this arc — `Sources/UnliRiceCore/{StudioTodo,TodoEmptyState,
 NoteService}.swift`, `Sources/UnliRiceCore/MCP/{MCPToolCatalog,UnwrittenClients,
 ConnectionActivity}.swift`, `Sources/UnliRice/{TodoPaneView,AppStore,HomeView,MoreView,
@@ -40,9 +43,11 @@ ContentView,ProfileBuilderView,WhyNotTextFileView}.swift`,
 `Sources/UnliRiceCapture/TodoView.swift`, `Sources/unlirice-mcp/ToolDispatcher.swift`,
 `Scripts/unlirice-prompt-hook.py`, and six test files under `Tests/UnliRiceCoreTests/`.
 Planned only, not built: `docs/intent/INTENT-003-keyboard-capture.md` +
-`docs/PLAN-keyboard-capture.md`.
-**Next step:** Send `docs/PLAN-keyboard-capture.md` to Codex for the stage-3 pre-mortem,
-then revise it at stage 4 before any dispatch. Still open and untouched: the two untracked
+`docs/PLAN-keyboard-capture.md`, and `docs/intent/INTENT-004-ai-todo-actions.md` +
+`docs/PLAN-ai-todo-actions.md`.
+**Next step:** Send both `docs/PLAN-keyboard-capture.md` and `docs/PLAN-ai-todo-actions.md`
+to Codex for their stage-3 pre-mortems, then revise each at stage 4 before any dispatch —
+the founder hasn't said which goes first. Still open and untouched: the two untracked
 screenshot folders (`Screenshots/app-panes/`, `Screenshots/repos-pane/`, 5 files each,
 2026-09-02) need a founder decision, and the 1.2 gate work is unstarted — both
 `MARKETING_VERSION` values are still "1.1" (`project.yml:64` and `:187`),
@@ -91,3 +96,6 @@ is still a stray duplicate, flagged and deliberately left for the founder to del
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/PLAN-keyboard-capture.md` is stage 2 and **not settled** — it has not had its Codex
   pre-mortem, so it must not be dispatched to the swarm yet.
+- `docs/PLAN-ai-todo-actions.md` is stage 2 and **not settled**, same reason. It also
+  depends on a documentation change in this repo's own `AGENTS.md` (§2.1 of the plan) —
+  build order matters: land that before or alongside the read path, not after.
