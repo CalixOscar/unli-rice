@@ -1,9 +1,17 @@
 # Unli Rice — Project Notes
 
-Living status doc. **Read this first** if you're picking this project up in a
-new session, on a different machine, or with a different tool (Claude, Codex,
-whatever). Keep it current as you work — don't let it drift from what's
-actually in the repo.
+<!-- lint-allow required-sections "PROJECT_NOTES.md" — topic-organised legacy note
+     (119,551 chars). Reshaping it into Overview / Decisions Log / Session Log is a
+     deliberate compaction the founder schedules, not something a passing commit
+     should force. Tracked as a Next step in memory.md. 2026-09-02 -->
+
+**Historical record.** For what is happening *right now* — current status, the task in
+flight, next step, gotchas — read `memory.md` instead; it is capped at 32,000 characters
+and is the file to read in full at the start of a session. This file is the append-only
+history behind it: what was decided, when, and why. As of 2026-09-02 current state lives
+in exactly one file, and it is not this one.
+
+Keep it current as you work — don't let it drift from what's actually in the repo.
 
 If you're an agent about to *use* the `unlirice` MCP tools (not just read
 about the architecture), read `AGENTS.md` too — it has the actual behavioral
