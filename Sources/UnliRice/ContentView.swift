@@ -118,7 +118,8 @@ struct ContentView: View {
                 "Notes",
                 active: !store.showingHome && !store.showingNeedsYou && !store.showingMore
                     && !store.showingSetup && !store.showingProfileBuilder && !store.showingProfileManager
-                    && !store.showingGraph && !store.showingRetrospective && !store.showingTrustCenter
+                    && !store.showingGraph && !store.showingRetrospective && !store.showingRepos
+                    && !store.showingTrustCenter
                     && !store.showingNotices && !store.showingArchived && !store.showingAutomation
             ) {
                 store.selectNote(nil)
@@ -143,6 +144,11 @@ struct ContentView: View {
             sidebarRow("Map", active: store.showingGraph) {
                 store.selectNote(nil)
                 store.showGraph()
+            }
+
+            sidebarRow("Repos", active: store.showingRepos) {
+                store.selectNote(nil)
+                store.showRepos()
             }
 
             sidebarRow("Your year so far", active: store.showingRetrospective) {
@@ -199,6 +205,8 @@ struct ContentView: View {
                 MapPaneView()
             } else if store.showingRetrospective {
                 RetrospectiveView()
+            } else if store.showingRepos {
+                RepoPaneView()
             } else if store.showingMore || store.showingSetup || store.showingProfileBuilder || store.showingProfileManager || store.showingTrustCenter || store.showingNotices || store.showingArchived || store.showingAutomation {
                 MoreView()
             } else if store.showingNeedsYou || store.showingReviewQueue {

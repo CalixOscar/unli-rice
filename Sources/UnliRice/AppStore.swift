@@ -81,6 +81,10 @@ final class AppStore: ObservableObject {
     @Published var showingGraph: Bool = false
     @Published var showingGetStarted: Bool = false
     @Published var showingRetrospective: Bool = false
+    /// Repos — a read-only view of the git repositories inside the folders the user
+    /// already granted as `scanRoots`. It scans refs directly and never runs git; the
+    /// App Sandbox forbids `Process` outright. See `GitRepoScanner`.
+    @Published var showingRepos: Bool = false
     @Published var showingNotices: Bool = false
 
     /// Operational trust and recovery: connection evidence, verified snapshots,
@@ -877,6 +881,7 @@ final class AppStore: ObservableObject {
         trustMessage = nil
         retrospectivePeriodID = nil
         showingRetrospective = false
+        showingRepos = false
         showingNotices = false
         showingTrustCenter = false
     }
@@ -1282,6 +1287,16 @@ final class AppStore: ObservableObject {
         closeAllPanes()
         showingRetrospective = true
         statusMessage = "Your year so far — what these notes add up to."
+    }
+
+    /// Read-only, by design. This pane reports; it never deletes a branch, prunes a
+    /// worktree or runs `gc` — decision #3 (propose, never apply) applies to a user's
+    /// repository at least as much as to their notes, and the sandbox forbids the
+    /// subprocess any of those would need anyway.
+    func showRepos() {
+        closeAllPanes()
+        showingRepos = true
+        statusMessage = "Repos — branches and worktrees in your scan folders. Read-only."
     }
 
     func selectNote(_ id: UUID?) {
