@@ -1083,6 +1083,11 @@ final class AppStore: ObservableObject {
         showingAutomation = false
         showingFirstRun = false
         showingMore = false
+        // Repos was missing here, and the routing chain checks it BEFORE More,
+        // Needs You and Notes — so once opened it shadowed all three and they
+        // silently stopped rendering. A pane added to the chain must be added here
+        // in the same change.
+        showingRepos = false
     }
 
     func showFirstRun() {
