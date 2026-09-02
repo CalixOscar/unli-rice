@@ -95,8 +95,15 @@ public final class CaptureStore: ObservableObject {
         }
     }
 
+    /// "Follow system" resolves to the user's first KEYBOARD language, not the device's
+    /// region setting. `Locale.current` is the display language and was a poor guess at
+    /// what someone speaks — an en-PH device with a Filipino keyboard installed was
+    /// transcribed as en-PH with no indication the keyboard existed. See `KeyboardLocales`.
     public var effectiveTranscriptionLocale: Locale {
-        TranscriptionLocale.effectiveLocale(for: transcriptionLocaleID)
+        TranscriptionLocale.effectiveLocale(
+            for: transcriptionLocaleID,
+            systemDefault: KeyboardLocales.preferred()
+        )
     }
 
     private var durationTimer: Timer?
@@ -445,7 +452,7 @@ public final class CaptureStore: ObservableObject {
     public func loadAvailableLocalesIfNeeded() {
         guard availableLocales.isEmpty else { return }
         Task {
-            let locales = await TranscriptionLanguages.supported()
+            let locales = await TranscriptionLanguages.supported(preferring: KeyboardLocales.active())
             var statuses: [String: LanguageStatus] = [:]
             for loc in locales {
                 statuses[loc.identifier] = await TranscriptionLanguages.status(for: loc)

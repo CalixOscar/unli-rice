@@ -676,6 +676,20 @@ public struct CaptureView: View {
                             .foregroundStyle(Theme.textLight)
                     }
 
+                    Section {
+                        NavigationLink(destination: ReposSnapshotView(store: store)) {
+                            Text("Repos on your Mac")
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                    } header: {
+                        Text("From your Mac").foregroundStyle(Theme.textSecondary)
+                    } footer: {
+                        Text("A read-only picture of your Mac's branches, published to the "
+                             + "shared folder. This phone has no repositories and cannot "
+                             + "change anything.")
+                            .foregroundStyle(Theme.textLight)
+                    }
+
                     Section(header: Text("Interface Layout").foregroundStyle(Theme.textSecondary)) {
                         Picker("Layout Placement", selection: $store.layoutPlacement) {
                             ForEach(LayoutPlacement.allCases) { placement in
