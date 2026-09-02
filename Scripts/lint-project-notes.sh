@@ -1,9 +1,21 @@
 #!/bin/sh
 # lint-project-notes.sh — structural check for PROJECT_NOTES.md
 #
+# CANONICAL COPY: ~/Documents/Unli Rice Vault/scripts/lint-project-notes.sh
+# Edit it there and re-run install-studio-hooks.sh. A copy inside a project repo
+# is a build artifact — git hooks are local and are not cloned, so the copy has to
+# exist, but it is not where a rule change goes.
+#
 # Exists because a note can be corrupted by any tool that edits it, and the studio
 # swaps between several. Vault guardrails only bind tools that read them; this runs
 # from a git pre-commit hook, so it binds every tool equally.
+#
+# 2026-09-02: Handoff moved out to memory.md, which is size-capped and holds only
+# current working state. PROJECT_NOTES.md is now the historical record — Overview,
+# Decisions Log, Session Log — and no longer needs a Handoff section. A Handoff
+# still present is validated as before (nothing breaks mid-migration), but once a
+# memory.md exists alongside it, two files claim to hold current state and this
+# reports that. See lint-memory.sh.
 #
 # Usage:
 #   scripts/lint-project-notes.sh [path]            check the whole file
@@ -56,14 +68,33 @@ done
 [ -f "$F.lint-err" ] && { ERR=1; rm -f "$F.lint-err"; }
 
 # --- 3. required sections present ---------------------------------------------
-for S in "## Overview" "## Handoff" "## Decisions Log" "## Session Log"; do
-  N=$(grep -c "^$S" "$F")
-  if [ "$N" -eq 0 ]; then
-    fail "missing required section '$S'"
-  elif [ "$N" -gt 1 ] && ! allowed duplicate-heading "$S"; then
-    : # already reported above
-  fi
-done
+# Handoff is deliberately NOT in this list any more — it lives in memory.md.
+# A legacy note that is organised by topic rather than as a log can waive the whole
+# check with a single in-file marker, so that reshaping a large historical note is
+# a decision the founder makes, not something a commit forces at an arbitrary moment:
+#   <!-- lint-allow required-sections "PROJECT_NOTES.md" — reason, date -->
+if allowed required-sections "$(basename "$F")"; then
+  printf '  waived required-section check (topic-organised legacy note)\n'
+else
+  for S in "## Overview" "## Decisions Log" "## Session Log"; do
+    N=$(grep -c "^$S" "$F")
+    if [ "$N" -eq 0 ]; then
+      fail "missing required section '$S'"
+    elif [ "$N" -gt 1 ] && ! allowed duplicate-heading "$S"; then
+      : # already reported above
+    fi
+  done
+fi
+
+# --- 3b. current state lives in exactly one file ------------------------------
+MEMF="$(dirname "$F")/memory.md"
+if [ -f "$MEMF" ] && grep -qE '^\*\*(Status|Next step):\*\*' "$F"; then
+  H=$(grep -n '^## Handoff' "$F" | head -1 | cut -d: -f1)
+  [ -n "$H" ] && fail "memory.md exists but this file still carries a populated Handoff
+           (line $H). Two files claiming to hold current state is the drift this
+           split exists to prevent. Move the six fields into memory.md and delete
+           the Handoff section here, or delete memory.md — not both."
+fi
 
 # --- 4/5. Handoff: six fields per track, in order -----------------------------
 # A Handoff may carry several named tracks (### Track name — ...). That is a real
