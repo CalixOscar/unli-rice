@@ -30,9 +30,38 @@ struct FirstRunView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+        .safeAreaInset(edge: .bottom) { skipBar }
         .onAppear {
             store.refreshTrustCenter()
         }
+    }
+
+    /// A way out of first run, present in EVERY state.
+    ///
+    /// Both existing exits — "Continue to App" and "Go to Home" — live in the connected
+    /// states, so the one screen a new user actually lands on had none: connecting an MCP
+    /// client was the only route past it, short of quitting. Connecting is optional, and
+    /// FirstRunView replaces the whole layout including the sidebar, so there was no other
+    /// navigation either. The app works perfectly well with no client attached — notes can
+    /// be written by hand — and a setup wall for an optional integration is the opposite of
+    /// letting someone finish what they came to do.
+    private var skipBar: some View {
+        HStack {
+            Spacer()
+            Button("Use Unli Rice without connecting") {
+                store.showHome()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.accentColor)
+            Text("You can connect later from More → Setup.")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textSecondary)
+            Spacer()
+        }
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - State 1 View
