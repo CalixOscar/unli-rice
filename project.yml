@@ -185,7 +185,7 @@ targets:
         ENABLE_APP_SANDBOX: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "5"
+        CURRENT_PROJECT_VERSION: "6"
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 calmdownoscar. All rights reserved.

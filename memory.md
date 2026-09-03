@@ -23,18 +23,18 @@
 # Unli Rice — Working Memory
 
 **Status:** On `main`, working tree clean, everything pushed to `origin/main`
-(the repo is **public**: `github.com/CalixOscar/unli-rice`). `swift build` clean
-(verified 2026-09-03); full `swift test` **not re-run this pass** — the last
-green run was 380 tests, 0 failures, 2 skipped (verified: `swift test`
-2026-09-03, before this pass's `ContentView.swift` change). `project.yml` is
-unchanged this pass and its bump is already committed in `92be76e`:
-`MARKETING_VERSION "1.2"` both targets, `CURRENT_PROJECT_VERSION "6"` (Capture)
-and `"5"` (Mac). **Both numbers are free and correct** (verified 2026-09-03):
-the Mac App Store install is still **1.1 (build 4)** — read from
-`/Applications/Unli Rice.app/Contents/Info.plist`, `_MASReceipt` present — and
-the "build 5 already in the App Store" the founder recalled is the **Capture**
-TestFlight build uploaded 2026-08-13, a different target. Neither 1.2 build has
-been archived or uploaded.
+(the repo is **public**: `github.com/CalixOscar/unli-rice`). 380 tests, 0
+failures, 2 skipped (verified: `swift test` 2026-09-03, **after** this pass's
+`ContentView.swift` change). **Both targets ship as 1.2 (6)** at founder
+decision: `MARKETING_VERSION "1.2"`, `CURRENT_PROJECT_VERSION "6"` for Mac and
+Capture alike, confirmed in the generated `project.pbxproj` across all four
+configurations with no stale `5` left (`xcodegen generate` re-run). Mac skips
+build 5 entirely, which is fine — its last accepted build is **4**: the App
+Store install is still **1.1 (4)**, read from `/Applications/Unli
+Rice.app/Contents/Info.plist` with `_MASReceipt` present. The "build 5 already
+in the App Store" the founder recalled was the **Capture** TestFlight upload of
+2026-08-13, a different target. **Neither 1.2 build has been archived or
+uploaded** — that is the founder's step, not this session's.
 **Task:** Three pieces landed this pass. (1) The sidebar pane-switch lag fix —
 the three blurred `GeometryReader` circles moved out of `ContentView.body` into
 a standalone `BackgroundBlobs` that reads nothing from `store`, plus
@@ -45,7 +45,7 @@ believed this was already fixed; it never was. What *was* fixed earlier is a
 different sidebar bug, `e67f29f` (`closeAllPanes` never cleared `showingRepos`).
 (2) `docs/PLAN-sidebar-pane-switch-lag.md` records the mechanism, the step that
 landed, and the `@Published enum Pane` collapse deliberately not attempted
-(`16ae1d9`). (3) One current Mac screenshot set, 8 panes, recaptured same-day at
+(`16ae1d9`). Both targets were then set to 1.2 (6) for release. (3) One current Mac screenshot set, 8 panes, recaptured same-day at
 3024×1898 with a 2880×1800 set for App Store Connect; three blurs applied — the
 founder's first name and his son's name on Home, and one unreleased project name
 on To do (`01a1c3a`, `f9e0ac1`). The other project names in that shot were
@@ -56,19 +56,20 @@ and still **unreleased** — it ships whenever the founder next archives.
 **Files touched:** `Sources/UnliRice/ContentView.swift` (`BackgroundBlobs`, the
 blur moved out of the observing body); `docs/PLAN-sidebar-pane-switch-lag.md`
 (new); `Screenshots/AppStore-Mac-2026-09-03/` (8 shots plus the
-`padded-2880x1800/` set, replacing the 4-shot set); `memory.md`. No test file
-and no `project.yml` change this pass.
-**Next step:** Watch the sidebar in the running app and decide whether
-`51ffb83` actually fixed it — build, click To do / Repos / Notes / Home in
-sequence, and see whether single clicks land. That observation has never been
-made; every claim about this lag so far, including the fix, is code-reading
-only. If it still lags, the remaining suspect is the 17 `@Published` `Bool`s
-themselves (`closeAllPanes()`, `AppStore.swift:1094`) wanting a single
-`@Published enum Pane` — step 2 of `docs/PLAN-sidebar-pane-switch-lag.md`,
-swarm-shaped, not a quick fix. Also re-run `swift test` before any archive: the
-last green run predates the `ContentView.swift` change. Then the founder
-archives and uploads both targets themselves; this session did not and will
-not. `_AI Context/07_Prelaunch_Post_Mortem.md` still has not been run before
+`padded-2880x1800/` set, replacing the 4-shot set); `project.yml` (Mac
+`CURRENT_PROJECT_VERSION` 5 to 6); `memory.md`. No test file changed this pass.
+**Next step:** Watch the sidebar in the running app before archiving, and
+decide whether `51ffb83` actually fixed it — click To do / Repos / Notes / Home
+in sequence and see whether single clicks land. That observation has never been
+made; every claim about this lag, including the fix, is code-reading only, and
+1.2 (6) ships it either way. If it still lags, the remaining suspect is the 17
+`@Published` `Bool`s themselves (`closeAllPanes()`, `AppStore.swift:1094`)
+wanting a single `@Published enum Pane` — step 2 of
+`docs/PLAN-sidebar-pane-switch-lag.md`, swarm-shaped, not a quick fix. Then the
+founder archives and uploads both targets themselves; this session did not and
+will not. TestFlight "What to Test" copy for both apps was drafted in the
+session that set these numbers and is not stored in the repo — rewrite it from
+`git log 71e2a6d..HEAD` if it is needed again. `_AI Context/07_Prelaunch_Post_Mortem.md` still has not been run before
 any future distribution action — carried over, not touched.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
