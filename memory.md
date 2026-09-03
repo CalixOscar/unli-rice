@@ -48,7 +48,7 @@ landed, and the `@Published enum Pane` collapse deliberately not attempted
 (`16ae1d9`). Both targets were then set to 1.2 (6) for release. (3) One current Mac screenshot set, 8 panes, recaptured same-day at
 3024×1898 with a 2880×1800 set for App Store Connect; three blurs applied — the
 founder's first name and his son's name on Home, and one unreleased project name
-on To do (`01a1c3a`, `f9e0ac1`). The other project names in that shot were
+on To do (`01a1c3a`, `cd77f1b`). The other project names in that shot were
 checked against `origin/main` first and are already public there.
 Everything from the previous pass (`46da148` toast, `958d9fd` rating prompt,
 `1b01fb3` iPad copy, `92be76e` version bump, `37b4258` screenshots) is committed
