@@ -22,61 +22,50 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `main`, everything pushed through `37b4258`, working tree clean.
-380 tests, 0 failures, 2 skipped (verified: `swift test` 2026-09-03). Both Xcode
-targets build — Mac `UnliRice` and `UnliRiceCapture` for the iOS Simulator, iPad
-Pro 13" included (verified: `xcodebuild` 2026-09-03). `project.yml` is now
-`MARKETING_VERSION "1.2"` for both targets, `CURRENT_PROJECT_VERSION "6"`
-(Capture) and `"5"` (Mac) — not applied yet: **neither has been archived or
-uploaded.** `xcodegen generate` has been re-run since the bump.
-**Task:** Four independent pieces landed this session. (1) A confirmation toast
-on `AITodoMenu`/`AIReviewMenu` ("Fix with AI…" / "Resolve with AI…") — picking a
-target used to close the menu with zero visible feedback; matches the toast
-`CleanupMenu` already had (`46da148`). (2) Committed a rating-prompt feature
-that was already fully written and tested in the working tree at session start
-(not authored this session) — `ReviewPrompt`/`offerRatingIfEarned()` existed but
-were dead code, never called; now wired to a completed Mac ingest and a durable
-Capture save, plus a permanent "Rate" row on both apps that opens the App
-Store's write-review URL directly rather than the rate-limited `requestReview`
-(`958d9fd`). (3) Resolved `docs/IOS_CAPTURE_RELEASE.md` §1.6's open "decide iPad,
-deliberately" question — its premise was stale: `CaptureView` already has a real
-two-column `horizontalSizeClass == .regular` layout, confirmed live on an iPad
-Pro 13" simulator. Kept `TARGETED_DEVICE_FAMILY: "1,2"`, fixed the leftover
-phone-only copy ("Keep on this phone only", "nothing leaves this phone", etc.)
-to device-neutral text, verified on-device (`1b01fb3`). (4) Replaced both stale
-App Store screenshot sets — old Mac set showed the retired `Brain map / Setup /
-Looking back` sidebar; old iPhone set had two marketing banners in screenshot
-slots (one a Mac window composited into an iPhone frame) plus four shots
-predating `621ccea`'s type-a-note fix. Recaptured a same-day iPad-13 set
-(2064×2752) and reorganized both device folders under one dated parent
-(`37b4258`).
-**Files touched:** `Sources/UnliRice/{ContentView,TodoPaneView}.swift` (toast);
-`Sources/UnliRice/{AppStore+Ingest,AppStore+Rating,MoreView,UnliRiceApp}.swift`,
-`Sources/UnliRiceCapture/{CaptureApp,CaptureStore,CaptureReviewPrompt}.swift`,
-`Sources/UnliRiceCore/ReviewPrompt.swift`,
-`Tests/UnliRiceCoreTests/ReviewPromptTests.swift` (rating); `Sources/
-UnliRiceCapture/{CaptureView,CapturePlayer,ReposSnapshotView,
-WelcomeSplashView}.swift` (device-neutral copy); `Screenshots/` (full
-reorganization — see `37b4258`); `project.yml` (version bump, this pass,
-uncommitted).
-**Next step:** Commit the `project.yml` version bump — it is applied and both
-targets build, but not yet committed. After that, the founder archives and
-uploads both targets themselves; this session did not and will not. Separately,
-the founder reported the sidebar (To do / Repos / etc.) sometimes needing
-several clicks to switch panes. Diagnosed by reading code only — screen access
-to the running app was declined, so this is **unverified against the real
-app**: `ContentView.body` observes `store` directly and re-evaluates on every
-`@Published` write, and a single sidebar click fires through `closeAllPanes()`
-(`AppStore.swift:1095`, 17 Bool writes) plus the destination's own `show*()` —
-each of those turns re-runs the three `GeometryReader` `Circle()` blurs at
-radius 80-95 in `ContentView.swift:13-34`, which sit behind `.liquidGlass` on
-the sidebar. Cheapest next step: comment out that block and see if the lag
-goes away; if so, pull it into a view that doesn't observe `store` (so SwiftUI
-skips re-rendering it) plus `.drawingGroup()`. The 17-Bool pane-tracking is a
-deeper cause (wants a single `@Published enum Pane`) but that is swarm-shaped,
-not a quick fix. `_AI Context/07_Prelaunch_Post_Mortem.md` still has not been
-run before any future distribution action — unrelated to the sidebar issue,
-carried over from before this session and not touched.
+**Status:** On `main`, working tree clean, everything pushed to `origin/main`
+(the repo is **public**: `github.com/CalixOscar/unli-rice`). `swift build` clean
+(verified 2026-09-03); full `swift test` **not re-run this pass** — the last
+green run was 380 tests, 0 failures, 2 skipped (verified: `swift test`
+2026-09-03, before this pass's `ContentView.swift` change). `project.yml` is
+unchanged this pass and its bump is already committed in `92be76e`:
+`MARKETING_VERSION "1.2"` both targets, `CURRENT_PROJECT_VERSION "6"` (Capture)
+and `"5"` (Mac) — Mac build 5 is **live on the App Store**; Capture 6 has
+**not** been archived or uploaded.
+**Task:** Three pieces landed this pass. (1) The sidebar pane-switch lag fix —
+the three blurred `GeometryReader` circles moved out of `ContentView.body` into
+a standalone `BackgroundBlobs` that reads nothing from `store`, plus
+`.drawingGroup()`; the body observes `store`, so those blurs were re-rendering
+on all ~19 `@Published` writes a single sidebar click produces (`51ffb83`).
+**Builds clean but has not been watched in the running app** — the founder had
+believed this was already fixed; it never was. What *was* fixed earlier is a
+different sidebar bug, `e67f29f` (`closeAllPanes` never cleared `showingRepos`).
+(2) `docs/PLAN-sidebar-pane-switch-lag.md` records the mechanism, the step that
+landed, and the `@Published enum Pane` collapse deliberately not attempted
+(`16ae1d9`). (3) One current Mac screenshot set, 8 panes, recaptured same-day at
+3024×1898 with a 2880×1800 set for App Store Connect; three blurs applied — the
+founder's first name and his son's name on Home, and one unreleased project name
+on To do (`01a1c3a`, `f9e0ac1`). The other project names in that shot were
+checked against `origin/main` first and are already public there.
+Everything from the previous pass (`46da148` toast, `958d9fd` rating prompt,
+`1b01fb3` iPad copy, `92be76e` version bump, `37b4258` screenshots) is committed
+and still **unreleased** — it ships whenever the founder next archives.
+**Files touched:** `Sources/UnliRice/ContentView.swift` (`BackgroundBlobs`, the
+blur moved out of the observing body); `docs/PLAN-sidebar-pane-switch-lag.md`
+(new); `Screenshots/AppStore-Mac-2026-09-03/` (8 shots plus the
+`padded-2880x1800/` set, replacing the 4-shot set); `memory.md`. No test file
+and no `project.yml` change this pass.
+**Next step:** Watch the sidebar in the running app and decide whether
+`51ffb83` actually fixed it — build, click To do / Repos / Notes / Home in
+sequence, and see whether single clicks land. That observation has never been
+made; every claim about this lag so far, including the fix, is code-reading
+only. If it still lags, the remaining suspect is the 17 `@Published` `Bool`s
+themselves (`closeAllPanes()`, `AppStore.swift:1094`) wanting a single
+`@Published enum Pane` — step 2 of `docs/PLAN-sidebar-pane-switch-lag.md`,
+swarm-shaped, not a quick fix. Also re-run `swift test` before any archive: the
+last green run predates the `ContentView.swift` change. Then the founder
+archives and uploads both targets themselves; this session did not and will
+not. `_AI Context/07_Prelaunch_Post_Mortem.md` still has not been run before
+any future distribution action — carried over, not touched.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
@@ -98,8 +87,13 @@ are distinct targets from `project.yml`, not duplicate apps. `deleteCapture`
 purges `events.jsonl` via `TrashService`, so "no destructive delete" is true of
 the Mac's note tools but **not** of the phone. `Sources/UnliRiceCapture/
 Resources/Assets 2.xcassets` is still a stray duplicate, left for the founder
-to delete.
-**Left by:** Claude Sonnet 5 2026-09-03
+to delete. **This file's Next step went stale and cost real time:** it still
+said "commit the `project.yml` bump" after `92be76e` had committed it, and a
+session was spent re-deriving that. Check `git log -10` before acting on
+anything here. macOS screenshot filenames contain a narrow no-break space
+(U+202F) before `AM`/`PM`, so a normal space in a shell path silently fails as
+"No such file" — glob them (`*10.32.22*`) rather than typing the name.
+**Left by:** Claude Opus 5 2026-09-03
 
 ## Open hypotheses
 
@@ -108,11 +102,13 @@ to delete.
      PROJECT_NOTES.md's Decisions Log, not here. -->
 
 - Sidebar pane-switching lag ("click it four times"): hypothesized cause is the
-  three blurred `GeometryReader` circles in `ContentView.swift:13-34`
-  re-rendering on every `@Published` write from `closeAllPanes()`. Confirms if
-  removing that block (temporarily) makes single clicks reliable; kills if the
-  lag persists with the block removed, which would point at something in the
-  destination pane's own `body` instead.
+  three blurred `GeometryReader` circles re-rendering on every `@Published`
+  write from `closeAllPanes()`. The fix for exactly that is now **applied**
+  (`51ffb83`, `BackgroundBlobs` + `.drawingGroup()`), so the hypothesis is
+  testable but **still untested** — nobody has watched the running app. Confirms
+  if single clicks now land reliably; kills if the lag persists, which points at
+  the 17 `@Published` writes themselves rather than the cost of each redraw.
+  Delete this entry once someone has actually clicked the sidebar.
 
 ## Active constraints
 
