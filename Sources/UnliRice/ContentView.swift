@@ -1,6 +1,41 @@
 import UnliRiceCore
 import SwiftUI
 
+/// The three glowing blobs behind everything.
+///
+/// Deliberately does not touch `store`. It used to be written inline in
+/// `ContentView.body`, which observes `store` — so all three blurs were re-rendered on
+/// every `@Published` write, and one sidebar click is up to 19 of them
+/// (`closeAllPanes()` alone writes 17 Bools). `.drawingGroup()` flattens the three
+/// blurs into one Metal-backed layer so even a genuine redraw is cheap.
+struct BackgroundBlobs: View {
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Circle()
+                    .fill(Theme.violet.opacity(0.18))
+                    .frame(width: 450, height: 450)
+                    .blur(radius: 90)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+
+                Circle()
+                    .fill(Theme.accentColor.opacity(0.14))
+                    .frame(width: 350, height: 350)
+                    .blur(radius: 80)
+                    .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
+
+                Circle()
+                    .fill(Theme.brass.opacity(0.12))
+                    .frame(width: 380, height: 380)
+                    .blur(radius: 95)
+                    .position(x: geo.size.width * 0.85, y: geo.size.height * 0.2)
+            }
+            .ignoresSafeArea()
+        }
+        .drawingGroup()
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var store: AppStore
 
@@ -11,28 +46,7 @@ struct ContentView: View {
                 .ignoresSafeArea()
 
             // Glowing neon background blobs
-            GeometryReader { geo in
-                ZStack {
-                    Circle()
-                        .fill(Theme.violet.opacity(0.18))
-                        .frame(width: 450, height: 450)
-                        .blur(radius: 90)
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
-
-                    Circle()
-                        .fill(Theme.accentColor.opacity(0.14))
-                        .frame(width: 350, height: 350)
-                        .blur(radius: 80)
-                        .position(x: geo.size.width * 0.15, y: geo.size.height * 0.8)
-
-                    Circle()
-                        .fill(Theme.brass.opacity(0.12))
-                        .frame(width: 380, height: 380)
-                        .blur(radius: 95)
-                        .position(x: geo.size.width * 0.85, y: geo.size.height * 0.2)
-                }
-                .ignoresSafeArea()
-            }
+            BackgroundBlobs()
 
             // Main structure
             if store.showingFirstRun {
