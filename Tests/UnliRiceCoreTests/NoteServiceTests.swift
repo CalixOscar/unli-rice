@@ -278,4 +278,27 @@ final class NoteServiceTests: XCTestCase {
         let logs = try service.transactionLog(limit: 0)
         XCTAssertEqual(logs.count, 0)
     }
+
+    /// `appendRaw` reports a failed write instead of swallowing it.
+    ///
+    /// `CaptureStore` now treats "every event reached `events.jsonl`" as the definition
+    /// of a saved note, and throws when it did not — which is only worth anything if
+    /// this can actually fail. It used to be called as `try?` in two places, so a note
+    /// that never reached the log was reported as saved and then vanished at the next
+    /// rebuild. If this test ever starts failing because `appendRaw` became infallible,
+    /// that durable-success guarantee is hollow.
+    func testAppendRawThrowsWhenTheLogCannotBeOpened() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("unlirice-append-fail-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let logURL = dir.appendingPathComponent("events.jsonl")
+        let store = try EventStore(fileURL: logURL)
+
+        // The directory goes away underneath it, so open(O_CREAT) fails with ENOENT.
+        try FileManager.default.removeItem(at: dir)
+
+        XCTAssertThrowsError(try store.appendRaw(Data("{}".utf8))) { error in
+            XCTAssertEqual(error as? EventStoreError, .fileUnavailable)
+        }
+    }
 }

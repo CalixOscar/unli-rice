@@ -26,8 +26,8 @@ public struct ShardWriter: Sendable {
     /// `CaptureStore` appended just this event to its own `events.jsonl` and the
     /// tags existed only in the shard.
     @discardableResult
-    public func writeCapture(transcript: String, date: Date = Date(), tags: [String] = []) throws -> Event {
-        let events = try writeCaptureEvents(transcript: transcript, date: date, tags: tags)
+    public func writeCapture(text: String, date: Date = Date(), tags: [String] = []) throws -> Event {
+        let events = try writeCaptureEvents(text: text, date: date, tags: tags)
         guard let created = events.first else {
             throw RecorderShardError.nothingWritten
         }
@@ -36,7 +36,7 @@ public struct ShardWriter: Sendable {
 
     /// Every event this capture appended, in write order: the `created` event
     /// followed by one `tagged` event per tag.
-    public func writeCaptureEvents(transcript: String, date: Date = Date(), tags: [String] = []) throws -> [Event] {
+    public func writeCaptureEvents(text: String, date: Date = Date(), tags: [String] = []) throws -> [Event] {
         let noteID = UUID()
         let eventID = UUID()
 
@@ -47,7 +47,7 @@ public struct ShardWriter: Sendable {
         // transcriptions would fill the review queue with proposals to merge
         // unrelated recordings. Empty titles are worse still — `Projector` turns
         // them into "Untitled", which then fights over `idsByTitle`.
-        let condensed = ImporterText.condense(transcript, limit: 60)
+        let condensed = ImporterText.condense(text, limit: 60)
         let derivedTitle = ImporterText.sanitizeTitle(condensed)
         let finalTitle = derivedTitle.isEmpty ? Self.timestampedFallbackTitle(for: date) : derivedTitle
 
@@ -58,7 +58,7 @@ public struct ShardWriter: Sendable {
             source: "human",
             kind: .created,
             title: finalTitle,
-            text: transcript,
+            text: text,
             device: deviceLabel
         )
 

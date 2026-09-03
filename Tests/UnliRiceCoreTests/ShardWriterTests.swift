@@ -20,7 +20,7 @@ final class ShardWriterTests: XCTestCase {
         let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
         let transcript = "Remember to buy extra unli rice for the team dinner [[special note]]"
 
-        let event = try writer.writeCapture(transcript: transcript)
+        let event = try writer.writeCapture(text: transcript)
 
         XCTAssertEqual(event.source, "human")
         XCTAssertEqual(event.device, "iPhone")
@@ -45,7 +45,7 @@ final class ShardWriterTests: XCTestCase {
     func testWriteCaptureEventsReturnsTagEventsAndNotJustTheCreatedOne() throws {
         let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
 
-        let events = try writer.writeCaptureEvents(transcript: "Tag me", tags: ["Unli Thoughts"])
+        let events = try writer.writeCaptureEvents(text: "Tag me", tags: ["Unli Thoughts"])
 
         XCTAssertEqual(events.count, 2)
         XCTAssertEqual(events.first?.kind, .created)
@@ -58,7 +58,7 @@ final class ShardWriterTests: XCTestCase {
         XCTAssertEqual(tagged.noteId, events.first?.noteId)
 
         // The one-event convenience form still hands back the created event.
-        XCTAssertEqual(try writer.writeCapture(transcript: "Head only", tags: ["x"]).kind, .created)
+        XCTAssertEqual(try writer.writeCapture(text: "Head only", tags: ["x"]).kind, .created)
     }
 
     /// A constant fallback title scores 1.0 against itself in
@@ -68,8 +68,8 @@ final class ShardWriterTests: XCTestCase {
     func testEmptyTranscriptsGetDistinctTitlesRatherThanAConstant() throws {
         let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
 
-        let first = try writer.writeCapture(transcript: "", date: Date(timeIntervalSince1970: 1000))
-        let second = try writer.writeCapture(transcript: "   ", date: Date(timeIntervalSince1970: 1001))
+        let first = try writer.writeCapture(text: "", date: Date(timeIntervalSince1970: 1000))
+        let second = try writer.writeCapture(text: "   ", date: Date(timeIntervalSince1970: 1001))
 
         let firstTitle = try XCTUnwrap(first.title)
         let secondTitle = try XCTUnwrap(second.title)
@@ -82,7 +82,7 @@ final class ShardWriterTests: XCTestCase {
     func testShardWriterExplicitDeviceLabel() throws {
         let identity = DeviceIdentity.current(inDirectory: root)
         let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: identity.label)
-        let event = try writer.writeCapture(transcript: "App intent capture")
+        let event = try writer.writeCapture(text: "App intent capture")
 
         XCTAssertEqual(event.source, "human")
         XCTAssertNotNil(event.device)
@@ -91,7 +91,7 @@ final class ShardWriterTests: XCTestCase {
 
     func testWriteAppendEventsEmitsOneAppendedEventWithNoTitleAndProjectsJoinedBody() throws {
         let writer = ShardWriter(shardFileURL: shardFile, deviceLabel: "iPhone")
-        let created = try writer.writeCapture(transcript: "Original thought")
+        let created = try writer.writeCapture(text: "Original thought")
 
         let appends = try writer.writeAppendEvents(noteID: created.noteId, text: "Additional thought")
         XCTAssertEqual(appends.count, 1)

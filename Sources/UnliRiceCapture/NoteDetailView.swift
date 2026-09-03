@@ -136,7 +136,11 @@ public struct NoteDetailView: View {
                 HStack(spacing: 8) {
                     Image(systemName: isPlaying ? "stop.circle.fill" : (hasAudio ? "play.circle.fill" : "waveform"))
                         .font(.system(size: 20))
-                    Text(isPlaying ? "Stop audio" : (hasAudio ? "Play recording" : "Recording no longer stored"))
+                    // "No recording" — not "no longer stored". Nothing here knows
+                    // whether audio was pruned or never existed, and a typed note
+                    // never had any. The old wording asserted a history it could
+                    // not see.
+                    Text(isPlaying ? "Stop audio" : (hasAudio ? "Play recording" : "No recording"))
                         .font(.system(size: 13, weight: .medium))
                 }
                 .foregroundStyle(hasAudio ? Theme.accentColor : Theme.textLight)

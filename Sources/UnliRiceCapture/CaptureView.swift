@@ -19,6 +19,7 @@ public struct CaptureView: View {
     @AppStorage("hasSeenWelcomeSplash") private var hasSeenWelcomeSplash = false
     @State private var showWelcomeSplash = false
     @State private var selectedCapture: SentCaptureItem? = nil
+    @State private var showTypedNote = false
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -80,6 +81,9 @@ public struct CaptureView: View {
                 }
             }
             .padding(horizontalSizeClass == .regular ? 24 : 16)
+        }
+        .sheet(isPresented: $showTypedNote) {
+            TypedNoteSheet(store: store)
         }
         .onAppear {
             store.resyncRecordingState()
@@ -240,6 +244,8 @@ public struct CaptureView: View {
 
             if isRecordingOrPaused {
                 recordingControlBar
+            } else {
+                typeNoteButton
             }
         }
         .padding(.vertical, 16)
@@ -269,6 +275,32 @@ public struct CaptureView: View {
         }
         .padding(14)
         .cardStyle(cornerRadius: 14)
+    }
+
+    /// The second way in, beside the mic rather than instead of it.
+    ///
+    /// Hidden — not merely disabled — while a capture is in flight, on the same
+    /// predicate the store enforces. `store.captureInFlight` includes `.transcribing`,
+    /// which `isRecordingOrPaused` does not: `finishRecording` spends its whole awaited
+    /// transcription interval there, and a typed save landing in that window would be
+    /// overwritten by the voice continuation.
+    private var typeNoteButton: some View {
+        Button(action: { showTypedNote = true }) {
+            HStack(spacing: 6) {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Type instead")
+                    .font(.system(size: 12.5, weight: .semibold))
+            }
+            .foregroundStyle(Theme.accentColor)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .solidControl(cornerRadius: 10)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.captureInFlight)
+        .opacity(store.captureInFlight ? 0.4 : 1)
+        .accessibilityLabel("Type a note instead of recording")
     }
 
     private var recordingControlBar: some View {
@@ -525,16 +557,20 @@ public struct CaptureView: View {
         let hasAudio = item.audioURL != nil
 
         return HStack(spacing: 10) {
-            Button(action: { player.toggle(noteID: item.id, audioURL: item.audioURL) }) {
-                Image(systemName: isPlaying ? "stop.circle.fill" : (hasAudio ? "play.circle.fill" : "waveform"))
-                    .font(.system(size: 22))
-                    .foregroundStyle(hasAudio ? Theme.accentColor : Theme.textLight)
+            // No control at all when there is no audio, rather than a disabled one.
+            // A greyed-out play button is a claim about history — "this could play,
+            // but not now" — and nothing here knows whether the audio was pruned or
+            // never existed: a typed note has no index entry, and neither does a
+            // pruned recording after `forget(noteID:)`. Unknown stays unknown.
+            if hasAudio {
+                Button(action: { player.toggle(noteID: item.id, audioURL: item.audioURL) }) {
+                    Image(systemName: isPlaying ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(Theme.accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isPlaying ? "Stop playback" : "Play recording")
             }
-            .buttonStyle(.plain)
-            .disabled(!hasAudio)
-            // The recording is gone, the thought is not — retention prunes audio
-            // and leaves the note. Saying so beats a button that does nothing.
-            .accessibilityLabel(hasAudio ? (isPlaying ? "Stop playback" : "Play recording") : "Recording no longer stored")
 
             Button(action: { selectedCapture = item }) {
                 VStack(alignment: .leading, spacing: 2) {

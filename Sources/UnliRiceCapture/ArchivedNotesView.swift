@@ -66,14 +66,20 @@ public struct ArchivedNotesView: View {
         let hasAudio = item.audioURL != nil
 
         return HStack(spacing: 10) {
-            Button(action: { player.toggle(noteID: item.id, audioURL: item.audioURL) }) {
-                Image(systemName: isPlaying ? "stop.circle.fill" : (hasAudio ? "play.circle.fill" : "waveform"))
-                    .font(.system(size: 22))
-                    .foregroundStyle(hasAudio ? Theme.accentColor : Theme.textLight)
+            // No control at all when there is no audio, rather than a disabled one.
+            // A greyed-out play button is a claim about history — "this could play,
+            // but not now" — and nothing here knows whether the audio was pruned or
+            // never existed: a typed note has no index entry, and neither does a
+            // pruned recording after `forget(noteID:)`. Unknown stays unknown.
+            if hasAudio {
+                Button(action: { player.toggle(noteID: item.id, audioURL: item.audioURL) }) {
+                    Image(systemName: isPlaying ? "stop.circle.fill" : "play.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(Theme.accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isPlaying ? "Stop playback" : "Play recording")
             }
-            .buttonStyle(.plain)
-            .disabled(!hasAudio)
-            .accessibilityLabel(hasAudio ? (isPlaying ? "Stop playback" : "Play recording") : "Recording no longer stored")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)

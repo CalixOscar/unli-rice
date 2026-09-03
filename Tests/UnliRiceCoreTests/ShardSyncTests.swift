@@ -79,6 +79,70 @@ final class ShardSyncTests: XCTestCase {
         XCTAssertFalse(publishedContent.contains("Phone Capture"))
     }
 
+    /// A capture BATCH — `created` plus one `tagged` per project tab — survives the
+    /// real route to the Mac, with no audio anywhere in it.
+    ///
+    /// The bidirectional test below uses `writeCapture`, which returns only the head of
+    /// the batch, and mirrors that single event. So nothing proved that the `tagged`
+    /// events survive mirroring, publishing and import — which is exactly the failure
+    /// this codebase already paid for once: dropping them left captures untagged, the
+    /// project-tab filter matched nothing, and the phone said "No synced notes found."
+    /// over a corpus that had them.
+    ///
+    /// It also pins the path a typed note depends on. `ShardWriter` writes to the
+    /// phone's own shards directory, but `CaptureStore.sync()` publishes from
+    /// `events.jsonl` — so the mirror, not the shard write, is what reaches the Mac.
+    func testCaptureBatchWithNoAudioSurvivesTheRoundTripToTheMac() throws {
+        let macShardFilename = "events-mac-333.jsonl"
+        let phoneShardFilename = "events-phone-444.jsonl"
+
+        // The phone's own shard file, which is NOT what sync publishes from.
+        let writer = ShardWriter(
+            shardFileURL: rootDir.appendingPathComponent("phone_store/shards/\(phoneShardFilename)"),
+            deviceLabel: "iPhone"
+        )
+        let batch = try writer.writeCaptureEvents(
+            text: "Typed with no microphone anywhere near it",
+            tags: ["Unli Rice"]
+        )
+        XCTAssertEqual(batch.count, 2, "a capture with one tag is `created` plus one `tagged`")
+
+        // Mirror EVERY event into the local log — the thing `saveCapturedText` now
+        // treats as the definition of a durable save.
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        for event in batch {
+            try phoneStore.appendRaw(try encoder.encode(event))
+        }
+
+        // Publish from the log, exactly as `sync()` does.
+        let published = try ShardPublisher.publishLocalEvents(
+            eventLogURL: phoneLogURL,
+            to: sharedSyncDir.appendingPathComponent(phoneShardFilename),
+            syncStateURL: phoneSyncStateURL,
+            ownDeviceLabel: "iPhone"
+        )
+        XCTAssertEqual(published, 2, "both events must be published, not just `created`")
+
+        // The Mac imports and projects.
+        _ = try ShardImporter.importShards(
+            from: sharedSyncDir,
+            into: macStore,
+            syncStateURL: macSyncStateURL,
+            ownShardFilename: macShardFilename
+        )
+        macService.rebuild()
+
+        let noteID = batch[0].noteId
+        let note = try XCTUnwrap(macService.getNote(id: noteID),
+                                 "the capture never reached the Mac")
+        XCTAssertEqual(note.body, "Typed with no microphone anywhere near it")
+        XCTAssertFalse(note.title.isEmpty, "an empty title fights over idsByTitle")
+        XCTAssertEqual(note.title, batch[0].title)
+        XCTAssertTrue(note.tags.contains("Unli Rice"),
+                      "the `tagged` event was dropped somewhere on the way")
+    }
+
     /// Full bidirectional sync test between simulated Mac and Phone.
     func testBidirectionalSyncWithTwoDevices() throws {
         let macShardFilename = "events-mac-111.jsonl"
@@ -98,7 +162,7 @@ final class ShardSyncTests: XCTestCase {
 
         // Phone originates Note B
         let writer = ShardWriter(shardFileURL: phoneShardURL, deviceLabel: "iPhone")
-        let phoneEvent = try writer.writeCapture(transcript: "Note B from phone")
+        let phoneEvent = try writer.writeCapture(text: "Note B from phone")
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         try phoneStore.appendRaw(encoder.encode(phoneEvent))
@@ -142,7 +206,7 @@ final class ShardSyncTests: XCTestCase {
 
         let phoneShardURL = sharedSyncDir.appendingPathComponent(phoneShardFilename)
         let writer = ShardWriter(shardFileURL: phoneShardURL, deviceLabel: "iPhone")
-        let phoneEvent = try writer.writeCapture(transcript: "Temporary Phone Thought")
+        let phoneEvent = try writer.writeCapture(text: "Temporary Phone Thought")
 
         // Mac imports Phone shard
         _ = try ShardImporter.importShards(
@@ -317,8 +381,8 @@ final class ShardSyncTests: XCTestCase {
         let writer = ShardWriter(shardFileURL: phoneShardURL, deviceLabel: "iPhone")
 
         // 1. Phone captures two voice notes
-        let capture1 = try writer.writeCapture(transcript: "Keep this thought")
-        let capture2 = try writer.writeCapture(transcript: "Delete this secret before Mac sees it")
+        let capture1 = try writer.writeCapture(text: "Keep this thought")
+        let capture2 = try writer.writeCapture(text: "Delete this secret before Mac sees it")
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

@@ -2,6 +2,21 @@ import Foundation
 import SwiftUI
 import UnliRiceCore
 
+/// Why a typed note was refused.
+public enum CaptureTextError: Error, LocalizedError {
+    case empty
+    case captureInFlight
+
+    public var errorDescription: String? {
+        switch self {
+        case .empty:
+            return "Nothing to save yet."
+        case .captureInFlight:
+            return "Finish the recording first — it is still being saved."
+        }
+    }
+}
+
 public struct SentCaptureItem: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let title: String
@@ -507,12 +522,13 @@ public final class CaptureStore: ObservableObject {
         guard !trimmed.isEmpty else { return }
 
         let written = try shardWriter.writeAppendEvents(noteID: noteID, text: trimmed)
+        // Same durable-success rule as `saveCapturedText`, and the same reason: the
+        // shard is not what `sync()` publishes from. These were `try?`, so an append
+        // that never reached the log reported success and then vanished.
         let jsonEncoder = JSONEncoder()
         jsonEncoder.dateEncodingStrategy = .iso8601
         for writtenEvent in written {
-            if let rawData = try? jsonEncoder.encode(writtenEvent) {
-                try? eventStore.appendRaw(rawData)
-            }
+            try eventStore.appendRaw(try jsonEncoder.encode(writtenEvent))
         }
 
         rebuildCaptures()
@@ -611,6 +627,95 @@ public final class CaptureStore: ObservableObject {
         Task { _ = try? await finishRecording() }
     }
 
+    /// True while a spoken capture is in flight — recording, paused, or being
+    /// transcribed.
+    ///
+    /// `.transcribing` belongs here as much as the other two, and that is the whole
+    /// point: `finishRecording` spends its entire awaited transcription interval in
+    /// that state, so a typed save landing in the window would set `.completed` and
+    /// insert an item that the voice continuation then overwrites. The view reads
+    /// this rather than deriving its own predicate, so the two cannot disagree.
+    public var captureInFlight: Bool {
+        switch state {
+        case .recording, .paused, .transcribing: return true
+        case .idle, .completed, .error: return false
+        }
+    }
+
+    /// Turn finished text into a note: shard write, local mirror, list entry, sync.
+    ///
+    /// Extracted from `finishRecording` so a typed note and a spoken one take the
+    /// same path. It covers ONLY the normal new-capture branch — a voice append has
+    /// a different contract (it appends to an existing note and creates no capture
+    /// item) and stays in the caller.
+    ///
+    /// `audioURL` is nil for a typed note. `SentCaptureItem.audioURL` has always been
+    /// optional because a note outlives its audio; a note that never had any is the
+    /// same case reached from the other direction.
+    @discardableResult
+    private func saveCapturedText(_ text: String, audioURL: URL?) throws -> SentCaptureItem {
+        let written = try shardWriter.writeCaptureEvents(text: text, tags: [currentProjectTab])
+        guard let event = written.first else {
+            throw RecorderShardError.nothingWritten
+        }
+
+        // **Durable success is defined here: every event in the batch reaches
+        // `events.jsonl`.** The shard write above is not it.
+        //
+        // `shardWriter` writes to `baseDir/shards/`, while `sync()` publishes from
+        // `events.jsonl` into the SHARED folder — so once a shared folder is
+        // configured the shard write is a dead end and this log is the only route
+        // to the Mac. Both of these writes used to be `try?`, which meant a failure
+        // here left the note absent from the Mac forever and gone from the phone at
+        // the next `rebuildCaptures()`, while the caller was told it had saved.
+        //
+        // Every event, not just the `created` one: dropping the `tagged` events is
+        // what left captures untagged, so the project-tab filter matched nothing and
+        // the list said "No synced notes found." over a corpus that had them.
+        //
+        // No rollback on a partial failure. The log is append-only and nothing
+        // rewrites it; the events already written stay and the error says what
+        // happened.
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.dateEncodingStrategy = .iso8601
+        for writtenEvent in written {
+            try eventStore.appendRaw(try jsonEncoder.encode(writtenEvent))
+        }
+
+        // Best-effort, and deliberately NOT part of durable success: losing the
+        // index costs playback of one recording, not the note. Keyed by note, not
+        // event — `event.id` is the created event's id and never appears again.
+        // Never index a file that does not exist.
+        if let audioURL {
+            audioIndex.record(noteID: event.noteId, filename: audioURL.lastPathComponent)
+            try? audioIndex.save(to: CaptureAudioIndex.url(inDirectory: storageDir))
+        }
+
+        let item = SentCaptureItem(
+            id: event.noteId,
+            title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
+            timestamp: event.timestamp,
+            audioURL: audioURL,
+            tags: [currentProjectTab]
+        )
+        captures.insert(item, at: 0)
+        state = .completed(title: item.title)
+        sync()
+        return item
+    }
+
+    /// Save a typed note. Same events, same project tag, same sync as a spoken one.
+    ///
+    /// Returns nothing on purpose. `CaptureStore` is the sole owner of `captures`
+    /// and `state`; handing the caller an item as well would give the UI a second
+    /// way to learn one outcome, and two authorities drift.
+    public func saveTypedNote(_ text: String) throws {
+        guard !captureInFlight else { throw CaptureTextError.captureInFlight }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw CaptureTextError.empty }
+        try saveCapturedText(trimmed, audioURL: nil)
+    }
+
     /// Stops the recording and returns the title it was saved under.
     ///
     /// The awaitable form exists for `RecordCaptureIntent`, which has to tell
@@ -629,57 +734,13 @@ public final class CaptureStore: ObservableObject {
         state = .transcribing(audioURL: audioURL)
         partialTranscript = "Transcribing audio..."
 
+        // Transcription is the ONLY failure the empty-audio fallback below is for.
+        // It used to share one `catch` with persistence, so a failed shard or log
+        // write was treated as a failed transcription and produced a SECOND, empty
+        // note on top of the one that had just failed to save.
+        let transcript: String
         do {
-            let transcript = try await transcriber.transcribe(audioURL: audioURL, locale: effectiveTranscriptionLocale)
-
-            if let targetNoteID = appendTargetNoteID {
-                appendTargetNoteID = nil
-                try appendToCapture(noteID: targetNoteID, text: transcript)
-                state = .completed(title: "Appended to note")
-                partialTranscript = transcript
-                return "Appended to note"
-            }
-
-            let written = try shardWriter.writeCaptureEvents(transcript: transcript, tags: [currentProjectTab])
-            guard let event = written.first else {
-                throw RecorderShardError.nothingWritten
-            }
-
-            // Also append to local eventStore on phone. Every event, not
-            // just the `created` one: `sync()` republishes from this log, so
-            // an event missing here never reaches the shared folder and
-            // never reaches the Mac. Dropping the `tagged` events here is
-            // what left captures untagged, which made the project-tab filter
-            // in `updatePulledNotesForCurrentTab` match nothing and showed
-            // "No synced notes found." over a corpus that had them.
-            let jsonEncoder = JSONEncoder()
-            jsonEncoder.dateEncodingStrategy = .iso8601
-            for written in written {
-                if let rawData = try? jsonEncoder.encode(written) {
-                    try? eventStore.appendRaw(rawData)
-                }
-            }
-
-            // Keyed by note, not event: the note is what the list renders and
-            // what playback is asked for. `event.id` is the *created event's*
-            // id, which is a different UUID and never appears again.
-            audioIndex.record(noteID: event.noteId, filename: audioURL.lastPathComponent)
-            try? audioIndex.save(to: CaptureAudioIndex.url(inDirectory: storageDir))
-
-            let item = SentCaptureItem(
-                id: event.noteId,
-                title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
-                timestamp: event.timestamp,
-                audioURL: audioURL,
-                tags: [currentProjectTab]
-            )
-            captures.insert(item, at: 0)
-            state = .completed(title: item.title)
-            partialTranscript = transcript
-
-            // Sync after capture
-            sync()
-            return item.title
+            transcript = try await transcriber.transcribe(audioURL: audioURL, locale: effectiveTranscriptionLocale)
         } catch {
             let targetID = appendTargetNoteID
             appendTargetNoteID = nil
@@ -688,32 +749,36 @@ public final class CaptureStore: ObservableObject {
                 // If a new capture's transcription fails, still create the note
                 // with an empty transcript so the audio survives on disk and is
                 // reachable and playable from the list under its fallback title.
-                if let written = try? shardWriter.writeCaptureEvents(transcript: "", tags: [currentProjectTab]),
-                   let event = written.first {
-                    let jsonEncoder = JSONEncoder()
-                    jsonEncoder.dateEncodingStrategy = .iso8601
-                    for writtenEvent in written {
-                        if let rawData = try? jsonEncoder.encode(writtenEvent) {
-                            try? eventStore.appendRaw(rawData)
-                        }
-                    }
-
-                    audioIndex.record(noteID: event.noteId, filename: audioURL.lastPathComponent)
-                    try? audioIndex.save(to: CaptureAudioIndex.url(inDirectory: storageDir))
-
-                    let fallbackItem = SentCaptureItem(
-                        id: event.noteId,
-                        title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
-                        timestamp: event.timestamp,
-                        audioURL: audioURL,
-                        tags: [currentProjectTab]
-                    )
-                    captures.insert(fallbackItem, at: 0)
-                    sync()
-                }
+                try? saveCapturedText("", audioURL: audioURL)
             }
 
             state = .error("Transcription failed: \(error.localizedDescription) (audio saved at \(audioURL.lastPathComponent))")
+            throw error
+        }
+
+        partialTranscript = transcript
+
+        // A voice append is a different contract: it appends to an existing note
+        // and creates no capture item. Deliberately NOT part of `saveCapturedText`.
+        if let targetNoteID = appendTargetNoteID {
+            appendTargetNoteID = nil
+            do {
+                try appendToCapture(noteID: targetNoteID, text: transcript)
+            } catch {
+                state = .error("Could not append to the note: \(error.localizedDescription) (audio saved at \(audioURL.lastPathComponent))")
+                throw error
+            }
+            state = .completed(title: "Appended to note")
+            return "Appended to note"
+        }
+
+        do {
+            return try saveCapturedText(transcript, audioURL: audioURL).title
+        } catch {
+            // A persistence failure, not a transcription one. Do NOT write a
+            // second note: part of the first batch may already have landed, and
+            // the log is append-only so there is nothing to roll back.
+            state = .error("Audio saved as \(audioURL.lastPathComponent), but the note could not be written: \(error.localizedDescription)")
             throw error
         }
     }
