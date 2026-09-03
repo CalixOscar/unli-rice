@@ -61,8 +61,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture
         PRODUCT_NAME: UnliRiceCapture
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.1"
-        CURRENT_PROJECT_VERSION: "4"
+        MARKETING_VERSION: "1.2"
+        CURRENT_PROJECT_VERSION: "6"
         INFOPLIST_KEY_CFBundleDisplayName: "Unli Rice Capture"
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: 22SNGN5JYD
@@ -184,8 +184,8 @@ targets:
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.1"
-        CURRENT_PROJECT_VERSION: "4"
+        MARKETING_VERSION: "1.2"
+        CURRENT_PROJECT_VERSION: "5"
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 calmdownoscar. All rights reserved.
