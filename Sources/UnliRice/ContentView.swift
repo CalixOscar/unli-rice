@@ -500,11 +500,18 @@ struct CleanupMenu: View {
 struct AIReviewMenu: View {
     @EnvironmentObject var store: AppStore
 
+    // Same reason as `CleanupMenu`, which sits beside this one in every row it
+    // appears in: picking a target closes the menu and the only evidence of the
+    // copy is on the clipboard. Two adjacent buttons that both copy a prompt,
+    // where only one confirms, reads as the other one having failed.
+    @State private var feedback: String?
+
     var body: some View {
         Menu {
             ForEach(store.availableTargets) { target in
                 Button {
                     store.copyReviewPrompt(for: target)
+                    showFeedback("Copied — paste it into \(target.displayName).")
                 } label: {
                     Text(target.displayName)
                 }
@@ -522,6 +529,24 @@ struct AIReviewMenu: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(store.pending.isEmpty)
+        .overlay(alignment: .bottomTrailing) {
+            if let feedback {
+                Text(feedback)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Theme.emerald)
+                    .transition(.opacity)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .offset(y: 22)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func showFeedback(_ text: String) {
+        withAnimation { feedback = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation { feedback = nil }
+        }
     }
 }
 

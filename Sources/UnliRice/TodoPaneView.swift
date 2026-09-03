@@ -266,11 +266,18 @@ struct AITodoMenu: View {
     let item: StudioTodo.Item
     let repo: RepoSnapshotFile.Repo?
 
+    // The menu closes the moment a target is picked, so without this the only
+    // evidence the click did anything is on the clipboard — somewhere the user
+    // has to leave the app to check. Same pattern, and deliberately the same
+    // three seconds, as `CleanupMenu` in ContentView.swift.
+    @State private var feedback: String?
+
     var body: some View {
         Menu {
             ForEach(store.availableTargets) { target in
                 Button {
                     store.copyTodoPrompt(for: target, item: item, repo: repo)
+                    showFeedback("Copied — paste it into \(target.displayName).")
                 } label: {
                     Text(target.displayName)
                 }
@@ -287,5 +294,27 @@ struct AITodoMenu: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        // An overlay, not a VStack: these rows size to their content and a
+        // toast that pushes layout would shift every row below it for three
+        // seconds. `allowsHitTesting(false)` keeps it from eating the click
+        // that reopens the menu.
+        .overlay(alignment: .bottomLeading) {
+            if let feedback {
+                Text(feedback)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Theme.emerald)
+                    .transition(.opacity)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .offset(y: 20)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func showFeedback(_ text: String) {
+        withAnimation { feedback = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation { feedback = nil }
+        }
     }
 }
