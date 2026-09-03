@@ -2121,3 +2121,85 @@ channel, and changing it would have altered the contract for all fourteen tools 
 cannot detect drift — adding a dispatcher case changes neither list. It became an
 exhaustive `switch` over a `CaseIterable` enum that `ToolDispatcher` itself switches on, so
 a new tool now fails to compile until it is classified as a read or a write.
+
+## Typing a note into Capture (2026-09-03)
+
+The phone's capture surface was voice-only at origination. The keyboard was already in the
+app — `NoteDetailView` appended to a note, `TodoView` noted against a to-do — so you could
+type into a thought you had already had, but not type a new one. Every note's first word
+had to be spoken, which in a meeting, a library, or a room too loud to transcribe means
+the note is lost.
+
+The feature is small. `SentCaptureItem.audioURL` has always been optional — *"the note
+outlives its audio"* — so a typed note needed no model change, no new `EventKind`, no
+migration. `finishRecording()` fused transcribing audio with turning the resulting string
+into a note, and only the second half was wanted.
+
+### What the pre-mortem found that the plan had not
+
+Codex raised ten objections against the stage-2 draft. All ten were confirmed against the
+checkout and all ten accepted — no declines. Three changed the design:
+
+**The extraction was not behaviour-preserving, and the draft claimed it was.**
+`finishRecording` wrapped transcription, voice-append and persistence in a single
+`do/catch` whose handler assumed any failure was a transcription failure and wrote an
+empty-transcript note so the audio would survive on disk. That is correct today only
+because persistence cannot throw. The moment it could, a failed shard or log write would
+fall into that handler and create a *second*, empty note on top of the one that had just
+failed. The catch had to be split before anything was extracted.
+
+**Durable success could not be established on the path the plan wanted to share.**
+`ShardWriter` writes to `baseDir/shards/`, while `sync()` publishes from `events.jsonl`
+into the *shared* folder — so once a shared folder is configured, the shard write is a dead
+end and `events.jsonl` is the only route to the Mac. The mirror into it was two stacked
+`try?` calls. A failure there left the note absent from the Mac forever and gone from the
+phone at the next `rebuildCaptures()`, while the caller was told it had saved. A Save
+button that dismissed on that would have been the same bug class the previous arc removed,
+so this plan repaired it first — a real scope increase, recorded as one.
+`appendToCapture` carried the identical defect and was fixed with it.
+
+**A flag-shaped guard was the wrong shape.** `isRecordingOrPaused` is only
+`.recording || .paused`, but `finishRecording` spends its entire awaited transcription
+interval in `.transcribing`. A typed save landing in that window would set `.completed`
+and insert an item the voice continuation then overwrote. The guard moved into the store
+as `captureInFlight`, covering all three states, with the view reading it rather than
+deriving its own.
+
+### The claim the UI was making about audio it never had
+
+All three surfaces that render a capture — the list, the detail view and the archive,
+which the draft's audit missed — showed a *disabled* play button for a note with no audio,
+labelled "Recording no longer stored". For a typed note that is false; nothing was ever
+stored. And nothing in the model distinguishes *pruned* from *never recorded*: a typed note
+has no `audioIndex` entry, and neither does a pruned one after `forget(noteID:)`.
+
+Rather than add a field to tell them apart, the control is now simply absent when there is
+no audio, and the detail view says "No recording" — true either way. Same rule as the
+previous arc: a greyed-out control is a claim about history, and unknown stays unknown.
+
+### The test that was missing
+
+`ShardSyncTests` had a bidirectional round-trip, but it used `writeCapture`, which returns
+only the head of the batch, and mirrored that single event. So nothing proved that a
+capture *batch* — `created` plus one `tagged` per project tab — survives mirroring,
+publishing and import. That is precisely the failure this codebase already paid for:
+dropping the `tagged` events left captures untagged, the project-tab filter matched
+nothing, and the phone showed "No synced notes found." over a corpus that had them.
+
+The new test writes the batch, mirrors every event, publishes, imports on a Mac log and
+asserts body, title and project tag survive — with no audio anywhere in it. Mutated back
+to a single-event mirror it fails on both assertions, which is the only reason to trust it.
+
+A second test pins `EventStore.appendRaw` throwing on an unopenable log. Without that, the
+durable-success guarantee above is hollow.
+
+375 tests, 0 failures, 2 skipped (verified: `swift test` 2026-09-03).
+
+### Process note
+
+This was built by Claude directly rather than dispatched to the Antigravity swarm, at the
+founder's explicit instruction, because the swarm was occupied with the Clean-up toast.
+It is a deliberate deviation from the stage-5 split, not drift. The by-hand UI journeys in
+the plan's §3 were **not** run as part of it and are recorded in `memory.md` as the next
+step — which matters more than usual here, because the extraction rewrote control flow in
+`finishRecording` and `UnliRiceCapture` has no test target to catch a regression.
