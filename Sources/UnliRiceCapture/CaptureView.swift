@@ -82,9 +82,6 @@ public struct CaptureView: View {
             }
             .padding(horizontalSizeClass == .regular ? 24 : 16)
         }
-        .sheet(isPresented: $showTypedNote) {
-            TypedNoteSheet(store: store)
-        }
         .onAppear {
             store.resyncRecordingState()
             if hasSeenWelcomeSplash {
@@ -301,6 +298,16 @@ public struct CaptureView: View {
         .disabled(store.captureInFlight)
         .opacity(store.captureInFlight ? 0.4 : 1)
         .accessibilityLabel("Type a note instead of recording")
+        // The sheet hangs off the button, not off `mainContent`.
+        //
+        // SwiftUI honours ONE `.sheet(isPresented:)` per view, and `mainContent`
+        // already carries two (settings, and the selected capture). A third was
+        // silently shadowed: it compiled, the tests passed, and the button did
+        // nothing at all when tapped. Attaching each sheet to the view that opens
+        // it is what keeps them from competing.
+        .sheet(isPresented: $showTypedNote) {
+            TypedNoteSheet(store: store)
+        }
     }
 
     private var recordingControlBar: some View {

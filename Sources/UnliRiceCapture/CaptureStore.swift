@@ -713,6 +713,11 @@ public final class CaptureStore: ObservableObject {
         guard !captureInFlight else { throw CaptureTextError.captureInFlight }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw CaptureTextError.empty }
+        // Clear whatever the last recording left behind. `partialTranscript` is
+        // sticky, so a typed note saved after a failed transcription rendered the
+        // live "Transcribing audio..." box underneath its own success message —
+        // the screen claiming work was in progress when nothing was running.
+        partialTranscript = ""
         try saveCapturedText(trimmed, audioURL: nil)
     }
 
