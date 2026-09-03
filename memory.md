@@ -98,8 +98,12 @@ is still a stray duplicate, flagged and deliberately left for the founder to del
   candidate and the pre-launch gate (`_AI Context/07_Prelaunch_Post_Mortem.md`) applies
   before it goes out.
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
-- `docs/PLAN-keyboard-capture.md` is stage 2 and **not settled** — it has not had its Codex
-  pre-mortem, so it must not be dispatched to the swarm yet.
+- `docs/PLAN-keyboard-capture.md` is **stage 4 and settled** — Codex's ten objections were
+  all confirmed against `a962a26` and accepted. Note it now repairs two existing voice-path
+  defects before adding typed capture: `finishRecording`'s single `catch` treats a
+  persistence failure as a transcription failure and writes a second empty note, and the
+  mirror into `events.jsonl` swallows both its errors while being the ONLY route to the Mac
+  (the shard write goes to a local directory the publisher never reads).
 - The AI-todo feature (`docs/PLAN-ai-todo-actions.md`) is now **built and independently
   verified**, but it still went to the swarm without a Codex pre-mortem. Verification
   caught no bugs, but it did not re-litigate the design calls in the plan's §5 — those
