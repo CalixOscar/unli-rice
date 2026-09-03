@@ -29,8 +29,12 @@ green run was 380 tests, 0 failures, 2 skipped (verified: `swift test`
 2026-09-03, before this pass's `ContentView.swift` change). `project.yml` is
 unchanged this pass and its bump is already committed in `92be76e`:
 `MARKETING_VERSION "1.2"` both targets, `CURRENT_PROJECT_VERSION "6"` (Capture)
-and `"5"` (Mac) — Mac build 5 is **live on the App Store**; Capture 6 has
-**not** been archived or uploaded.
+and `"5"` (Mac). **Both numbers are free and correct** (verified 2026-09-03):
+the Mac App Store install is still **1.1 (build 4)** — read from
+`/Applications/Unli Rice.app/Contents/Info.plist`, `_MASReceipt` present — and
+the "build 5 already in the App Store" the founder recalled is the **Capture**
+TestFlight build uploaded 2026-08-13, a different target. Neither 1.2 build has
+been archived or uploaded.
 **Task:** Three pieces landed this pass. (1) The sidebar pane-switch lag fix —
 the three blurred `GeometryReader` circles moved out of `ContentView.body` into
 a standalone `BackgroundBlobs` that reads nothing from `store`, plus
