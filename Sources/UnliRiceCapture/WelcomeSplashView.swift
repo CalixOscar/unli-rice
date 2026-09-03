@@ -35,7 +35,7 @@ struct WelcomeSplashView: View {
                     row(icon: "square.and.arrow.down.on.square", title: "It's saved as a note",
                         body: "Every recording becomes a searchable note in Unli Thoughts — tap to archive or delete.")
                     row(icon: "lock.shield.fill", title: "Private by default",
-                        body: "Transcription happens entirely on this device — audio never leaves your phone or goes to a server. Choose an iCloud folder later in Settings if you want notes to sync to your Mac; until then, nothing leaves this phone.")
+                        body: "Transcription happens entirely on this device — audio never leaves your device or goes to a server. Choose an iCloud folder later in Settings if you want notes to sync to your Mac; until then, nothing leaves this device.")
                 }
                 .padding(.top, 28)
                 .padding(.horizontal, 28)

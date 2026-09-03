@@ -31,7 +31,7 @@ public final class CapturePlayer: NSObject, ObservableObject, AVAudioPlayerDeleg
             return
         }
         guard let audioURL else {
-            errorMessage = "That recording is no longer on this phone."
+            errorMessage = "That recording is no longer on this device."
             return
         }
         play(noteID: noteID, audioURL: audioURL)
@@ -42,7 +42,7 @@ public final class CapturePlayer: NSObject, ObservableObject, AVAudioPlayerDeleg
         errorMessage = nil
 
         guard FileManager.default.fileExists(atPath: audioURL.path) else {
-            errorMessage = "That recording is no longer on this phone."
+            errorMessage = "That recording is no longer on this device."
             return
         }
 

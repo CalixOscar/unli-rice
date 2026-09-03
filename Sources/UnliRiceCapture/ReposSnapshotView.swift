@@ -54,7 +54,7 @@ struct ReposSnapshotView: View {
             Text("Repos")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Your Mac's branches, read-only. This phone has no repositories — it is "
+            Text("Your Mac's branches, read-only. This device has no repositories — it is "
                  + "showing what your Mac last published.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)

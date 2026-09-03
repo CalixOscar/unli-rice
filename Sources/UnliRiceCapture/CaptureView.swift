@@ -103,9 +103,9 @@ public struct CaptureView: View {
         }
         .alert("Where should captures go?", isPresented: $showFolderChoice) {
             Button("Choose a folder") { showFolderPicker = true }
-            Button("Keep on this phone only") { store.choosePrivateMode() }
+            Button("Keep on this device only") { store.choosePrivateMode() }
         } message: {
-            Text("A shared folder in iCloud Drive is how thoughts reach your Mac. Without one, everything stays on this phone — you can change this later in Settings.")
+            Text("A shared folder in iCloud Drive is how thoughts reach your Mac. Without one, everything stays on this device — you can change this later in Settings.")
         }
         // Its own importer, separate from the one inside the settings sheet:
         // presenting a file importer from the root while a sheet is up does not
@@ -659,10 +659,10 @@ public struct CaptureView: View {
                             Button(role: .destructive, action: {
                                 store.choosePrivateMode()
                             }) {
-                                Text("Stop syncing — keep on this phone")
+                                Text("Stop syncing — keep on this device")
                             }
                         } else {
-                            Text("Private. Nothing leaves this phone.")
+                            Text("Private. Nothing leaves this device.")
                                 .font(.system(size: 11))
                                 .foregroundStyle(Theme.textSecondary)
                         }
@@ -688,7 +688,7 @@ public struct CaptureView: View {
                     } header: {
                         Text("Privacy").foregroundStyle(Theme.textSecondary)
                     } footer: {
-                        Text("Locks the app when it goes to the background. This hides your notes from someone holding your unlocked phone; it is not extra encryption on top of what iOS already does.")
+                        Text("Locks the app when it goes to the background. This hides your notes from someone holding your unlocked device; it is not extra encryption on top of what iOS already does.")
                             .foregroundStyle(Theme.textLight)
                     }
 
@@ -732,7 +732,7 @@ public struct CaptureView: View {
                         Text("From your Mac").foregroundStyle(Theme.textSecondary)
                     } footer: {
                         Text("A read-only picture of your Mac's branches, published to the "
-                             + "shared folder. This phone has no repositories and cannot "
+                             + "shared folder. This device has no repositories and cannot "
                              + "change anything.")
                             .foregroundStyle(Theme.textLight)
                     }
