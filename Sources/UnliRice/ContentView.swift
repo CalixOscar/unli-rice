@@ -451,11 +451,14 @@ struct CleanupMenu: View {
     let prompts: [CleanupPrompt]
     var label: String = "Clean up…"
 
+    @State private var feedback: String?
+
     var body: some View {
         Menu {
             ForEach(prompts) { prompt in
                 Button {
                     store.copyPrompt(prompt)
+                    showFeedback("Copied “\(prompt.title)” — paste it into your assistant.")
                 } label: {
                     Text(prompt.title)
                     Text(prompt.blurb)
@@ -470,6 +473,24 @@ struct CleanupMenu: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .overlay(alignment: .bottomTrailing) {
+            if let feedback {
+                Text(feedback)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Theme.emerald)
+                    .transition(.opacity)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .offset(y: 22)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func showFeedback(_ text: String) {
+        withAnimation { feedback = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation { feedback = nil }
+        }
     }
 }
 
