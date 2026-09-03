@@ -766,6 +766,20 @@ public struct CaptureView: View {
                         Text("Audio is roughly 30MB an hour. Pruning it frees the space and keeps the transcript — the note stays, only the recording goes.")
                             .foregroundStyle(Theme.textLight)
                     }
+
+                    // The permanent, quiet path to a review, so nobody has to wait to be
+                    // asked. A deliberate tap opens the App Store's write-review sheet
+                    // rather than `requestReview`, which the OS rate-limits and drops
+                    // silently — that would make this a row that mostly did nothing.
+                    Section {
+                        Link(destination: CaptureReviewPrompt.writeReviewURL) {
+                            Text("Rate Unli Rice Capture")
+                                .foregroundStyle(Theme.textPrimary)
+                        }
+                    } footer: {
+                        Text("Opens the App Store.")
+                            .foregroundStyle(Theme.textLight)
+                    }
                 }
                 .scrollContentBackground(.hidden)
             }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import UnliRiceCore
 
@@ -100,9 +101,46 @@ struct MoreView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            Divider().opacity(0.15)
+            rateFooter
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+    }
+
+    // MARK: - Rate row
+
+    /// The permanent, quiet path to a review, so nobody has to wait to be asked.
+    ///
+    /// A deliberate click opens the App Store's write-review sheet rather than
+    /// `requestReview` — the OS rate-limits that call and drops it silently, which would
+    /// make this a row that usually did nothing at all. The automatic prompt stays on
+    /// `requestReview` precisely *because* it is rate-limited; see `AppStore+Rating`.
+    private var rateFooter: some View {
+        HStack(spacing: 6) {
+            Button {
+                NSWorkspace.shared.open(AppStore.writeReviewURL)
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "star")
+                        .font(.system(size: 10))
+                    Text("Rate Unli Rice")
+                        .font(.system(size: 11))
+                }
+                .foregroundStyle(Theme.textSecondary)
+            }
+            .buttonStyle(.plain)
+
+            Text("— opens the App Store.")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textSecondary.opacity(0.7))
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(Theme.bgField.opacity(0.4))
     }
 
     // MARK: - Folder Section (The folder your AI can read & What your AI reads first)

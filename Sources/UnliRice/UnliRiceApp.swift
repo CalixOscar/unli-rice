@@ -29,6 +29,12 @@ struct UnliRiceApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = AppStore()
 
+    init() {
+        // Counts this launch so the rating prompt can honour "never in the first
+        // session". Records nothing else and shows nothing — see AppStore+Rating.
+        AppStore.markReviewSessionStart()
+    }
+
     var body: some Scene {
         WindowGroup("Unli Rice") {
             ContentView()

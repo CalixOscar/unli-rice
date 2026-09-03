@@ -701,6 +701,10 @@ public final class CaptureStore: ObservableObject {
         captures.insert(item, at: 0)
         state = .completed(title: item.title)
         sync()
+        // Durable success, as defined above — the only moment this app may ask for a
+        // rating. After the write, never before it and never on an error path: a note
+        // that failed to reach `events.jsonl` throws before here. Usually a no-op.
+        CaptureReviewPrompt.recordDurableCapture()
         return item
     }
 

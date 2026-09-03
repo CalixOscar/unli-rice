@@ -84,6 +84,12 @@ extension AppStore {
             ingestPreview = []
             ingestSummary = summaries.joined(separator: " · ")
             reload()
+            // A completed ingest is the app doing the thing it exists for: documents the
+            // user pointed at, now readable as memory. It is the only moment Unli Rice
+            // asks for a rating, and only ever from this user-pressed path — the routine
+            // driver's automatic runs go through `tickRoutines` and never ask, because a
+            // timer firing is not a success the user chose. Usually a no-op.
+            offerRatingIfEarned()
             return true
         } catch {
             errorMessage = "\(error)"

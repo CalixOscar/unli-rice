@@ -2203,3 +2203,50 @@ It is a deliberate deviation from the stage-5 split, not drift. The by-hand UI j
 the plan's §3 were **not** run as part of it and are recorded in `memory.md` as the next
 step — which matters more than usual here, because the extraction rewrote control flow in
 `finishRecording` and `UnliRiceCapture` has no test target to catch a regression.
+
+## Rating prompts wired up, on both apps (2026-09-03)
+
+Studio guardrail AGENTS.md "Ratings & reviews" became a ship requirement. Audit found
+`ReviewPrompt` (UnliRiceCore) and `AppStore.offerRatingIfEarned()` already written, well
+designed, and **never called from anywhere** — dead code since it was added. Capture had
+nothing at all, and neither app had a "Rate" row.
+
+### Chosen triggers
+
+- **Unli Rice (Mac): a completed ingest run.** `runIngestNow()` returning `true` —
+  documents the user pointed at, now readable as memory. Only from that user-pressed
+  path; the routine driver's automatic runs go through `tickRoutines` and never ask,
+  because a timer firing is not a success anyone chose.
+- **Capture (iPhone): a durable capture.** The point `saveCapturedText` already defines
+  as durable success — every event in `events.jsonl`, note on its way to the Mac. Not
+  "recording stopped", which can still fail, and never on an error path (those throw
+  before it). Spoken and typed take the same path, so both count.
+
+### Gating
+
+`ReviewPrompt.State` gained `sessionCount` so "never in the first session" is enforced
+literally rather than left to emerge from the note thresholds — someone importing a large
+vault would otherwise clear 2000 notes on day one. `0` means the counter predates the gate
+and is deliberately *not* treated as a first session; `1` is the only blocking value.
+`State` now has a hand-written `init(from:)` using `decodeIfPresent`: synthesised Codable
+does not fall back to property defaults for a missing key, and both call sites treat a
+decode failure as "no state", which would have silently refilled a budget meant never to
+refill. Rungs are per-app — Mac 100/500/2000 notes, Capture 10/50/200 captures, passed to
+`milestoneToAsk(milestones:)` — because a phone capture is a thirty-second voice note and
+a hundred of them is not the same evidence as a hundred desktop notes. Floor of 120 days
+and a cap of 3 per install are shared and unchanged.
+
+### The always-available path
+
+"Rate Unli Rice" footer in More, "Rate Unli Rice Capture" in Capture Settings. Both open
+the write-review URL (ids 6792837485 and 6800863948), **not** `requestReview` — the OS
+rate-limits that call and drops it silently, so a user-tapped row using it does nothing
+most of the time. The automatic prompt stays on `requestReview` precisely because it is
+rate-limited. No sentiment pre-screen anywhere; that is review-gating under App Store
+Review Guideline 1.1.7.
+
+Verified: `UnliRice` (macOS) and `UnliRiceCapture` (iOS) both BUILD SUCCEEDED;
+`ReviewPromptTests` 13 tests, 0 failures, including five new cases covering the
+first-session gate, the `0`-means-uncounted rule, session counting, and legacy JSON
+without `sessionCount`. Full suite `swift test`: 380 tests, 2 skipped, 0 failures
+(was 375 before this change).

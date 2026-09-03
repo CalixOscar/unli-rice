@@ -21,7 +21,14 @@ public struct ReviewPrompt: Equatable, Sendable {
     /// Milestones worth interrupting for, in order. Note counts rather than launches:
     /// a corpus that has grown is evidence the app is being used, where a launch count
     /// is evidence of nothing.
+    ///
+    /// The Mac app's rungs. Capture on iPhone passes its own to ``milestoneToAsk`` —
+    /// a phone capture is a thirty-second voice note, so a hundred of them is a different
+    /// amount of evidence than a hundred notes in a desktop corpus.
     public static let milestones = [100, 500, 2000]
+
+    /// Unli Rice Capture's rungs, in captures durably saved.
+    public static let captureMilestones = [10, 50, 200]
 
     /// Apple's own ceiling is three per 365 days. Staying under it is not enough — three
     /// asks in one week would be technically legal and obviously wrong.
@@ -33,12 +40,41 @@ public struct ReviewPrompt: Equatable, Sendable {
         public var lastAsk: Date?
         /// The highest milestone already used, so the same one never asks twice.
         public var highestMilestoneUsed: Int
+        /// Process launches seen, counted by ``markSessionStart``-style callers.
+        ///
+        /// `0` means the counter did not exist when this state was written — an install
+        /// that predates the gate, which by definition is past its first session. `1` is
+        /// literally a first session and is the only value that blocks.
+        public var sessionCount: Int
 
-        public init(asksMade: Int = 0, lastAsk: Date? = nil, highestMilestoneUsed: Int = 0) {
+        public init(asksMade: Int = 0,
+                    lastAsk: Date? = nil,
+                    highestMilestoneUsed: Int = 0,
+                    sessionCount: Int = 0) {
             self.asksMade = asksMade
             self.lastAsk = lastAsk
             self.highestMilestoneUsed = highestMilestoneUsed
+            self.sessionCount = sessionCount
         }
+
+        /// Hand-written so a field added later reads back as its default rather than
+        /// throwing. Synthesised `Codable` does not fall back to property defaults for a
+        /// missing key, and the call site treats a decode failure as "no state at all" —
+        /// which would silently refill a budget that is meant never to refill.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            asksMade = try c.decodeIfPresent(Int.self, forKey: .asksMade) ?? 0
+            lastAsk = try c.decodeIfPresent(Date.self, forKey: .lastAsk)
+            highestMilestoneUsed = try c.decodeIfPresent(Int.self, forKey: .highestMilestoneUsed) ?? 0
+            sessionCount = try c.decodeIfPresent(Int.self, forKey: .sessionCount) ?? 0
+        }
+    }
+
+    /// The state after counting a launch. Pure, so the caller decides when to persist.
+    public static func recordSessionStart(_ state: State) -> State {
+        var updated = state
+        updated.sessionCount += 1
+        return updated
     }
 
     /// Whether to ask now, and which milestone it would spend.
@@ -48,7 +84,13 @@ public struct ReviewPrompt: Equatable, Sendable {
     /// ladder collapses back into a single boolean.
     public static func milestoneToAsk(noteCount: Int,
                                       state: State,
+                                      milestones: [Int] = ReviewPrompt.milestones,
                                       now: Date = Date()) -> Int? {
+        // Never during the first session. Implemented literally rather than left to
+        // emerge from the note-count thresholds — those would very probably cover it,
+        // but "very probably" is not what the guardrail says.
+        guard state.sessionCount != 1 else { return nil }
+
         guard state.asksMade < maximumAsksPerInstall else { return nil }
 
         if let last = state.lastAsk {
