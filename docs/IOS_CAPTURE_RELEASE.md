@@ -154,16 +154,21 @@ talking, which matters much more once recordings can run for hours.
 
 The only cap left anywhere in the app is the Action Button intent — see Phase 3.
 
-### 1.6 Decide iPad, deliberately
+### 1.6 Decide iPad, deliberately — RESOLVED 2026-09-03
 
 `TARGETED_DEVICE_FAMILY: "1,2"` puts iPad in scope: iPad screenshots become mandatory
-and a reviewer will test on iPad. Nothing in `CaptureView` is iPad-designed — it is a
-single-column phone layout.
+and a reviewer will test on iPad.
 
-**Founder decision, not yours.** Ask: drop to `"1"` and remove a whole review surface,
-or keep iPad and budget a layout pass. Default recommendation if no answer: drop to
-`"1"` for v1.0 — a stretched phone UI on a 13" iPad is a worse first impression on a
-paid app than not supporting it.
+**Resolved: keep `"1,2"`.** The premise above was stale by the time this was revisited
+— `CaptureView` already has a real two-column `horizontalSizeClass == .regular` layout
+(`ipadInfoCard` plus the split record/notes panes), not a stretched phone UI. Confirmed
+live on an iPad Pro 13" simulator: the layout renders correctly, including the sheet
+flows (welcome splash, folder choice, type-a-note, settings). What *was* actually wrong
+was leftover phone-only copy — "Keep on this phone only", "nothing leaves this phone",
+"someone holding your unlocked phone" — reading on a device the app already supported.
+Fixed to device-neutral wording; see `1b01fb3`. A fresh `iPad-13` App Store screenshot
+set was captured from the corrected build: `Screenshots/AppStore-iOS-2026-09-03/
+iPad-13/`.
 
 ---
 
