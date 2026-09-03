@@ -49,7 +49,7 @@ struct TodoPaneView: View {
             Text("To do")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Derived from your repositories and each project's memory.md. Nothing "
+            Text("Derived from your repositories, each project's memory.md, and notes tagged `todo`. Nothing "
                  + "here is ticked off — an item disappears when the work is actually "
                  + "done, so the list cannot drift from what is true.")
                 .font(.system(size: 12))
@@ -127,10 +127,11 @@ struct TodoPaneView: View {
     /// Says why the group is where it is, so the ordering is not arbitrary.
     private func kindBlurb(_ k: StudioTodo.Kind) -> String {
         switch k {
-        case .atRisk:   return "exists on this Mac only — losing the disk loses it"
-        case .declared: return "you wrote this down as the next step"
-        case .unshared: return "finished, but nobody else can see it"
-        case .clutter:  return "costs nothing to leave, but hides the rest"
+        case .atRisk:    return "exists on this Mac only — losing the disk loses it"
+        case .declared:  return "you wrote this down as the next step"
+        case .aiFlagged: return "an AI session flagged this, not you"
+        case .unshared:  return "finished, but nobody else can see it"
+        case .clutter:   return "costs nothing to leave, but hides the rest"
         }
     }
 
@@ -156,6 +157,10 @@ struct TodoPaneView: View {
             if kind == .declared {
                 AITodoMenu(item: item, repo: repos[item.project])
                     .padding(.top, 2)
+            }
+            if kind == .aiFlagged, let noteID = item.noteID, let note = store.note(id: noteID) {
+                Button("Done") { store.archive(note); Task { await load() } }
+                    .font(.system(size: 11))
             }
             if let fix = item.fix {
                 // Shown, never run. This pane reports; the founder acts.
@@ -186,6 +191,7 @@ struct TodoPaneView: View {
 
         let folder = store.dataURL.deletingLastPathComponent()
         let roots = store.scanRoots
+        let allNotes = (try? store.service.listNotes(includeArchived: false)) ?? []
 
         var byName: [String: RepoSnapshotFile.Repo] = [:]
         let result: (StudioTodo, String) = await Task.detached(priority: .userInitiated) {
@@ -226,7 +232,15 @@ struct TodoPaneView: View {
                 }
             }
 
-            let t = StudioTodo.derive(from: snap, nextSteps: steps)
+            let reposSet = Set(snap.repos.map(\.name))
+            var aiFlags: [String: [Note]] = [:]
+            for note in allNotes where note.tags.contains("todo") {
+                for tag in note.tags where reposSet.contains(where: { $0.lowercased() == tag }) {
+                    aiFlags[tag, default: []].append(note)
+                }
+            }
+
+            let t = StudioTodo.derive(from: snap, nextSteps: steps, aiFlags: aiFlags)
             byName = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, $0) })
             let readCount = steps.values.filter { $0 != .unreadable }.count
             return (t, "\(t.items.count) items from \(snap.repos.count) repos · "

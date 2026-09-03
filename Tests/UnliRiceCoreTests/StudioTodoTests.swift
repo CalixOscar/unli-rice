@@ -261,4 +261,249 @@ extension StudioTodoTests {
         )
         XCTAssertNotEqual(TodoEmptyState.for(coverage: incomplete), .nothingOutstanding)
     }
+
+    // MARK: - AI-Flagged To-Dos (§2.8)
+
+    private func testNote(
+        id: UUID = UUID(),
+        title: String = "A task",
+        tags: Set<String> = ["todo", "x"],
+        creator: String = "claude",
+        archived: Bool = false
+    ) -> Note {
+        Note(
+            id: id,
+            title: title,
+            body: "context",
+            tags: tags,
+            sources: [creator],
+            creator: creator,
+            createdAt: Date(),
+            updatedAt: Date(),
+            archived: archived
+        )
+    }
+
+    func testAIFlaggedNoteProducesItemWithRightNoteID() {
+        let noteID = UUID()
+        let n = testNote(id: noteID, title: "Bump marketing URL", tags: ["todo", "nuptia"], creator: "claude")
+        let t = StudioTodo.derive(
+            from: snapshot([repo("Nuptia", [branch("main")])]),
+            aiFlags: ["nuptia": [n]]
+        )
+        XCTAssertEqual(t.items.count, 1)
+        XCTAssertEqual(t.items[0].kind, .aiFlagged)
+        XCTAssertEqual(t.items[0].noteID, noteID)
+        XCTAssertEqual(t.items[0].project, "Nuptia")
+        XCTAssertEqual(t.items[0].title, "Bump marketing URL")
+        XCTAssertTrue(t.items[0].evidence.contains("Flagged by claude"))
+        XCTAssertNil(t.items[0].fix)
+    }
+
+    func testNoteWithTodoOnlyOrProjectOnlyProducesNothing() {
+        let todoOnly = testNote(title: "Only todo", tags: ["todo"])
+        let projOnly = testNote(title: "Only project", tags: ["nuptia"])
+        let t1 = StudioTodo.derive(
+            from: snapshot([repo("Nuptia", [branch("main")])]),
+            aiFlags: ["nuptia": [todoOnly]]
+        )
+        XCTAssertTrue(t1.items.isEmpty)
+
+        let t2 = StudioTodo.derive(
+            from: snapshot([repo("Nuptia", [branch("main")])]),
+            aiFlags: ["nuptia": [projOnly]]
+        )
+        XCTAssertTrue(t2.items.isEmpty)
+
+        let unrelated = testNote(title: "Other project", tags: ["todo", "other"])
+        let t3 = StudioTodo.derive(
+            from: snapshot([repo("Nuptia", [branch("main")])]),
+            aiFlags: ["other": [unrelated]]
+        )
+        XCTAssertTrue(t3.items.isEmpty)
+    }
+
+    func testArchivedNoteProducesNothing() {
+        let archived = testNote(tags: ["todo", "nuptia"], archived: true)
+        let t = StudioTodo.derive(
+            from: snapshot([repo("Nuptia", [branch("main")])]),
+            aiFlags: ["nuptia": [archived]]
+        )
+        XCTAssertTrue(t.items.isEmpty, "archived notes must produce no items")
+    }
+
+    func testTwoNotesForSameProjectSortedByKindProjectTitle() {
+        let n1 = testNote(title: "Zulu task", tags: ["todo", "nuptia"])
+        let n2 = testNote(title: "Alpha task", tags: ["todo", "nuptia"])
+        let t = StudioTodo.derive(
+            from: snapshot([repo("Nuptia", [branch("main")])]),
+            nextSteps: ["Nuptia": "Declared step"],
+            aiFlags: ["nuptia": [n1, n2]]
+        )
+        XCTAssertEqual(t.items.count, 3)
+        XCTAssertEqual(t.items[0].kind, .declared)
+        XCTAssertEqual(t.items[1].kind, .aiFlagged)
+        XCTAssertEqual(t.items[1].title, "Alpha task")
+        XCTAssertEqual(t.items[2].kind, .aiFlagged)
+        XCTAssertEqual(t.items[2].title, "Zulu task")
+    }
+
+    func testKindOrderingPlacesAIFlaggedBetweenDeclaredAndUnshared() {
+        XCTAssertEqual(StudioTodo.Kind.allCases, [.atRisk, .declared, .aiFlagged, .unshared, .clutter])
+        XCTAssertLessThan(StudioTodo.Kind.declared, StudioTodo.Kind.aiFlagged)
+        XCTAssertLessThan(StudioTodo.Kind.aiFlagged, StudioTodo.Kind.unshared)
+    }
+
+    // MARK: - Python Hook Agreement Tests (§2.6, §2.8)
+
+    private struct PythonDumpResponse: Codable {
+        struct TodoItem: Codable {
+            let id: String
+            let title: String
+            let creator: String
+            let createdAt: String
+            let tags: [String]
+            let archived: Bool
+        }
+        let todos: [TodoItem]?
+        let error: String?
+    }
+
+    func testPythonFoldAndProjectorAgreeOnOpenTodosForProject() throws {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let hookScriptURL = repoRoot.appendingPathComponent("Scripts/unlirice-prompt-hook.py")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: hookScriptURL.path))
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("unlirice-hook-test-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let logURL = tempDir.appendingPathComponent("events.jsonl")
+        let store = try EventStore(fileURL: logURL)
+        let service = NoteService(store: store)
+
+        // 1. Open to-do for clearspace
+        let n1 = try service.createNote(title: "Bump ClearSpace URL", body: "Need to update marketing url", source: "claude")
+        _ = try service.tagNote(id: n1.id, tag: "todo", source: "claude")
+        _ = try service.tagNote(id: n1.id, tag: "clearspace", source: "claude")
+
+        // 2. Open to-do for clearspace with append
+        let n2 = try service.createNote(title: "Fix ClearSpace icon", body: "Wrong asset used", source: "codex")
+        _ = try service.tagNote(id: n2.id, tag: "todo", source: "codex")
+        _ = try service.tagNote(id: n2.id, tag: "clearspace", source: "codex")
+        _ = try service.appendToNote(id: n2.id, text: "Found high-res asset", source: "human")
+
+        // 3. To-do for clearspace, then archived -> should NOT be included
+        let n3 = try service.createNote(title: "Old task", body: "Deprecated", source: "human")
+        _ = try service.tagNote(id: n3.id, tag: "todo", source: "human")
+        _ = try service.tagNote(id: n3.id, tag: "clearspace", source: "human")
+        _ = try service.archiveNote(id: n3.id, reason: "done", source: "human")
+
+        // 4. To-do for clearspace, archived then unarchived -> SHOULD be included
+        let n4 = try service.createNote(title: "Reopened task", body: "Turned out not done", source: "antigravity")
+        _ = try service.tagNote(id: n4.id, tag: "todo", source: "antigravity")
+        _ = try service.tagNote(id: n4.id, tag: "clearspace", source: "antigravity")
+        _ = try service.archiveNote(id: n4.id, reason: "mistake", source: "human")
+        _ = try service.unarchiveNote(id: n4.id, source: "human")
+
+        // 5. To-do for clearspace, then untagged 'todo' -> should NOT be included
+        let n5 = try service.createNote(title: "Untagged task", body: "Not a todo anymore", source: "claude")
+        _ = try service.tagNote(id: n5.id, tag: "todo", source: "claude")
+        _ = try service.tagNote(id: n5.id, tag: "clearspace", source: "claude")
+        _ = try service.untagNote(id: n5.id, tag: "todo", source: "claude")
+
+        // 6. To-do for another project -> should NOT be included for clearspace
+        let n6 = try service.createNote(title: "Other project task", body: "For nuptia", source: "codex")
+        _ = try service.tagNote(id: n6.id, tag: "todo", source: "codex")
+        _ = try service.tagNote(id: n6.id, tag: "nuptia", source: "codex")
+
+        // 7. Clearspace note without 'todo' -> should NOT be included
+        let n7 = try service.createNote(title: "Just clearspace info", body: "Architecture note", source: "claude")
+        _ = try service.tagNote(id: n7.id, tag: "clearspace", source: "claude")
+
+        // 8. To-do for clearspace, flagged for review -> SHOULD be included
+        let n8 = try service.createNote(title: "Flagged todo", body: "Check with team", source: "claude")
+        _ = try service.tagNote(id: n8.id, tag: "todo", source: "claude")
+        _ = try service.tagNote(id: n8.id, tag: "clearspace", source: "claude")
+        let flag = try service.flagForReview(id: n8.id, reason: "needs second look", source: "janitor")
+        _ = try service.resolveReview(id: n8.id, flagId: flag.id, source: "human", outcome: "kept")
+
+        // 1. Fold in Swift using Projector
+        let events = try store.readAll()
+        let projected = Projector.project(events)
+        let swiftOpenTodos: [Note] = projected.values.filter { (note: Note) -> Bool in
+            !note.archived && note.tags.contains("todo") && note.tags.contains("clearspace")
+        }
+        let swiftIDs = Set(swiftOpenTodos.map { $0.id.uuidString })
+        XCTAssertEqual(swiftIDs, Set([n1.id.uuidString, n2.id.uuidString, n4.id.uuidString, n8.id.uuidString]))
+
+        // 2. Fold in Python via unlirice-prompt-hook.py --dump-todos
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [hookScriptURL.path, "--dump-todos", logURL.path, "ClearSpace"]
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let response = try JSONDecoder().decode(PythonDumpResponse.self, from: stdoutData)
+        let pythonTodos = try XCTUnwrap(response.todos)
+        let pythonIDs = Set(pythonTodos.map(\.id))
+
+        // Assert exact agreement on note IDs
+        XCTAssertEqual(pythonIDs, swiftIDs)
+        XCTAssertEqual(pythonTodos.count, swiftOpenTodos.count)
+
+        // Assert properties match for each note
+        for pyItem in pythonTodos {
+            let swNoteOpt: Note? = swiftOpenTodos.first { $0.id.uuidString.lowercased() == pyItem.id.lowercased() }
+            let swNote = try XCTUnwrap(swNoteOpt)
+            XCTAssertEqual(pyItem.title, swNote.title)
+            XCTAssertEqual(pyItem.creator, swNote.creator)
+            XCTAssertEqual(Set(pyItem.tags), swNote.tags)
+            XCTAssertEqual(pyItem.archived, swNote.archived)
+        }
+    }
+
+    func testPythonFoldFailsOpenOnUnrecognizedEventKind() throws {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let hookScriptURL = repoRoot.appendingPathComponent("Scripts/unlirice-prompt-hook.py")
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("unlirice-hook-failopen-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let logURL = tempDir.appendingPathComponent("events.jsonl")
+        let malformedLine = """
+        {"kind": "futureEventKindAddedLater", "noteId": "00000000-0000-0000-0000-000000000001", "timestamp": "2026-09-01T00:00:00Z", "source": "test"}
+        """
+        try malformedLine.write(to: logURL, atomically: true, encoding: .utf8)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        process.arguments = [hookScriptURL.path, "--dump-todos", logURL.path, "ClearSpace"]
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        try process.run()
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationStatus, 1)
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrStr = String(data: stderrData, encoding: .utf8) ?? ""
+        XCTAssertTrue(stderrStr.contains("unrecognized event kind 'futureEventKindAddedLater'"), stderrStr)
+    }
 }

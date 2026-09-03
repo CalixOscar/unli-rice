@@ -146,6 +146,33 @@ short, stable tag per area of the app you're working on (e.g. `auth`,
 `billing`, `frontend`) so notes from different agents working different
 parts stay filterable later via `search_notes`.
 
+## Filing a to-do item for another project
+
+Noticed something worth doing later, but not now — a version gate, a field that
+unlocks on next release, a small inconsistency not worth stopping for? File it:
+
+1. `create_note` — title is the action, short and imperative ("Bump the ClearSpace
+   Marketing URL field"). Body is the context: what you found, why it's deferred,
+   anything the next reader needs that isn't in the title.
+2. `tag_note` with the fixed tag `todo`.
+3. `tag_note` again with the target project's exact folder name under
+   `~/Documents/Projects`, lowercased — e.g. `calmdownoscar`, not `CalmdownOscar` or
+   `clearspace`. This has to be the *project* (the repo), not the feature inside it;
+   the To Do pane matches by repo name.
+
+It surfaces in the To Do pane's "flagged by AI" section next time anyone looks, on
+both the Mac app and Capture. You don't file it against the project you're in by
+default — name the one it's actually about, which may not be this one.
+
+`todo` joins `janitor` and `ingest` as a reserved string, but as a *tag*, not a
+`source` — do not use it for anything other than these deferred items.
+
+Before you finish work on a project, check whether it has open to-do items — the
+prompt hook injects them if one is installed, and `search_notes` for the project's
+tag finds them if not. If there are any and you are already changing that project,
+ask the founder whether to fold them into this pass. Ask; do not just do them. They
+were deferred deliberately and the reason may still hold.
+
 ## Never resolve a conflict yourself
 
 If you suspect two notes (possibly written by different agents) duplicate,

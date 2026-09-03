@@ -38,19 +38,22 @@ public struct StudioTodo: Equatable, Sendable {
         case atRisk = 0
         /// Something the founder wrote down as the next step and has not done.
         case declared = 1
+        /// An AI session flagged this, not the founder.
+        case aiFlagged = 2
         /// Work that is finished but not visible to anyone else yet.
-        case unshared = 2
+        case unshared = 3
         /// Tidying. Costs nothing to leave, but hides the items above it.
-        case clutter = 3
+        case clutter = 4
 
         public static func < (a: Kind, b: Kind) -> Bool { a.rawValue < b.rawValue }
 
         public var label: String {
             switch self {
-            case .atRisk:   return "at risk"
-            case .declared: return "next step"
-            case .unshared: return "unshared"
-            case .clutter:  return "clutter"
+            case .atRisk:    return "at risk"
+            case .declared:  return "next step"
+            case .aiFlagged: return "flagged by AI"
+            case .unshared:  return "unshared"
+            case .clutter:   return "clutter"
             }
         }
     }
@@ -64,15 +67,20 @@ public struct StudioTodo: Equatable, Sendable {
         public let evidence: String
         /// The command that resolves it, when one exists. Never run automatically.
         public let fix: String?
+        /// The underlying note, when this item came from one — lets the UI archive it
+        /// directly instead of parsing an intent back out of `id`. Nil for every kind
+        /// that isn't `.aiFlagged`.
+        public let noteID: UUID?
 
         public init(id: String, project: String, kind: Kind, title: String,
-                    evidence: String, fix: String? = nil) {
+                    evidence: String, fix: String? = nil, noteID: UUID? = nil) {
             self.id = id
             self.project = project
             self.kind = kind
             self.title = title
             self.evidence = evidence
             self.fix = fix
+            self.noteID = noteID
         }
     }
 
@@ -200,7 +208,8 @@ public struct StudioTodo: Equatable, Sendable {
     public static func derive(
         from snapshot: RepoSnapshotFile,
         nextSteps: [String: MemoryRead] = [:],
-        worktreeDirt: [String: Int] = [:]
+        worktreeDirt: [String: Int] = [:],
+        aiFlags: [String: [Note]] = [:]
     ) -> StudioTodo {
         var out: [Item] = []
         let reposSet = Set(snapshot.repos.map(\.name))
@@ -284,6 +293,21 @@ public struct StudioTodo: Equatable, Sendable {
                         evidence: "From \(p)/memory.md, as of the last snapshot",
                         fix: nil))
                 }
+            }
+
+            // 3b. Flagged by AI.
+            let pLower = p.lowercased()
+            let projectFlags = (aiFlags[pLower] ?? []) + (p != pLower ? (aiFlags[p] ?? []) : [])
+            for note in projectFlags where !note.archived && note.tags.contains("todo") && (note.tags.contains(pLower) || note.tags.contains(p)) {
+                out.append(Item(
+                    id: "\(p)/ai-todo/\(note.id.uuidString)",
+                    project: p,
+                    kind: .aiFlagged,
+                    title: note.title,
+                    evidence: "Flagged by \(note.creator), "
+                            + note.createdAt.formatted(.relative(presentation: .named)),
+                    fix: nil,
+                    noteID: note.id))
             }
 
             // 4. Finished work nobody else can see. Distinct from at-risk: it exists on

@@ -57,8 +57,8 @@ struct TodoView: View {
             Text("To do")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("From your Mac's last snapshot. Read-only — tap an item to leave a note "
-                 + "about it.")
+            Text("From your Mac's last snapshot. Git-derived items are read-only — tap an item to leave a note "
+                 + "about it. Items flagged by AI can be marked done.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -72,34 +72,70 @@ struct TodoView: View {
 
     private func section(_ kind: StudioTodo.Kind, _ items: [StudioTodo.Item]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(kind.label.uppercased())
-                .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(kind == .atRisk ? .orange : Theme.textSecondary)
+            HStack(spacing: 8) {
+                Text(kind.label.uppercased())
+                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(kind == .atRisk ? .orange : Theme.textSecondary)
+                Text(kindBlurb(kind))
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer(minLength: 0)
+                Text("\(items.count)")
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+            }
             ForEach(items) { item in
-                Button { draft = ""; noteFor = item } label: { row(item, kind) }
-                    .buttonStyle(.plain)
+                row(item, kind)
             }
         }
     }
 
+    /// Says why the group is where it is, so the ordering is not arbitrary.
+    private func kindBlurb(_ k: StudioTodo.Kind) -> String {
+        switch k {
+        case .atRisk:    return "exists on this Mac only — losing the disk loses it"
+        case .declared:  return "you wrote this down as the next step"
+        case .aiFlagged: return "an AI session flagged this, not you"
+        case .unshared:  return "finished, but nobody else can see it"
+        case .clutter:   return "costs nothing to leave, but hides the rest"
+        }
+    }
+
     private func row(_ item: StudioTodo.Item, _ kind: StudioTodo.Kind) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(item.project)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                Text(item.title)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(Theme.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .multilineTextAlignment(.leading)
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                draft = ""
+                noteFor = item
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(item.project)
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(item.title)
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(Theme.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                    }
+                    Text(item.evidence)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
             }
-            Text(item.evidence)
+            .buttonStyle(.plain)
+
+            if kind == .aiFlagged, let noteID = item.noteID {
+                Button("Done") {
+                    store.archiveTodo(noteID: noteID)
+                    load()
+                }
                 .font(.system(size: 11))
-                .foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .multilineTextAlignment(.leading)
+                .buttonStyle(.bordered)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(13)
@@ -223,7 +259,15 @@ struct TodoView: View {
 
         do {
             let snap = try RepoSnapshotFile.read(fromFolder: folder)
-            todo = StudioTodo.derive(from: snap)
+            let reposSet = Set(snap.repos.map(\.name))
+            let allNotes = (try? store.noteService.listNotes(includeArchived: false)) ?? []
+            var aiFlags: [String: [Note]] = [:]
+            for note in allNotes where note.tags.contains("todo") {
+                for tag in note.tags where reposSet.contains(where: { $0.lowercased() == tag }) {
+                    aiFlags[tag, default: []].append(note)
+                }
+            }
+            todo = StudioTodo.derive(from: snap, aiFlags: aiFlags)
             status = "\(snap.repos.count) repos · "
                    + snap.generatedAt.formatted(.relative(presentation: .named))
                    + (snap.isStale() ? " · may be out of date" : "")

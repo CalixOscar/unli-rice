@@ -552,6 +552,12 @@ public final class CaptureStore: ObservableObject {
         }
     }
 
+    public func archiveTodo(noteID: UUID) {
+        _ = try? noteService.archiveNote(id: noteID, reason: "done", source: "human")
+        rebuildCaptures()
+        sync()
+    }
+
     public func startRecording() {
         Task {
             do {

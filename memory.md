@@ -22,37 +22,36 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `main`, everything pushed through `d0fc83f`. Working tree clean apart from
-two untracked screenshot folders. 366 tests, 0 failures, 2 skipped (verified: `swift test`
-2026-09-03). Both Xcode targets build — Mac `UnliRice` and `UnliRiceCapture` for the iOS
-Simulator (verified: `xcodebuild` 2026-09-03). Zero commits exist on no remote (verified:
-`git rev-list --count --all --not --remotes` = 0).
-**Task:** Codex's post-mortem was triaged rather than actioned as a checklist — five of its
-findings survived re-verification at HEAD, and they turned out to be one bug class: an
-unknown silently becoming a positive claim. `docs/PLAN-unknown-stays-unknown.md` went
-through a Codex pre-mortem, a stage-4 revision, and the Antigravity swarm; it is **built,
-verified and pushed**. Two plans are now queued at stage 2, neither pre-mortemed:
-`docs/PLAN-keyboard-capture.md` (typing a note into Capture) and, new this session,
-`docs/PLAN-ai-todo-actions.md` (a section in the To Do pane, Mac and Capture, for action
-items an LLM in any project files via `create_note`/`tag_note` — no new MCP tool, no
-schema change). Both are plan-only per the studio pipeline; neither is built.
-**Files touched:** Built this arc — `Sources/UnliRiceCore/{StudioTodo,TodoEmptyState,
-NoteService}.swift`, `Sources/UnliRiceCore/MCP/{MCPToolCatalog,UnwrittenClients,
-ConnectionActivity}.swift`, `Sources/UnliRice/{TodoPaneView,AppStore,HomeView,MoreView,
-ContentView,ProfileBuilderView,WhyNotTextFileView}.swift`,
-`Sources/UnliRiceCapture/TodoView.swift`, `Sources/unlirice-mcp/ToolDispatcher.swift`,
-`Scripts/unlirice-prompt-hook.py`, and six test files under `Tests/UnliRiceCoreTests/`.
-Planned only, not built: `docs/intent/INTENT-003-keyboard-capture.md` +
-`docs/PLAN-keyboard-capture.md`, and `docs/intent/INTENT-004-ai-todo-actions.md` +
-`docs/PLAN-ai-todo-actions.md`.
-**Next step:** `docs/PLAN-ai-todo-actions.md` is **with the Antigravity swarm**, dispatched
-2026-09-03 at founder direction **without its Codex stage-3 pre-mortem** — a deliberate
-pipeline skip, recorded in the plan's header. When it reports, check `git diff`, not its
-SUCCESS line. Two things the swarm is explicitly NOT doing and the founder must: install
-`Scripts/unlirice-prompt-hook.py` into per-machine settings (it is registered nowhere
-today), and decide whether the Python event-log fold in §2.6 is safe enough to keep.
-`docs/PLAN-keyboard-capture.md` is still stage 2 awaiting its own pre-mortem. Still open
-and untouched: the two untracked
+**Status:** On `main`, everything pushed through `828c19b`. Working tree clean apart from
+two untracked screenshot folders. 373 tests, 0 failures, 2 skipped (verified: `swift test`
+2026-09-03, up from 366 — the AI-todo arc's 7 new tests, including a Python-fold-vs-
+`Projector` agreement test that actually shells out to `python3`). Both Xcode targets build
+— Mac `UnliRice` and `UnliRiceCapture` for the iOS Simulator (verified: `xcodebuild`
+2026-09-03, both schemes, after the swarm's changes). Zero commits exist on no remote
+(verified: `git rev-list --count --all --not --remotes` = 0).
+**Task:** `docs/PLAN-ai-todo-actions.md` — the "flagged by AI" To Do section — was built by
+the Antigravity swarm without its Codex pre-mortem (deliberate founder-directed skip) and
+is now **independently verified, not just trusted on its SUCCESS line**: 7 new tests pass,
+both targets build, and the end-to-end scenario was hand-run — filing a note tagged
+`todo`+`calmdownoscar` and reading it back via `Scripts/unlirice-prompt-hook.py` from that
+project's directory produces the correct injected context, with the ask-before-batching
+sentence intact. Fail-open was verified against an unrecognized event kind (drops to the
+static line, stderr diagnostic, valid JSON, no crash) using a synthetic corpus — not the
+real 499-note log, since the event log is append-only and a test note would be permanent.
+`docs/PLAN-keyboard-capture.md` is still queued at stage 2, unbuilt, un-pre-mortemed.
+**Files touched:** This session — `AGENTS.md`, `Scripts/unlirice-prompt-hook.py`,
+`Sources/UnliRice/TodoPaneView.swift`, `Sources/UnliRiceCapture/{CaptureStore,
+TodoView}.swift`, `Sources/UnliRiceCore/StudioTodo.swift`,
+`Tests/UnliRiceCoreTests/StudioTodoTests.swift` — built by the swarm from
+`docs/PLAN-ai-todo-actions.md`, verified as above, about to be committed. One deviation
+from the plan, harmless: `derive()` re-filters `tags.contains("todo")` itself instead of
+trusting the caller's pre-filter the plan specified — redundant, not wrong.
+**Next step:** Two things the build explicitly does NOT do and the founder still must:
+install `Scripts/unlirice-prompt-hook.py` into a settings file (registered nowhere today —
+confirmed `~/.claude/settings.json` has no `hooks` key), and decide whether the Python
+event-log fold in the hook is safe enough to keep long-term, given it duplicates
+`Projector.swift` in a second language. `docs/PLAN-keyboard-capture.md` still awaits its
+Codex pre-mortem before any dispatch. Still open and untouched: the two untracked
 screenshot folders (`Screenshots/app-panes/`, `Screenshots/repos-pane/`, 5 files each,
 2026-09-02) need a founder decision, and the 1.2 gate work is unstarted — both
 `MARKETING_VERSION` values are still "1.1" (`project.yml:64` and `:187`),
@@ -101,8 +100,11 @@ is still a stray duplicate, flagged and deliberately left for the founder to del
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/PLAN-keyboard-capture.md` is stage 2 and **not settled** — it has not had its Codex
   pre-mortem, so it must not be dispatched to the swarm yet.
-- `docs/PLAN-ai-todo-actions.md` went to the swarm **without a Codex pre-mortem**, at
-  explicit founder direction. Treat its output with more suspicion than usual, and read
-  §5 "For the pre-mortem" as a list of things nobody checked rather than things settled.
-  Its §2.6 Python fold of `events.jsonl` duplicates `Projector.swift` in a second
-  language and is the named top risk.
+- The AI-todo feature (`docs/PLAN-ai-todo-actions.md`) is now **built and independently
+  verified**, but it still went to the swarm without a Codex pre-mortem. Verification
+  caught no bugs, but it did not re-litigate the design calls in the plan's §5 — those
+  are still unreviewed judgement, not settled fact, even though the code behind them
+  works. The hook's Python fold of `events.jsonl` duplicates `Projector.swift` in a
+  second language; the agreement test (`StudioTodoTests.swift`) is real and passes, but
+  it will not catch a *new* `EventKind` added later without someone remembering to
+  extend `KNOWN_EVENT_KINDS` in the Python file too.
