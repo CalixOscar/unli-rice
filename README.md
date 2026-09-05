@@ -23,6 +23,10 @@ the system comes from whatever agent you connect over MCP.
 
 ## Screenshots
 
+**Setup & Tools → AI Tools.** One row per tool, each showing the config file its block goes in, a Copy Configuration button, and when that tool last checked in. Unli Rice never opens or edits those files — you paste the block yourself. The path at the top is the folder route for tools that read local files rather than speaking MCP; note that it is the sandbox container path, not your own `~/Documents`.
+
+![The Connect screen, listing Claude Code, Claude Desktop, Cursor, Antigravity and Codex with their config files](Screenshots/connect-screen.png)
+
 **To do.** Every item is derived from something real: a branch tip that is on no remote this machine has fetched, a `**Next step:**` line in a project's `memory.md`, or a note an agent tagged `todo`. Derived items have no checkbox — they disappear when the state that made them true does.
 
 ![The To do pane, listing derived work across eight repositories](Screenshots/AppStore-Mac-2026-09-03/08-todo.png)
