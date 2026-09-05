@@ -5,7 +5,8 @@ Kimi, coding assistants, local daemons), exposed over MCP. Multiple agents can
 read and write into the same notes concurrently; every change is recorded as
 an immutable event, and nothing is ever destructively deleted by an agent.
 
-See [docs/USER_GUIDE.md](docs/USER_GUIDE.md) for full setup instructions, Profile Builder details, and feature walkthroughs.
+**[Read the User Guide](https://calmdownoscar.com/unlirice/user_guide.html)** — how to connect each AI tool (and how to paste the MCP config without breaking it), what can and cannot delete your notes, and what every pane actually does. It is audited against the code rather than written from memory.
+
 See [PROJECT_NOTES.md](PROJECT_NOTES.md) for architecture, current status, and what's deferred — read that first before making changes.
 
 Everything runs on-device, and the package has **no external dependencies** —
@@ -15,9 +16,22 @@ the system comes from whatever agent you connect over MCP.
 
 ## Documentation
 
-- **[Setup & User Guide](docs/USER_GUIDE.md)** — Step-by-step setup, connecting AI tools, Profile Builder, multi-vault profiles, and Mirror Export.
+- **[User Guide](https://calmdownoscar.com/unlirice/user_guide.html)** — the full guide, on the web: connecting each tool, pasting MCP config correctly, the three note layers, what can and cannot delete, troubleshooting, and a tool reference.
+- **[Setup & User Guide](docs/USER_GUIDE.md)** — the in-repo version: step-by-step setup, connecting AI tools, Profile Builder, multi-vault profiles, and Mirror Export.
 - **[Starter Templates](docs/TEMPLATES.md)** — Built-in Profile Builder templates and custom template format.
 - **[Architecture & Project Notes](PROJECT_NOTES.md)** — Core design principles, append-only log architecture, and technical record.
+
+## Screenshots
+
+**To do.** Every item is derived from something real: a branch tip that is on no remote this machine has fetched, a `**Next step:**` line in a project's `memory.md`, or a note an agent tagged `todo`. Derived items have no checkbox — they disappear when the state that made them true does.
+
+![The To do pane, listing derived work across eight repositories](Screenshots/AppStore-Mac-2026-09-03/08-todo.png)
+
+**Repos.** The branch graph. It compares each branch tip against the remote refs this clone has already fetched, and deliberately shows no ahead/behind counts: those need a walk over commit objects, and the App Sandbox forbids shelling out to `git` to do it.
+
+![The Repos branch graph, showing branch lifetimes against trunk](Screenshots/AppStore-Mac-2026-09-03/03-map.png)
+
+More, including the iPhone capture app, in [`Screenshots/`](Screenshots/).
 
 ## Quick start
 
