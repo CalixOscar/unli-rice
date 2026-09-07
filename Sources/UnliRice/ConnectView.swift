@@ -71,7 +71,7 @@ struct ConnectView: View {
     private var unliRiceFolderCard: some View {
         Card(
             title: "Unli Rice Folder",
-            subtitle: "Zero-config workspace folder (`~/Documents/Unli Rice/`) for AI tools that read local files.",
+            subtitle: "A plain-Markdown folder for AI tools that read local files rather than speaking MCP. The full path is shown below; use Choose Folder… to move it.",
             icon: "folder.fill"
         ) {
             VStack(alignment: .leading, spacing: 10) {
@@ -201,7 +201,9 @@ struct ConnectView: View {
     }
 }
 
-/// The instructions a connected assistant reads at the start of a session.
+/// Conventions saved as a note that a connected assistant may find when searching notes.
+/// See `Sources/unlirice-mcp/main.swift:83` for what the MCP handshake actually promises:
+/// the server directs assistants to call `search_notes` or `list_notes`, and read `Wiki: index`.
 private struct HouseRulesEditor: View {
     @EnvironmentObject var store: AppStore
     @State private var expanded = false
@@ -210,7 +212,7 @@ private struct HouseRulesEditor: View {
     var body: some View {
         Card(
             title: "House Rules",
-            subtitle: "Conventions your connected assistant reads at the start of a session.",
+            subtitle: "Conventions saved as a note for connected assistants to find. One that searches your notes at the start of a session picks them up.",
             icon: "scroll.fill"
         ) {
             VStack(alignment: .leading, spacing: 8) {
@@ -396,11 +398,18 @@ private struct ConnectorRow: View {
                 snippetBlock
             }
 
-            Text("Unli Rice never opens or edits this file. Merge the copied block manually, keeping any servers already there.")
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+            Group {
+                switch target.format {
+                case .mcpServersJSON:
+                    Text("Unli Rice never opens or edits this file. If it is empty, paste the block as copied. If it already has an mcpServers object, paste only the \"unlirice\" entry inside it — pasting the whole block there nests mcpServers inside mcpServers, and most tools fail silently.")
+                case .codexTOML:
+                    Text("Unli Rice never opens or edits this file. Add the copied block at the end, as its own [mcp_servers.unlirice] table, leaving any tables already there alone.")
+                }
+            }
+            .font(.system(size: 10.5))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
         }
     }
 

@@ -3,14 +3,15 @@ import UnliRiceCore
 
 /// What is outstanding across the studio, in the order it would hurt to ignore.
 ///
-/// **Nothing here can be ticked off**, by design. Every line is derived from the state
-/// that makes it true, so it disappears when the work is done rather than when someone
-/// remembers to mark it. A checklist you tick is a second source of truth, and this
-/// codebase has already paid for notes that disagree with the repo.
+/// **Repo and memory.md items cannot be ticked off**, by design. They are derived
+/// from the state that makes them true, so each disappears when the work is actually
+/// done rather than when someone remembers to mark it. A checklist you tick is a second
+/// source of truth, and this codebase has already paid for notes that disagree with the
+/// repo. Items flagged by AI are stored notes tagged `todo`, where Done archives the note.
 ///
-/// It reads two things: the published repo snapshot, and each project's `memory.md`
-/// `**Next step:**`. Git tells you what is at risk; the note tells you what you meant
-/// to do. Neither alone is the list.
+/// It reads repository snapshots, each project's `memory.md` `**Next step:**`, and
+/// notes tagged `todo`. Git tells you what is at risk; the note tells you what you
+/// meant to do or what an AI flagged.
 struct TodoPaneView: View {
     @EnvironmentObject var store: AppStore
 
@@ -49,9 +50,10 @@ struct TodoPaneView: View {
             Text("To do")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Derived from your repositories, each project's memory.md, and notes tagged `todo`. Nothing "
-                 + "here is ticked off — an item disappears when the work is actually "
-                 + "done, so the list cannot drift from what is true.")
+            Text("Derived from your repositories, each project's memory.md, and notes tagged `todo`. "
+                 + "Repo and memory.md items are not ticked off — they disappear when the work is "
+                 + "actually done, so the list cannot drift from what is true. A flagged note is a "
+                 + "note: Done archives it.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

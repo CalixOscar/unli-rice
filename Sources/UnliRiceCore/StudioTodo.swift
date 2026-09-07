@@ -2,12 +2,13 @@ import Foundation
 
 /// What is outstanding across the studio, derived from repository state and notes.
 ///
-/// **Nothing here is stored, and nothing can be ticked off.** Every item is computed
-/// from the state that makes it true, so it disappears when the work is actually done:
-/// push the commits and "6 commits on no remote" goes away on the next scan. A stored
+/// **The derivation stores nothing, and derived items cannot be ticked off.** Every item
+/// is computed from the state that makes it true, so it disappears when the work is actually
+/// done: push the commits and "6 commits on no remote" goes away on the next scan. A stored
 /// checklist drifts from reality the moment someone does the work without ticking the
 /// box — and this codebase has spent a lot of effort on notes that contradict the repo.
-/// Deriving is how the list stays honest.
+/// Deriving is how the list stays honest. One input it derives from is stored notes tagged
+/// `todo`: those are notes, and Done archives them.
 ///
 /// It adds no `EventKind` and writes nothing. Locked decision #3 — propose, never apply —
 /// holds: this reports, and the founder acts.

@@ -86,7 +86,7 @@ final class AppStore: ObservableObject {
     /// already granted as `scanRoots`. It scans refs directly and never runs git; the
     /// App Sandbox forbids `Process` outright. See `GitRepoScanner`.
     @Published var showingRepos: Bool = false
-    /// Derived from repos and notes; nothing is stored and nothing is ticked off.
+    /// Derived from repos and notes; repo items are not ticked off, while flagged notes are archived when done.
     @Published var showingTodo: Bool = false
     @Published var showingNotices: Bool = false
 
