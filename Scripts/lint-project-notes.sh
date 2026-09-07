@@ -190,8 +190,19 @@ else
 fi
 
 # --- 7. size ------------------------------------------------------------------
-CHARS=$(wc -c < "$F" | tr -d ' ')
-[ "$CHARS" -gt "$SIZE_WARN" ] && warn "$CHARS characters (soft limit $SIZE_WARN) — move detail into docs/ and reference it by path"
+# Deliberately not checked. 2026-09-04: PROJECT_NOTES.md is append-only history by
+# contract ("never rewrite or delete a dated entry"), so it only ever grows, and a
+# growing file measured against a fixed cap warns forever. Badminton's had been
+# warning at 106,000 against a 40,000 cap with no action possible: 92,000 of that
+# was Decisions Log and Session Log, which the contract forbids trimming.
+#
+# The cap exists to keep what you load into context every session small. That is
+# memory.md's job, and lint-memory.sh enforces it there at a 32,000 hard limit that
+# actually blocks. Checking the archive for the same property measured the wrong
+# file, and an unresolvable warning is one you stop reading — which costs you the
+# warnings that do mean something.
+#
+# NOTES_SIZE_WARN is still read above so an existing override does not error.
 
 if [ "$ERR" -eq 0 ]; then printf '  OK\n'; else printf '  FAILED\n'; fi
 exit "$ERR"
