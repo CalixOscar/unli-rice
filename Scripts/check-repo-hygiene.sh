@@ -22,14 +22,30 @@ warn() { printf '  warn   %s\n' "$1"; }
 
 printf 'check-repo-hygiene: staged changes\n'
 
-# --- 1. plans and intents live in docs/ -------------------------------------
+# --- 1. plans and intents live in the repo's plans directory ----------------
 # An ERROR, not a warning: the fix is one `git mv` and costs nothing, whereas a
 # plan filed in the wrong place is found by nobody and silently superseded.
 # Waive in-file with:
 #   <!-- lint-allow plan-location "reason, date" -->
+#
+# 2026-09-06, Nuptia. This rule hardcoded docs/ and rejected a plan filed in
+# documentation/ — beside the other six plans and the audit that plan cites by
+# path. The suggested fix would have created a second, near-empty plans
+# directory and split the artifact chain the rule exists to protect. The rule is
+# "plans live together where this repo keeps them", not "plans live in a
+# directory named docs". So: accept either name, and suggest the one the repo
+# already uses. A repo with both keeps docs/ as the canonical target.
+if [ -d docs ]; then
+  PLANS_DIR=docs
+elif [ -d documentation ]; then
+  PLANS_DIR=documentation
+else
+  PLANS_DIR=docs
+fi
+
 STRAY=$(git diff --cached --name-only --diff-filter=A \
         | grep -E '(^|/)(PLAN|INTENT)[-_][^/]*\.md$' \
-        | grep -vE '^docs/')
+        | grep -vE '^(docs|documentation)/')
 for f in $STRAY; do
   [ -n "$f" ] || continue
   if [ -f "$f" ] && grep -qF 'lint-allow plan-location' "$f"; then
@@ -37,10 +53,10 @@ for f in $STRAY; do
     continue
   fi
   case "$f" in
-    INTENT[-_]*|*/INTENT[-_]*) want="docs/intent/$(basename "$f")" ;;
-    *)                         want="docs/$(basename "$f")" ;;
+    INTENT[-_]*|*/INTENT[-_]*) want="$PLANS_DIR/intent/$(basename "$f")" ;;
+    *)                         want="$PLANS_DIR/$(basename "$f")" ;;
   esac
-  fail "$f is a plan/intent doc outside docs/
+  fail "$f is a plan/intent doc outside $PLANS_DIR/
            The artifact chain expects it at: $want
            Fix:  mkdir -p $(dirname "$want") && git mv \"$f\" \"$want\"
            A plan filed somewhere else is one nobody finds — see the guardrails'
@@ -85,7 +101,74 @@ if [ -n "$PBX_LIST" ]; then
   fi
 fi
 
-# --- 3. branch drift ---------------------------------------------------------
+# --- 3. stage 1.5: was the intent read before the plan was written? ----------
+# A WARNING, never an error. Compare rule 1: a misfiled plan is fixed by one
+# `git mv`, so blocking costs nothing. Skipping the intent read is fixed by going
+# and running an Astra pass, which is not free — and refusing the commit would
+# block the plan from being recorded at all, which is backwards for the same
+# reason branch drift below only warns.
+#
+# Why this exists (2026-09-18). Stage 1.5 was added to the guardrails: Astra
+# attacks docs/intent/INTENT-00N-<slug>.md before Claude plans from it, because
+# nothing else in the chain ever attacked the intent. The template grew an
+# `**Intent read:**` field to record whether that happened. A template field is
+# prose — see this file's header for what prose is worth. This makes a skipped
+# gate visible at the moment a plan lands, which is the last point where running
+# it is still cheap.
+#
+# Waive in-file (in the PLAN) with:
+#   <!-- lint-allow intent-read "reason, date" -->
+for f in $(git diff --cached --name-only --diff-filter=AM \
+           | grep -E '^(docs|documentation)/PLAN[-_][^/]*\.md$'); do
+  [ -f "$f" ] || continue
+  if grep -qF 'lint-allow intent-read' "$f"; then
+    printf '  waived %s (intent-read)\n' "$f"
+    continue
+  fi
+
+  # PLAN-<slug>.md  ->  INTENT-00N-<slug>.md
+  slug=$(basename "$f" .md | sed -E 's/^PLAN[-_]//')
+  intent=$(ls -1 "$PLANS_DIR"/intent/INTENT*"$slug"*.md 2>/dev/null | head -1)
+
+  if [ -z "$intent" ]; then
+    warn "$f has no matching intent doc in $PLANS_DIR/intent/
+           Looked for: $PLANS_DIR/intent/INTENT-00N-$slug.md
+           The chain is intent -> plan -> build. A plan with no intent doc has no
+           record of what was actually asked for, and nothing for a stage-5 swarm
+           escalation to be checked against. Template: scripts/templates/INTENT.md"
+    continue
+  fi
+
+  read_state=$(grep -m1 '^\*\*Intent read:\*\*' "$intent" | sed -E 's/^\*\*Intent read:\*\*[[:space:]]*//')
+  case "$read_state" in
+    '')
+      warn "$(basename "$intent") has no **Intent read:** field
+           It predates stage 1.5 or was not written from the current template.
+           Add:  **Intent read:** not run | passed YYYY-MM-DD | superseded by INTENT-00M" ;;
+    'not run'*|*'|'*)
+      # unedited template line still carries the '|' separators
+      warn "stage 1.5 not recorded as run for $(basename "$intent")
+           $f is being committed from an intent nothing has attacked. Astra's read
+           (plus the 08_AI_Failure_Modes lens list) is the only gate on the intent
+           itself — stage 3 attacks the plan, not what the plan was built from.
+           Run it, then set:  **Intent read:** passed $(date +%Y-%m-%d)
+           Deliberate skip? Add to $f:
+           <!-- lint-allow intent-read \"reason, $(date +%Y-%m-%d)\" -->" ;;
+  esac
+done
+
+# a new intent doc should carry the field at all
+for f in $(git diff --cached --name-only --diff-filter=A \
+           | grep -E '^(docs|documentation)/intent/INTENT[-_][^/]*\.md$'); do
+  [ -f "$f" ] || continue
+  grep -qF 'lint-allow intent-read' "$f" && continue
+  grep -q '^\*\*Intent read:\*\*' "$f" || \
+    warn "$f is missing the **Intent read:** field
+           Stage 1.5 has nowhere to record itself. Copy the header block from
+           scripts/templates/INTENT.md"
+done
+
+# --- 4. branch drift ---------------------------------------------------------
 # A WARNING and deliberately not an error. Refusing a commit because a branch has
 # grown would block the one action that makes work recoverable, which is exactly
 # backwards. The job here is to be seen at commit 3 rather than discovered at 22.
