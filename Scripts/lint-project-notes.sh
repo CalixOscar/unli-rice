@@ -125,6 +125,13 @@ check_track() {
            expected: $WANT
            found:    $_norm"
 
+  # To-dos must say something, even if only "none this checkpoint". An empty field is
+  # the one shape that is certainly not a decision. This cannot check that it is true.
+  _td=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*To-dos:\*\*/{print}' "$F")
+  if [ -n "$_td" ] && ! printf '%s\n' "$_td" | grep -qE '^\*\*To-dos:\*\*[[:space:]]*[^[:space:]]'; then
+    fail "$_label: **To-dos:** is empty — write what you filed and closed, or \"none this checkpoint\""
+  fi
+
   _lb=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*Left by:\*\*/{print}' "$F")
   if [ -z "$_lb" ]; then
     fail "$_label has no **Left by:** field"

@@ -26,35 +26,31 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On **`feature/copy-that-overstates`**, four commits ahead of `main`,
-**local only — not pushed, not merged**. Plus one docs commit from 2026-09-19 (the
-widget plan and the To-dos field). 380 tests, 0 failures, 2 skipped (verified:
-`swift build` and `swift test` 2026-09-07; no Swift changed since). Carried unchanged:
-**both targets ship as 1.2 (6)**, the App Store install is still **1.1 (4)**, and
-**neither 1.2 build has been archived or uploaded** — the founder's step. `README.md`
-carries an uncommitted edit that predates the 2026-09-19 session; left alone.
-**Task:** Founder asked (2026-09-19) for a desktop widget showing the AI-filed to-do
-list. It must be readable by non-developers, every LLM must update the list at
-handoff, and tapping an item opens its handoff or copies a prompt built from it.
-Stage 2 plan written: `docs/PLAN-todo-widget.md`, intent
-`docs/intent/INTENT-005-todo-widget.md`. Founder answered §9: **agents may close
-items** (reverses INTENT-004) and **add the seventh field**. Both are now done as docs
-and tooling: `AGENTS.md` § "At every handoff" + plain-language title rule; a
-`**To-dos:**` field enforced by both vault linters and rolled out studio-wide.
-**Files touched:** This repo: `AGENTS.md`, `memory.md`, `docs/PLAN-todo-widget.md`
-(new), `docs/intent/INTENT-005-todo-widget.md` (new), `Scripts/lint-memory.sh` and
-`Scripts/lint-project-notes.sh` (synced from the vault). Vault: `scripts/lint-memory.sh`,
-`scripts/lint-project-notes.sh`, `scripts/pre-commit`, `scripts/templates/memory.md`,
-`_AI Context/04_Guardrails.md`. Field added in Badminton, Get rich, Nibwise
-(`memory.md`) and CalmdownOscar, Nuptia, OpenGrail (`PROJECT_NOTES.md` Handoff).
-**Not** added in UnliDisk (uncommitted `PROJECT_NOTES.md` edits in flight, lint already
-failing), Butter Smooth (`PROJECT_NOTES.md` untracked), or the two worktrees.
-**Next step:** Send `docs/PLAN-todo-widget.md` + INTENT-005 to Codex for the stage-3
-pre-mortem. Do not skip it this time: the widget is a new process writing the event
-log. Then stage 4, then Parts A+B (and the MCP-instructions string in §5, which is
-Swift) to the swarm on a branch off `main`. Add the To-dos field to UnliDisk and
-Butter Smooth once their in-flight notes are committed. The merge of this branch
-and the running-build checks listed in PROJECT_NOTES.md are still outstanding.
+**Status:** On **`feature/copy-that-overstates`**, local only, not pushed, not merged.
+Four commits ahead of `main` from the copy fix, plus the 2026-09-19 docs commits (widget
+plan, To-dos field, stage-4 revision). 380 tests, 0 failures, 2 skipped (verified:
+`swift build` and `swift test` 2026-09-07; no Swift changed since). **Both targets ship
+as 1.2 (6)**, the App Store install is still **1.1 (4)**, and **neither 1.2 build has been
+archived or uploaded**; that is the founder's step. `README.md` carries an uncommitted edit
+that predates 2026-09-19; left alone.
+**Task:** The to-do widget (INTENT-005). Stages 2–4 done on 2026-09-19. Codex's pre-mortem
+(`docs/PREMORTEM-todo-widget.md`, `gpt-6-astra`, 20 objections) is answered in
+`docs/PLAN-todo-widget.md` §10, and the plan is **settled**. Key changes: fail-closed
+corpus read; `Handoff-ID: <uuid>` instead of `[[title]]`; no clipboard write from a
+URL; the widget ignores the repo snapshot; a B0 spike gates Part B. Part D follow-ups
+done: `AGENTS.md` (Handoff-ID, step 0, the archive exception) and linters (To-dos must be
+non-empty).
+**Files touched:** This repo: `docs/PLAN-todo-widget.md`, `docs/PREMORTEM-todo-widget.md`
+(new), `AGENTS.md`, `memory.md`, `Scripts/lint-*.sh`. Vault: `scripts/lint-memory.sh`,
+`scripts/lint-project-notes.sh` (`69efa80`). Linter sync committed in Badminton, Get rich,
+Nibwise, Nuptia, CalmdownOscar, OpenGrail. The installer also rewrote the script copies in
+Architecturally, Butter Smooth, UnliDisk and both worktrees. **Those are uncommitted**, left
+for whoever next works there.
+**Next step:** Dispatch Parts A–C of `docs/PLAN-todo-widget.md` to the swarm on a branch off
+`main` (merge this branch first). B0 is a gate: if the signed extension can't read the
+corpus, the swarm stops and reports. Then verify against §7 by `git diff` and a real build.
+Still outstanding: add the To-dos field to UnliDisk and Butter Smooth; the running-build
+checks for this branch (To Do pane, Connect screen, sidebar lag).
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
@@ -85,9 +81,10 @@ bridge takes a bare filename only** — a path in `planFileName` is rejected, so
 the brief lands at the repo root and has to be moved into `docs/` afterwards;
 and it creates its result JSON **empty at dispatch**, so "the file exists" is
 not a completion signal — wait on the `agy` pid instead.
-**To-dos:** None filed or closed: the Unli Rice MCP connection in this session
-reported 0 notes, so it is not pointed at the real store. Would have filed: "Add the
-to-do field to the UnliDisk and Butter Smooth notes" (unlidisk, butter smooth).
+**To-dos:** None filed or closed: this session's Unli Rice MCP connection reported 0 notes,
+so it is not the real store. Would have filed: "Add the to-do field to the UnliDisk and
+Butter Smooth notes" (unlidisk, butter smooth); "Commit the linter script updates waiting in
+Architecturally, Butter Smooth and UnliDisk" (same projects, plus architecturally).
 **Left by:** Claude Opus 5 2026-09-19
 
 ## Open hypotheses

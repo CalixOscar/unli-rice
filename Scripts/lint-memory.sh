@@ -19,7 +19,8 @@
 # brief: "all LLMs need to update the to do list as part of their hand off." The
 # list is Unli Rice notes tagged `todo`; the procedure (file what you deferred,
 # close what you finished, with evidence) is in Unli Rice's AGENTS.md § "At every
-# handoff". Text alone never kept the list current — this field is what binds it.
+# handoff". Text alone never kept the list current, so the field is required and must
+# be non-empty. It proves the agent wrote something, not that it is true.
 # The field pattern now admits a hyphen, or "To-dos" would be invisible to it.
 #
 # Usage:
@@ -87,6 +88,13 @@ check_track() {
   [ "$_norm" = "$WANT" ] || fail "$_label fields wrong or out of order.
            expected: $WANT
            found:    $_norm"
+
+  # To-dos must say something, even if only "none this checkpoint". An empty field is
+  # the one shape that is certainly not a decision. This cannot check that it is true.
+  _td=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*To-dos:\*\*/{print}' "$F")
+  if [ -n "$_td" ] && ! printf '%s\n' "$_td" | grep -qE '^\*\*To-dos:\*\*[[:space:]]*[^[:space:]]'; then
+    fail "$_label: **To-dos:** is empty — write what you filed and closed, or \"none this checkpoint\""
+  fi
 
   _lb=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*Left by:\*\*/{print}' "$F")
   if [ -z "$_lb" ]; then
