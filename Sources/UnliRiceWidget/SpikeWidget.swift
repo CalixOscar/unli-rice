@@ -31,7 +31,7 @@ struct SpikeProvider: TimelineProvider {
                 let store = try EventStore(readingExisting: resolved.log)
                 let service = NoteService(store: store)
                 if let notes = try? service.listNotes(includeArchived: false) {
-                    status = "Notes: \(notes.count)"
+                    status = "Notes: \(notes.count) · peak \(Self.peakFootprintMB()) · run \(Date().formatted(date: .omitted, time: .standard))"
                 } else {
                     status = "logUnreadable"
                 }
@@ -42,6 +42,21 @@ struct SpikeProvider: TimelineProvider {
             status = "\(reason)"
         }
         return SpikeEntry(date: Date(), statusText: status)
+    }
+
+    /// B0 diagnostic: this process's peak physical footprint so far, as the kernel's
+    /// ledger records it — the figure the 30 MB stop line in the plan is about. The run
+    /// time beside it shows the number came from a fresh run, not a cached rendering.
+    static func peakFootprintMB() -> String {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let kr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard kr == KERN_SUCCESS else { return "unknown" }
+        return String(format: "%.1f MB", Double(info.ledger_phys_footprint_peak) / 1_048_576)
     }
 }
 
