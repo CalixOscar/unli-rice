@@ -43,7 +43,7 @@ TodoPrompt,WidgetCorpus,EventStore,Agent/AgentSettings}.swift`, both To Do panes
 `UnliRiceWidget.entitlements`, `project.yml`, six new test files. Claude: `memory.md`,
 `docs/BUILD-todo-widget-1.md` (moved from the repo root).
 **Next step:** **The founder runs B0** (steps in this session's walkthrough, summarised in
-plan §4 B0): quit the App Store copy, `open "/tmp/unlirice-b0/Build/Products/Debug/Unli Rice.app"`,
+plan §4 B0): quit the App Store copy, `open ~/Library/Developer/UnliRice-B0/Build/Products/Debug/"Unli Rice.app"` (built outside /tmp so it survives the restart; /tmp copies unregistered),
 add the "Unli Rice Spike" widget. (a) The default folder must show `Notes: N`. (b) A throwaway
 folder chosen **in the test copy**, then a restart: `Notes: 0` or `logMissing` = pass,
 `folderFailed` = fail. Claude measures the widget's memory (`footprint`), with 30 MB the stop line.
