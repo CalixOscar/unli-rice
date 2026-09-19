@@ -152,6 +152,27 @@ targets:
         OTHER_CODE_SIGN_FLAGS: "$(inherited) -i $(PRODUCT_BUNDLE_IDENTIFIER)"
         SKIP_INSTALL: YES
 
+  UnliRiceWidget:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Sources/UnliRiceWidget
+    dependencies:
+      - target: UnliRiceCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.widget
+        PRODUCT_NAME: UnliRiceWidget
+        PRODUCT_MODULE_NAME: UnliRiceWidget
+        CODE_SIGN_ENTITLEMENTS: UnliRiceWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 22SNGN5JYD
+        ENABLE_APP_SANDBOX: YES
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+
   UnliRice:
     type: application
     platform: macOS
@@ -164,6 +185,8 @@ targets:
     dependencies:
       - target: UnliRiceCore
       - target: UnliRiceHost
+      - target: UnliRiceWidget
+        embed: true
       - target: unlirice-mcp
         link: false
         embed: false
