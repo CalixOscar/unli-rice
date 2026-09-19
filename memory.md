@@ -26,37 +26,35 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On **`feature/copy-that-overstates`**, local only, not pushed, not merged.
-Four commits ahead of `main` from the copy fix, plus the 2026-09-19 docs commits (widget
-plan, To-dos field, stage-4 revision). 380 tests, 0 failures, 2 skipped (verified:
-`swift build` and `swift test` 2026-09-07; no Swift changed since). **Both targets ship
-as 1.2 (6)**, the App Store install is still **1.1 (4)**, and **neither 1.2 build has been
-archived or uploaded**; that is the founder's step. `README.md` carries an uncommitted edit
-that predates 2026-09-19; left alone.
-**Task:** The to-do widget (INTENT-005). Stages 2–4 done on 2026-09-19. Codex's pre-mortem
-(`docs/PREMORTEM-todo-widget.md`, `gpt-6-astra`, 20 objections) is answered in
-`docs/PLAN-todo-widget.md` §10, and the plan is **settled**. Key changes: fail-closed
-corpus read; `Handoff-ID: <uuid>` instead of `[[title]]`; no clipboard write from a
-URL; the widget ignores the repo snapshot; a B0 spike gates Part B. Part D follow-ups
-done: `AGENTS.md` (Handoff-ID, step 0, the archive exception) and linters (To-dos must be
-non-empty).
-**Files touched:** This repo: `docs/PLAN-todo-widget.md`, `docs/PREMORTEM-todo-widget.md`
-(new), `AGENTS.md`, `memory.md`, `Scripts/lint-*.sh`. Vault: `scripts/lint-memory.sh`,
-`scripts/lint-project-notes.sh` (`69efa80`). Linter sync committed in Badminton, Get rich,
-Nibwise, Nuptia, CalmdownOscar, OpenGrail. The installer also rewrote the script copies in
-Architecturally, Butter Smooth, UnliDisk and both worktrees. **Those are uncommitted**, left
-for whoever next works there.
-**Next step:** Dispatch Parts A–C of `docs/PLAN-todo-widget.md` to the swarm on a branch off
-`main` (merge this branch first). B0 is a gate: if the signed extension can't read the
-corpus, the swarm stops and reports. Then verify against §7 by `git diff` and a real build.
-Still outstanding: add the To-dos field to UnliDisk and Butter Smooth; the running-build
-checks for this branch (To Do pane, Connect screen, sidebar lag).
+**Status:** On **`feature/todo-widget`** (off `main` at `6918f2d`), local only, not pushed.
+`main` was fast-forwarded to `6918f2d` on 2026-09-19 (the copy fix + widget docs), also not
+pushed. Swarm dispatch 1 landed `900398d`..`eda7af1`: Part A (shared core + tests), Part C
+(MCP instructions), and the B0 spike widget. 414 tests, 0 failures, 2 skipped (verified:
+`swift test --scratch-path /tmp/unlirice-spm` 2026-09-19). `xcodebuild` of `UnliRice` with
+the embedded `UnliRiceWidget.appex` succeeded, signed team `22SNGN5JYD` (verified 2026-09-19,
+`/tmp/unlirice-b0`). Both 1.2 builds still unarchived; App Store install is 1.1 (4).
+**Task:** The to-do widget, `docs/PLAN-todo-widget.md` (settled). Build is split in two
+because B0 is a human-run gate. Dispatch 1 is done and verified against `git diff` and my own
+build and test run; its report (`docs/BUILD-todo-widget-1-REPORT.md`) misdescribes some of
+its own code (source names, subtitle format), but the code matches the plan.
+**Files touched:** Swarm: `Sources/UnliRiceCore/{StudioTodo,TodoWording,TodoHandoff,TodoLink,
+TodoPrompt,WidgetCorpus,EventStore,Agent/AgentSettings}.swift`, both To Do panes,
+`AppStore+TodoPrompt.swift`, `unlirice-mcp/main.swift`, `Sources/UnliRiceWidget/SpikeWidget.swift`,
+`UnliRiceWidget.entitlements`, `project.yml`, six new test files. Claude: `memory.md`,
+`docs/BUILD-todo-widget-1.md` (moved from the repo root).
+**Next step:** **The founder runs B0** (steps in this session's walkthrough, summarised in
+plan §4 B0): quit the App Store copy, `open "/tmp/unlirice-b0/Build/Products/Debug/Unli Rice.app"`,
+add the "Unli Rice Spike" widget. (a) The default folder must show `Notes: N`. (b) A throwaway
+folder chosen **in the test copy**, then a restart: `Notes: 0` or `logMissing` = pass,
+`folderFailed` = fail. Claude measures the widget's memory (`footprint`), with 30 MB the stop line.
+Then point the test copy back at the default folder. The result picks dispatch 2 (B1–B6) or a
+plan revision.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
 NOT pass `.skipsHiddenFiles` to an enumerator under `.git` — it is itself
 hidden and yields nothing. Security-scoped bookmarks are bound to the signing
-identity, so re-signing invalidates every folder grant. **Adding a file under
+identity, so re-signing invalidates every folder grant. **`swift test` can fail to codesign the test bundle in this iCloud folder** ("resource fork, Finder information … not allowed"), intermittently: use `swift test --scratch-path /tmp/unlirice-spm`, never a `.build` symlink. **Adding a file under
 `Sources/` requires `xcodegen generate`** — `swift test` globs sources and
 passes while Xcode fails; `.xcodeproj` is gitignored so the regeneration is
 local-only and never arrives via `git pull`. **The sandbox makes `~/Documents`
@@ -84,7 +82,7 @@ not a completion signal — wait on the `agy` pid instead.
 **To-dos:** None filed or closed: this session's Unli Rice MCP connection reported 0 notes,
 so it is not the real store. Would have filed: "Add the to-do field to the UnliDisk and
 Butter Smooth notes" (unlidisk, butter smooth); "Commit the linter script updates waiting in
-Architecturally, Butter Smooth and UnliDisk" (same projects, plus architecturally).
+Architecturally, Butter Smooth and UnliDisk" (those three).
 **Left by:** Claude Opus 5 2026-09-19
 
 ## Open hypotheses
