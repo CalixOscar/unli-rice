@@ -149,7 +149,7 @@ struct TodoPaneView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            Text(item.evidence)
+            Text(evidenceLine(for: item, kind: kind))
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -183,6 +183,17 @@ struct TodoPaneView: View {
                 Rectangle().fill(Color.orange).frame(width: 2)
             }
         }
+    }
+
+    private func evidenceLine(for item: StudioTodo.Item, kind: StudioTodo.Kind) -> String {
+        if kind == .aiFlagged, let noteID = item.noteID, let note = store.note(id: noteID) {
+            let projectTags = note.tags.filter { $0 != "todo" && $0 != "handoff" }
+            let projects = projectTags.map { tag in
+                repos.values.first(where: { $0.name.lowercased() == tag.lowercased() })?.name ?? tag
+            }
+            return TodoWording.subtitle(creator: note.creator, createdAt: note.createdAt, projects: projects)
+        }
+        return item.evidence
     }
 
     // MARK: - Loading
@@ -235,12 +246,7 @@ struct TodoPaneView: View {
             }
 
             let reposSet = Set(snap.repos.map(\.name))
-            var aiFlags: [String: [Note]] = [:]
-            for note in allNotes where note.tags.contains("todo") {
-                for tag in note.tags where reposSet.contains(where: { $0.lowercased() == tag }) {
-                    aiFlags[tag, default: []].append(note)
-                }
-            }
+            let aiFlags = StudioTodo.aiFlags(from: allNotes, repoNames: reposSet)
 
             let t = StudioTodo.derive(from: snap, nextSteps: steps, aiFlags: aiFlags)
             byName = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, $0) })

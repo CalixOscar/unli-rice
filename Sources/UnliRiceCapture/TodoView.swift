@@ -21,6 +21,8 @@ struct TodoView: View {
     @State private var loaded = false
     @State private var noteFor: StudioTodo.Item?
     @State private var draft = ""
+    @State private var notesByID: [UUID: Note] = [:]
+    @State private var repos: [String: RepoSnapshotFile.Repo] = [:]
 
     var body: some View {
         ZStack {
@@ -119,7 +121,7 @@ struct TodoView: View {
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
-                    Text(item.evidence)
+                    Text(evidenceLine(for: item, kind: kind))
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -143,6 +145,17 @@ struct TodoView: View {
         .overlay(alignment: .leading) {
             if kind == .atRisk { Rectangle().fill(Color.orange).frame(width: 2) }
         }
+    }
+
+    private func evidenceLine(for item: StudioTodo.Item, kind: StudioTodo.Kind) -> String {
+        if kind == .aiFlagged, let noteID = item.noteID, let note = notesByID[noteID] {
+            let projectTags = note.tags.filter { $0 != "todo" && $0 != "handoff" }
+            let projects = projectTags.map { tag in
+                repos.values.first(where: { $0.name.lowercased() == tag.lowercased() })?.name ?? tag
+            }
+            return TodoWording.subtitle(creator: note.creator, createdAt: note.createdAt, projects: projects)
+        }
+        return item.evidence
     }
 
     private func card(_ title: String, _ body: String) -> some View {
@@ -261,12 +274,9 @@ struct TodoView: View {
             let snap = try RepoSnapshotFile.read(fromFolder: folder)
             let reposSet = Set(snap.repos.map(\.name))
             let allNotes = (try? store.noteService.listNotes(includeArchived: false)) ?? []
-            var aiFlags: [String: [Note]] = [:]
-            for note in allNotes where note.tags.contains("todo") {
-                for tag in note.tags where reposSet.contains(where: { $0.lowercased() == tag }) {
-                    aiFlags[tag, default: []].append(note)
-                }
-            }
+            notesByID = Dictionary(allNotes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            repos = Dictionary(snap.repos.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+            let aiFlags = StudioTodo.aiFlags(from: allNotes, repoNames: reposSet)
             todo = StudioTodo.derive(from: snap, aiFlags: aiFlags)
             status = "\(snap.repos.count) repos · "
                    + snap.generatedAt.formatted(.relative(presentation: .named))
