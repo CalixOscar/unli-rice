@@ -151,9 +151,18 @@ parts stay filterable later via `search_notes`.
 Noticed something worth doing later, but not now — a version gate, a field that
 unlocks on next release, a small inconsistency not worth stopping for? File it:
 
-1. `create_note` — title is the action, short and imperative ("Bump the ClearSpace
-   Marketing URL field"). Body is the context: what you found, why it's deferred,
-   anything the next reader needs that isn't in the title.
+1. `create_note`. **The title is one plain sentence a non-developer understands.**
+   Say what needs doing and, if it fits, why. Keep file paths, branch names, code
+   names, version numbers and acronyms out of the title; they go in the body. The
+   list is shown on a desktop widget that anyone at the screen may read.
+   - ✗ "Bump ClearSpace Marketing URL field post-redirect"
+   - ✓ "Update the website link on the ClearSpace App Store page"
+   - ✗ "Fix flaky SnapshotTests on CI"
+   - ✓ "Fix the automatic check that sometimes fails for no reason"
+
+   **Body:** first line `Handoff: [[<title of your handoff note>]]` (see "At every
+   handoff" below), then the context: what you found, why it's deferred, and the
+   technical detail the title left out.
 2. `tag_note` with the fixed tag `todo`.
 3. `tag_note` again with the target project's exact folder name under
    `~/Documents/Projects`, lowercased — e.g. `calmdownoscar`, not `CalmdownOscar` or
@@ -167,11 +176,40 @@ default — name the one it's actually about, which may not be this one.
 `todo` joins `janitor` and `ingest` as a reserved string, but as a *tag*, not a
 `source` — do not use it for anything other than these deferred items.
 
-Before you finish work on a project, check whether it has open to-do items — the
-prompt hook injects them if one is installed, and `search_notes` for the project's
-tag finds them if not. If there are any and you are already changing that project,
-ask the founder whether to fold them into this pass. Ask; do not just do them. They
-were deferred deliberately and the reason may still hold.
+Before you start on a project, check whether it has open to-do items — the prompt
+hook injects them if one is installed, and `search_notes` for the project's tag
+finds them if not. If there are any, ask the founder whether to fold them into this
+pass. Ask; do not just do them. They were deferred deliberately and the reason may
+still hold.
+
+## At every handoff
+
+Every LLM, every project. Do this at each checkpoint, meaning each time you update
+`memory.md` (or the Handoff in `PROJECT_NOTES.md`), not only at the end. A session
+can be cut off without warning.
+
+1. **Write one handoff note.** `create_note`, titled
+   `Handoff — <Project> — YYYY-MM-DD HH:MM — <tool>`. The body is the handoff fields
+   as they stand now, plus `git rev-parse --short HEAD`. `tag_note` it `handoff` and
+   the project tag (lowercased folder name). `handoff` is a reserved tag, like `todo`.
+   This is the note the founder lands on when they tap a to-do item. It also feeds the
+   "copy a prompt to pick this up" action, so write it for someone resuming cold.
+2. **File what you deferred** as to-do items (above), each body starting
+   `Handoff: [[<that title>]]`.
+3. **Close what you finished, and only that.** `archive_note` with a reason naming the
+   evidence: "done in a1b2c3d". Never close something you did not do. Never close one
+   because it looks stale or obsolete; use `flag_for_review` for that. Closing is
+   soft: the founder sees it under Archived and can reopen it.
+4. **Record it in the `**To-dos:**` field**: "filed 2 (<titles>); closed 1
+   (<title>, a1b2c3d)", or "none this checkpoint". The pre-commit linter refuses a
+   `memory.md` / Handoff without the field, so this step binds every tool that commits.
+
+No MCP server connected? Say so in `**To-dos:**` ("Unli Rice not connected; would
+have filed: …"). That keeps the items from being lost.
+
+Chat apps (claude.ai, the ChatGPT app) have no `memory.md` and no pre-commit. For them
+this section is advisory only. A short version is planned for the MCP server's
+instructions (`docs/PLAN-todo-widget.md` §5); it is not built yet.
 
 ## Never resolve a conflict yourself
 

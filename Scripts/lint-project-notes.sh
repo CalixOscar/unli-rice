@@ -37,7 +37,7 @@ if [ "$1" = "--staged" ]; then STAGED=1; shift; fi
 F="${1:-PROJECT_NOTES.md}"
 SIZE_WARN="${NOTES_SIZE_WARN:-40000}"
 ERR=0
-WANT="Status,Task,Files touched,Next step,Gotchas,Left by,"
+WANT="Status,Task,Files touched,Next step,Gotchas,To-dos,Left by,"
 
 fail() { printf '  ERROR  %s\n' "$1"; ERR=1; }
 warn() { printf '  warn   %s\n' "$1"; }
@@ -92,11 +92,11 @@ if [ -f "$MEMF" ] && grep -qE '^\*\*(Status|Next step):\*\*' "$F"; then
   H=$(grep -n '^## Handoff' "$F" | head -1 | cut -d: -f1)
   [ -n "$H" ] && fail "memory.md exists but this file still carries a populated Handoff
            (line $H). Two files claiming to hold current state is the drift this
-           split exists to prevent. Move the six fields into memory.md and delete
+           split exists to prevent. Move the seven fields into memory.md and delete
            the Handoff section here, or delete memory.md — not both."
 fi
 
-# --- 4/5. Handoff: six fields per track, in order -----------------------------
+# --- 4/5. Handoff: seven fields per track, in order ---------------------------
 # A Handoff may carry several named tracks (### Track name — ...). That is a real
 # pattern, not sloppiness: UnliDisk ships two App Store products from one codebase
 # and keeps a self-contained handoff for each. Each track is validated on its own,
@@ -112,13 +112,13 @@ fi
 check_track() {
   _s=$1; _e=$2; _label=$3
 
-  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/ {
+  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/ {
            match($0, /^\*\*[^:]*:/); print substr($0, 3, RLENGTH-3) }' "$F")
 
   _dup=$(printf '%s\n' "$_got" | grep -v '^$' | sort | uniq -d | tr '\n' ' ')
   [ -n "$_dup" ] && fail "$_label repeats field(s): $_dup
-           two sessions each wrote a field without reconciling the other five —
-           the six fields describe one moment in time, so update all six or none"
+           two sessions each wrote a field without reconciling the other six —
+           the seven fields describe one moment in time, so update all seven or none"
 
   _norm=$(printf '%s\n' "$_got" | tr '\n' ',' | sed 's/Files touched[^,]*/Files touched/;s/,,*$/,/')
   [ "$_norm" = "$WANT" ] || fail "$_label fields wrong or out of order.
@@ -160,7 +160,7 @@ if [ -n "$HSTART" ]; then
     check_track "$HSTART" "$HEND" "Handoff"
   else
     FIRSTT=$(printf '%s\n' "$TRACKS" | head -1)
-    PRE=$(awk -v s="$HSTART" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/{c++} END{print c+0}' "$F")
+    PRE=$(awk -v s="$HSTART" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/{c++} END{print c+0}' "$F")
     [ "$PRE" -eq 0 ] || fail "Handoff has $PRE field(s) above its first track heading — a field
            outside every track belongs to no track and will be read as belonging to
            whichever one a reader happens to scroll into"

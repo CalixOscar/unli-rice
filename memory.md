@@ -2,11 +2,15 @@
      memory.md holds CURRENT WORKING STATE ONLY, capped at 32,000 characters
      (~8,000 tokens) and enforced by Scripts/lint-memory.sh in pre-commit.
 
-     * The six fields below are atomic: Status, Task, Files touched, Next step,
-       Gotchas, Left by — in that order, no repeats, **Left by:** carries a
-       YYYY-MM-DD date. They describe ONE moment in time. Update all six or none;
+     * The seven fields below are atomic: Status, Task, Files touched, Next step,
+       Gotchas, To-dos, Left by — in that order, no repeats, **Left by:** carries a
+       YYYY-MM-DD date. They describe ONE moment in time. Update all seven or none;
        changing one in isolation produces a file that contradicts itself in
        adjacent lines, which reads as current and is worse than a stale file.
+     * **To-dos:** at every checkpoint, file what you deferred and close what you
+       finished in the Unli Rice to-do list (notes tagged `todo`), then record it in
+       that field: "filed 2 (...); closed 1 (...)" or "none this checkpoint". The
+       procedure is in AGENTS.md § "At every handoff".
      * No dated headings. Nothing here is a log. Finished work moves to
        PROJECT_NOTES.md; design detail goes to docs/ and is referenced by path.
      * A claim carries its own evidence or is marked unverified:
@@ -22,52 +26,35 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On **`feature/copy-that-overstates`**, three commits ahead of `main`,
-**local only — not pushed, not merged**. `main` is at `ddae139` and is pushed
-(the repo is **public**: `github.com/CalixOscar/unli-rice`). 380 tests, 0
-failures, 2 skipped (verified: `swift build` and `swift test` 2026-09-07, after
-the swarm's `cbfa54a`). The sibling site repo `CalmdownOscar` is on `main` and
-pushed, four commits, live on `calmdownoscar.com`. Carried unchanged from the
-previous pass: **both targets ship as 1.2 (6)** (`MARKETING_VERSION "1.2"`,
-`CURRENT_PROJECT_VERSION "6"`), the App Store install is still **1.1 (4)**, and
-**neither 1.2 build has been archived or uploaded** — that is the founder's
-step, not a session's.
-**Task:** A documentation audit that turned into an app fix. Three parts.
-(1) The public user guide (`CalmdownOscar:unlirice/user_guide.html`) was audited
-claim by claim against `1f49c0f`; **fourteen claims did not survive**, six of
-them flatly wrong. Corrected and live (`CalmdownOscar@92a6870`, `d6f02d5`,
-`40e4a53`). The worst was the MCP paste instruction: the app copies a *complete*
-JSON file including the `mcpServers` wrapper, and the guide said to paste it
-inside an existing `mcpServers` object, which nests one inside the other and
-fails silently.
-(2) The app repo README gained the guide link and three screenshots
-(`c4a6b87`, `ddae139`).
-(3) **Four of the fourteen were the app's own strings, not the guide's** — the
-guide was repeating them faithfully. Planned in
-`docs/PLAN-copy-that-overstates.md` (`1c906a9`), dispatched to the Antigravity
-swarm, built in `cbfa54a`. Copy and doc comments only; no logic changed.
-Verified against `git diff` and a real build rather than the swarm's `SUCCESS`.
-**Files touched:** This repo — `PROJECT_NOTES.md` and `memory.md`;
-`docs/PLAN-copy-that-overstates.md` and `docs/PLAN-copy-that-overstates-BUILD.md`
-(both new); `README.md`; `Screenshots/connect-screen.png` (new);
-`Scripts/lint-project-notes.sh` (synced from the vault, `4cc77a6`). Changed by
-the swarm in `cbfa54a`: `Sources/UnliRice/TodoPaneView.swift`,
-`Sources/UnliRice/ConnectView.swift`, `Sources/UnliRice/AppStore.swift`,
-`Sources/UnliRiceCore/StudioTodo.swift`. Sibling repo `CalmdownOscar` —
-`unlirice/user_guide.html`. No test file changed; no `Sources/` file added, so
-no `xcodegen generate` was needed.
-**Next step:** **Watch the To Do pane and the Connect screen in a running
-build**, then merge `feature/copy-that-overstates` and push. The one judgement
-call nobody has looked at is fix 4's placement: the JSON merge hint is three
-sentences of 10.5pt secondary text under every connector row, and the swarm
-judged it "fits comfortably" from code, not from looking. If it reads as a wall
-of grey, move the two cases into `snippetBlock` (shown after **Copy
-Configuration** is pressed) — do *not* shorten the string back into ambiguity,
-which is how the original one-liner got written. Still outstanding from the
-previous pass and untouched: watch the **sidebar** in the running app to decide
-whether `51ffb83` actually fixed the pane-switch lag, and
-`_AI Context/07_Prelaunch_Post_Mortem.md` has still not been run before any
-future distribution action.
+**Status:** On **`feature/copy-that-overstates`**, four commits ahead of `main`,
+**local only — not pushed, not merged**. Plus one docs commit from 2026-09-19 (the
+widget plan and the To-dos field). 380 tests, 0 failures, 2 skipped (verified:
+`swift build` and `swift test` 2026-09-07; no Swift changed since). Carried unchanged:
+**both targets ship as 1.2 (6)**, the App Store install is still **1.1 (4)**, and
+**neither 1.2 build has been archived or uploaded** — the founder's step. `README.md`
+carries an uncommitted edit that predates the 2026-09-19 session; left alone.
+**Task:** Founder asked (2026-09-19) for a desktop widget showing the AI-filed to-do
+list. It must be readable by non-developers, every LLM must update the list at
+handoff, and tapping an item opens its handoff or copies a prompt built from it.
+Stage 2 plan written: `docs/PLAN-todo-widget.md`, intent
+`docs/intent/INTENT-005-todo-widget.md`. Founder answered §9: **agents may close
+items** (reverses INTENT-004) and **add the seventh field**. Both are now done as docs
+and tooling: `AGENTS.md` § "At every handoff" + plain-language title rule; a
+`**To-dos:**` field enforced by both vault linters and rolled out studio-wide.
+**Files touched:** This repo: `AGENTS.md`, `memory.md`, `docs/PLAN-todo-widget.md`
+(new), `docs/intent/INTENT-005-todo-widget.md` (new), `Scripts/lint-memory.sh` and
+`Scripts/lint-project-notes.sh` (synced from the vault). Vault: `scripts/lint-memory.sh`,
+`scripts/lint-project-notes.sh`, `scripts/pre-commit`, `scripts/templates/memory.md`,
+`_AI Context/04_Guardrails.md`. Field added in Badminton, Get rich, Nibwise
+(`memory.md`) and CalmdownOscar, Nuptia, OpenGrail (`PROJECT_NOTES.md` Handoff).
+**Not** added in UnliDisk (uncommitted `PROJECT_NOTES.md` edits in flight, lint already
+failing), Butter Smooth (`PROJECT_NOTES.md` untracked), or the two worktrees.
+**Next step:** Send `docs/PLAN-todo-widget.md` + INTENT-005 to Codex for the stage-3
+pre-mortem. Do not skip it this time: the widget is a new process writing the event
+log. Then stage 4, then Parts A+B (and the MCP-instructions string in §5, which is
+Swift) to the swarm on a branch off `main`. Add the To-dos field to UnliDisk and
+Butter Smooth once their in-flight notes are committed. The merge of this branch
+and the running-build checks listed in PROJECT_NOTES.md are still outstanding.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
@@ -98,7 +85,10 @@ bridge takes a bare filename only** — a path in `planFileName` is rejected, so
 the brief lands at the repo root and has to be moved into `docs/` afterwards;
 and it creates its result JSON **empty at dispatch**, so "the file exists" is
 not a completion signal — wait on the `agy` pid instead.
-**Left by:** Claude Opus 5 2026-09-07
+**To-dos:** None filed or closed: the Unli Rice MCP connection in this session
+reported 0 notes, so it is not pointed at the real store. Would have filed: "Add the
+to-do field to the UnliDisk and Butter Smooth notes" (unlidisk, butter smooth).
+**Left by:** Claude Opus 5 2026-09-19
 
 ## Open hypotheses
 

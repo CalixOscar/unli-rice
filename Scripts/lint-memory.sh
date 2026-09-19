@@ -4,7 +4,7 @@
 # CANONICAL COPY: ~/Documents/Unli Rice Vault/scripts/lint-memory.sh
 # Edit it there and re-run install-studio-hooks.sh.
 #
-# memory.md is the project's CURRENT WORKING STATE and nothing else: the six
+# memory.md is the project's CURRENT WORKING STATE and nothing else: the seven
 # atomic Handoff fields, plus active gotchas and open hypotheses. It is what an
 # agent should be able to read in full at the start of every session without
 # thinking about the cost. PROJECT_NOTES.md is the historical record and is not
@@ -14,6 +14,13 @@
 # carried a soft 40,000-char warning since 2026-08-29 and reached 119,551 chars
 # in Unli Rice anyway. A warning that never blocks is a warning nobody acts on.
 # 32,000 chars is roughly 8,000 tokens.
+#
+# 2026-09-19: a seventh field, **To-dos:**, between Gotchas and Left by. Founder
+# brief: "all LLMs need to update the to do list as part of their hand off." The
+# list is Unli Rice notes tagged `todo`; the procedure (file what you deferred,
+# close what you finished, with evidence) is in Unli Rice's AGENTS.md § "At every
+# handoff". Text alone never kept the list current — this field is what binds it.
+# The field pattern now admits a hyphen, or "To-dos" would be invisible to it.
 #
 # Usage:
 #   lint-memory.sh [path]            check the whole file
@@ -27,7 +34,7 @@ F="${1:-memory.md}"
 HARD="${MEMORY_SIZE_MAX:-32000}"
 SOFT="${MEMORY_SIZE_WARN:-24000}"
 ERR=0
-WANT="Status,Task,Files touched,Next step,Gotchas,Left by,"
+WANT="Status,Task,Files touched,Next step,Gotchas,To-dos,Left by,"
 
 fail() { printf '  ERROR  %s\n' "$1"; ERR=1; }
 warn() { printf '  warn   %s\n' "$1"; }
@@ -58,7 +65,7 @@ if [ "${DATED:-0}" -gt 0 ]; then
            Session Log. (**Left by:** carries the date for current state.)"
 fi
 
-# --- 3. the six fields, per track, in order -----------------------------------
+# --- 3. the seven fields, per track, in order ---------------------------------
 # Identical contract to the Handoff section it replaced, deliberately: the fields,
 # their order, the atomicity rule and the dated **Left by:** are unchanged, so
 # nothing new has to be learned and a half-migrated repo reads the same either way.
@@ -68,13 +75,13 @@ fi
 check_track() {
   _s=$1; _e=$2; _label=$3
 
-  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/ {
+  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/ {
            match($0, /^\*\*[^:]*:/); print substr($0, 3, RLENGTH-3) }' "$F")
 
   _dup=$(printf '%s\n' "$_got" | grep -v '^$' | sort | uniq -d | tr '\n' ' ')
   [ -n "$_dup" ] && fail "$_label repeats field(s): $_dup
-           two sessions each wrote a field without reconciling the other five —
-           the six fields describe one moment in time, so update all six or none"
+           two sessions each wrote a field without reconciling the other six —
+           the seven fields describe one moment in time, so update all seven or none"
 
   _norm=$(printf '%s\n' "$_got" | tr '\n' ',' | sed 's/Files touched[^,]*/Files touched/;s/,,*$/,/')
   [ "$_norm" = "$WANT" ] || fail "$_label fields wrong or out of order.
@@ -102,7 +109,7 @@ if [ -z "$TRACKS" ]; then
   check_track "$START" "$END" "memory.md"
 else
   FIRSTT=$(printf '%s\n' "$TRACKS" | head -1)
-  PRE=$(awk -v s="$START" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/{c++} END{print c+0}' "$F")
+  PRE=$(awk -v s="$START" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/{c++} END{print c+0}' "$F")
   [ "$PRE" -eq 0 ] || fail "$PRE field(s) above the first track heading — a field outside
            every track belongs to no track and will be read as belonging to
            whichever one a reader happens to scroll into"
