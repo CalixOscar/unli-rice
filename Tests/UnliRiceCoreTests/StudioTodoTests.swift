@@ -506,4 +506,50 @@ extension StudioTodoTests {
         let stderrStr = String(data: stderrData, encoding: .utf8) ?? ""
         XCTAssertTrue(stderrStr.contains("unrecognized event kind 'futureEventKindAddedLater'"), stderrStr)
     }
+
+    // MARK: - aiFlags tests
+
+    func testAIFlagsParityFixtureWithOldLoop() {
+        let n1 = testNote(title: "Note 1", tags: ["todo", "calmdownoscar"])
+        let n2 = testNote(title: "Note 2", tags: ["todo", "unli-rice", "other"])
+        let n3 = testNote(title: "Note 3", tags: ["todo"]) // no project
+        let n4 = testNote(title: "Note 4", tags: ["calmdownoscar"]) // no todo tag
+        let n5 = testNote(title: "Note 5", tags: ["todo", "CALMDOWNOSCAR"]) // uppercase tag
+        let notes = [n1, n2, n3, n4, n5]
+        let repoSet: Set<String> = ["CalmdownOscar", "Unli-Rice", "OtherRepo"]
+
+        var oldResult: [String: [Note]] = [:]
+        for note in notes where note.tags.contains("todo") {
+            for tag in note.tags where repoSet.contains(where: { $0.lowercased() == tag }) {
+                oldResult[tag, default: []].append(note)
+            }
+        }
+
+        let extractedResult = StudioTodo.aiFlags(from: notes, repoNames: repoSet)
+        XCTAssertEqual(extractedResult, oldResult)
+    }
+
+    func testAIFlagsFooAndfooBothInSnapshot() {
+        let n1 = testNote(title: "Item 1", tags: ["todo", "foo"])
+        let notes = [n1]
+        let repoSet: Set<String> = ["Foo", "foo"]
+
+        let flags = StudioTodo.aiFlags(from: notes, repoNames: repoSet)
+        // Note tag is "foo", so key is "foo"
+        XCTAssertEqual(flags.keys.count, 1)
+        XCTAssertEqual(flags["foo"]?.count, 1)
+        XCTAssertEqual(flags["foo"]?.first?.title, "Item 1")
+    }
+
+    func testAIFlagsOneNoteTaggedForTwoRepos() {
+        let n1 = testNote(title: "Shared task", tags: ["todo", "alpha", "beta"])
+        let notes = [n1]
+        let repoSet: Set<String> = ["Alpha", "Beta"]
+
+        let flags = StudioTodo.aiFlags(from: notes, repoNames: repoSet)
+        XCTAssertEqual(flags["alpha"]?.count, 1)
+        XCTAssertEqual(flags["beta"]?.count, 1)
+        XCTAssertEqual(flags["alpha"]?.first?.id, n1.id)
+        XCTAssertEqual(flags["beta"]?.first?.id, n1.id)
+    }
 }

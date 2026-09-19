@@ -353,6 +353,18 @@ public struct StudioTodo: Equatable, Sendable {
         }, coverage: coverage)
     }
 
+    /// Open AI-filed to-do notes, keyed by the LOWERCASED project tag, exactly as the two
+    /// pane loops do today. Behaviour-preserving extraction; do not re-key (P15).
+    public static func aiFlags(from notes: [Note], repoNames: Set<String>) -> [String: [Note]] {
+        var aiFlags: [String: [Note]] = [:]
+        for note in notes where note.tags.contains("todo") {
+            for tag in note.tags where repoNames.contains(where: { $0.lowercased() == tag }) {
+                aiFlags[tag, default: []].append(note)
+            }
+        }
+        return aiFlags
+    }
+
     /// Pull the `**Next step:**` field out of a memory.md body.
     ///
     /// Deliberately tolerant of the field spanning several lines, because the contract
