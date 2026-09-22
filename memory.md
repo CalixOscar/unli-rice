@@ -42,13 +42,14 @@ TodoPrompt,WidgetCorpus,EventStore,Agent/AgentSettings}.swift`, both To Do panes
 `AppStore+TodoPrompt.swift`, `unlirice-mcp/main.swift`, `Sources/UnliRiceWidget/SpikeWidget.swift`,
 `UnliRiceWidget.entitlements`, `project.yml`, six new test files. Claude: `memory.md`,
 `docs/BUILD-todo-widget-1.md` (moved from the repo root).
-**Next step:** **The founder runs B0** (steps in this session's walkthrough, summarised in
-plan §4 B0): quit the App Store copy, `open ~/Library/Developer/UnliRice-B0/Build/Products/Debug/"Unli Rice.app"` (built outside /tmp so it survives the restart; /tmp copies unregistered),
-add the "Unli Rice Spike" widget. (a) The default folder must show `Notes: N`. (b) A throwaway
-folder chosen **in the test copy**, then a restart: `Notes: 0` or `logMissing` = pass,
-`folderFailed` = fail. Claude measures the widget's memory (`footprint`), with 30 MB the stop line.
-Then point the test copy back at the default folder. The result picks dispatch 2 (B1–B6) or a
-plan revision.
+**Next step:** **B0 test (a) PASSED** (founder, 2026-09-22): the signed spike widget, default
+corpus, read `Notes: 214 · peak 11.8 MB`, a fresh run (the spike self-reports since `6365e0d`;
+an outside watcher could not catch the short-lived process). 11.8 MB is under the 30 MB line.
+**Test (b) is next:** in the test copy (`open ~/Library/Developer/UnliRice-B0/Build/Products/Debug/"Unli Rice.app"`),
+point the data folder at an empty throwaway folder, restart the Mac, and read the widget:
+`Notes: 0` or `logMissing` = pass, `folderFailed` = fail. Then point the test copy back at the
+default folder **before** opening the App Store copy. The result picks dispatch 2 (B1–B6,
+with the custom-folder fallback copy if (b) fails) or a plan revision.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
@@ -83,7 +84,7 @@ not a completion signal — wait on the `agy` pid instead.
 so it is not the real store. Would have filed: "Add the to-do field to the UnliDisk and
 Butter Smooth notes" (unlidisk, butter smooth); "Commit the linter script updates waiting in
 Architecturally, Butter Smooth and UnliDisk" (those three).
-**Left by:** Claude Opus 5 2026-09-19
+**Left by:** Claude Opus 5 2026-09-22
 
 ## Open hypotheses
 
