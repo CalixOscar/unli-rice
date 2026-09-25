@@ -589,3 +589,28 @@ extension StudioTodoTests {
         XCTAssertTrue(prompt.contains(step), prompt)
     }
 }
+
+extension StudioTodoTests {
+    /// The current way to write the field: a plain paragraph for the founder, a blank
+    /// line, then the detail. The app shows the first paragraph; the rest is kept.
+    func testPlainFirstParagraphIsTheHeadlineAndTheDetailSurvives() {
+        let body = """
+        **Status:** fine
+        **Next step:** An AI builds ten practice bots using pretend money. Real money stays your call.
+
+        C0 branch build/fleet off main, then dispatch swarm for C1–C7.
+        **Gotchas:** none
+        """
+        let step = StudioTodo.nextStep(fromMemory: body)
+        XCTAssertEqual(step, "An AI builds ten practice bots using pretend money. Real money stays your call."
+                           + "\n\nC0 branch build/fleet off main, then dispatch swarm for C1–C7.")
+        let head = StudioTodo.headline(forNextStep: step ?? "")
+        XCTAssertEqual(head.title, "An AI builds ten practice bots using pretend money. Real money stays your call.")
+        XCTAssertEqual(head.detail, step)
+    }
+
+    func testNextStepStopsAtAHeading() {
+        let body = "**Next step:** Ship it.\n\n## Open hypotheses\n- something"
+        XCTAssertEqual(StudioTodo.nextStep(fromMemory: body), "Ship it.")
+    }
+}

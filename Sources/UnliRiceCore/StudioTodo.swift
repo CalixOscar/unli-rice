@@ -106,13 +106,20 @@ public struct StudioTodo: Equatable, Sendable {
         }
     }
 
-    /// A memory.md next step's first sentence, as a headline the founder can scan:
-    /// Markdown emphasis and code ticks removed, cut at the first sentence end or line
-    /// break, at most 160 characters. Nil when that is already the whole text.
+    /// A memory.md next step's headline, for the founder to scan: the first paragraph when
+    /// the field is written the current way (plain sentence, blank line, detail), else the
+    /// first sentence, cut at 160 characters. Markdown emphasis and code ticks removed.
+    /// `detail` is the full text, or nil when the headline already is all of it.
     public static func headline(forNextStep text: String) -> (title: String, detail: String?) {
         let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let plain = full.replacingOccurrences(of: "**", with: "")
                         .replacingOccurrences(of: "`", with: "")
+        // Written the current way — a plain first paragraph, then the detail: the whole
+        // first paragraph is the headline, unless it runs long.
+        if let breakRange = plain.range(of: "\n\n") {
+            let lead = String(plain[..<breakRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+            if !lead.isEmpty && lead.count <= 240 { return (lead, full) }
+        }
         var end = plain.endIndex
         for marker in [". ", ".\n", "\n", "! ", "? "] {
             if let r = plain.range(of: marker), r.lowerBound < end {
@@ -427,15 +434,26 @@ public struct StudioTodo: Equatable, Sendable {
     public static func nextStep(fromMemory body: String) -> String? {
         guard let r = body.range(of: "**Next step:**") else { return nil }
         let rest = body[r.upperBound...]
-        var collected: [String] = []
+        // Paragraphs are kept: since 2026-09-25 the field opens with one plain sentence for
+        // the founder, then a blank line, then the detail for the next AI session. The
+        // headline comes from the first paragraph; Details and Fix with AI get the rest.
+        var paragraphs: [[String]] = [[]]
         for line in rest.split(separator: "\n", omittingEmptySubsequences: false) {
             let t = line.trimmingCharacters(in: .whitespaces)
-            // The next field ends it — the six are fixed and ordered.
+            // The next field, a heading, or a comment ends it — the fields are fixed and ordered.
             if t.hasPrefix("**") && t.contains(":**") { break }
-            if t.isEmpty && !collected.isEmpty { break }
-            if !t.isEmpty { collected.append(t) }
+            if t.hasPrefix("#") || t.hasPrefix("<!--") { break }
+            if t.isEmpty {
+                if !(paragraphs.last ?? []).isEmpty { paragraphs.append([]) }
+            } else {
+                paragraphs[paragraphs.count - 1].append(t)
+            }
         }
-        let joined = collected.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        let joined = paragraphs
+            .map { $0.joined(separator: " ") }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return joined.isEmpty ? nil : joined
     }
 }
