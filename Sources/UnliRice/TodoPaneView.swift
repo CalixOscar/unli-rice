@@ -33,7 +33,7 @@ struct TodoPaneView: View {
                     empty
                 } else {
                     ForEach(StudioTodo.Kind.allCases, id: \.rawValue) { kind in
-                        let items = todo.items.filter { $0.kind == kind }
+                        let items = ordered(todo.items.filter { $0.kind == kind }, kind)
                         if !items.isEmpty { section(kind, items) }
                     }
                 }
@@ -62,19 +62,25 @@ struct TodoPaneView: View {
             // into one launch.
             // The technical detail (paths, counts) stays one hover away for whoever is
             // diagnosing an empty pane; the line itself is written for the founder.
+            // What wasn't checked matters when the list is empty (the empty state says
+            // so); with items showing, it is a caveat for whoever is diagnosing, on hover.
             if !sourceNote.isEmpty {
-                HStack(spacing: 8) {
-                    Text(checkedLine)
-                    if let gap = todo.coverage.gapSummary {
-                        Text("·")
-                        Text(gap)
-                            .foregroundStyle(Theme.brass)
-                    }
-                }
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.textSecondary)
-                .help(sourceNote)
+                Text(checkedLine)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Theme.textSecondary)
+                    .help(sourceNote + (todo.coverage.gapSummary.map { " · " + $0 } ?? ""))
             }
+        }
+    }
+
+    /// AI suggestions oldest first, as on the widget, so nothing waits at the bottom
+    /// forever; the other groups keep their project order.
+    private func ordered(_ items: [StudioTodo.Item], _ kind: StudioTodo.Kind) -> [StudioTodo.Item] {
+        guard kind == .aiFlagged else { return items }
+        return items.sorted {
+            let a = $0.noteID.flatMap { store.note(id: $0) }?.createdAt ?? .distantFuture
+            let b = $1.noteID.flatMap { store.note(id: $0) }?.createdAt ?? .distantFuture
+            return a < b
         }
     }
 

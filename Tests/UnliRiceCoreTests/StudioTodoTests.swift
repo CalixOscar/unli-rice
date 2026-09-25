@@ -128,7 +128,7 @@ extension StudioTodoTests {
         let t = StudioTodo.derive(from: .init(deviceLabel: "t", repos: [r]))
         XCTAssertEqual(t.items.count, 1)
         XCTAssertEqual(t.items[0].title, "Push the backlog")
-        XCTAssertTrue(t.items[0].evidence.contains("as of the last snapshot"),
+        XCTAssertTrue(t.items[0].evidence.contains("as of the last check"),
                       "a phone should be told the step is a photograph, not live")
     }
 
@@ -144,7 +144,7 @@ extension StudioTodoTests {
         let t = StudioTodo.derive(from: .init(deviceLabel: "t", repos: [r]),
                                   nextSteps: ["X": "fresh"])
         XCTAssertEqual(t.items[0].title, "fresh")
-        XCTAssertFalse(t.items[0].evidence.contains("snapshot"))
+        XCTAssertFalse(t.items[0].evidence.contains("as of the last check"))
     }
 }
 

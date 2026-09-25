@@ -348,7 +348,7 @@ public struct StudioTodo: Equatable, Sendable {
                         project: p,
                         kind: .declared,
                         title: head.title,
-                        evidence: "Written in \(p)'s notes (memory.md), as of the last snapshot",
+                        evidence: "Written in \(p)'s notes (memory.md), as of the last check",
                         fix: nil,
                         detail: head.detail))
                 }
