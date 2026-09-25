@@ -2349,3 +2349,20 @@ the vault guardrails, the memory template and this repo's `AGENTS.md`.
 Open: the widget has not been seen drawing real notes. A development-signed build is
 refused the app group container (wildcard team profile, no `application-groups`); only a
 TestFlight/App Store build can run plan §7. Filed as a to-do for the founder.
+
+## Unli Rice 1.3: the To Do list for everyone, and an iPhone widget (2026-09-26)
+
+**Decision (founder): the To Do list must work for every customer on default settings.**
+Customers have no published `repos.json` (studio tooling), so the pane showed only an
+instruction to run a studio script and hid their AI to-dos. Now every open AI to-do shows in
+the pane and on the phone, the Mac pane scans the folders granted in Repos itself when no
+snapshot exists, and no product copy names a studio script. The built-in house rules teach
+connected assistants to file to-dos in plain words; a test keeps studio-only terms out of them.
+
+**Decision (founder): the widget on iPhone too.** The layout is shared with the Mac widget.
+The phone widget reads a list Capture writes into a new App Group after each sync, and queues
+Done taps for Capture's next sync; it hides titles while the app lock is on.
+
+**Released:** Mac 1.3 (8) and Capture 1.3 (7) uploaded for review, founder-requested
+("ready for app store"). 1.2 was already approved, closing its train; build numbers 6 and 7
+were already used on the Mac. Submission itself is the founder's.
