@@ -78,6 +78,10 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Identify every write.** Pass your own lowercase tool name as `source`. Never write as `janitor` or `ingest`; those identities are reserved for machine pipelines.
 
+    **Verify, don't report.** Your own report that a change worked is not evidence. Check the diff and a real build or test run before saying it's done, and mark anything you couldn't check as unverified.
+
+    **Keep the user's to-do list in plain words.** File deferred work as a note tagged `todo` plus the project's lowercased folder name. The title is one plain sentence with no file names, code names or acronyms. The body opens with two or three plain sentences, saying why it matters and what the user must do or "An AI can do this", then the technical detail after a line reading `For the AI picking this up:`. These items appear on the user's To Do list and widget. Archive one only when you finished it, naming the evidence.
+
     **Do not make structural judgements unilaterally.** If notes duplicate or contradict one another, use `flag_for_review` and explain the evidence. Do not merge, archive, or resolve the conflict yourself. There is no delete tool; archiving is soft and reversible.
 
     **Exception Guardrail.** If the user asks for something that contradicts these notes, ask whether it's a one-time exception or whether the note should change. One-time → note the exception in the session; change → append the change to the relevant note.
@@ -93,6 +97,8 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Flag suspected duplicates or contradictions for human review; do not resolve them yourself.
     - Exception Guardrail: If user request contradicts notes, ask if one-time exception or note change.
     - Nothing is deleted. Archive is soft and reversible.
+    - File deferred work as a note tagged `todo` + project folder name: a plain-sentence title, a plain opening for the user, technical detail after `For the AI picking this up:`. Archive only what you finished, with evidence.
+    - Check claims against current evidence; mark what you couldn't check as unverified.
     """
 }
 
