@@ -190,6 +190,16 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         return settings
     }
 
+    /// Reads settings strictly, returning nil if the file does not exist,
+    /// and throwing if the file exists but cannot be read or decoded.
+    public static func loadStrict(from url: URL = AgentSettings.defaultURL()) throws -> AgentSettings? {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(AgentSettings.self, from: data)
+    }
+
     public func save(to url: URL = AgentSettings.defaultURL()) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true

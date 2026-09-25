@@ -30,6 +30,11 @@
 #     a lint-allow marker. A linter that blocks on a deferral you already decided
 #     on just trains you to pass --no-verify, which costs you every other check.
 #
+# 2026-09-24: the Session Log is retired — git log is the session record. It is no
+# longer a required section; an existing one stays as history, and new dated entries
+# added under it are warned about in staged mode (a warning, not an error, so a build
+# commit is never blocked over a diary line).
+#
 # Exit 1 on error, 0 otherwise. Warnings never block.
 
 STAGED=0
@@ -37,7 +42,7 @@ if [ "$1" = "--staged" ]; then STAGED=1; shift; fi
 F="${1:-PROJECT_NOTES.md}"
 SIZE_WARN="${NOTES_SIZE_WARN:-40000}"
 ERR=0
-WANT="Status,Task,Files touched,Next step,Gotchas,Left by,"
+WANT="Status,Task,Files touched,Next step,Gotchas,To-dos,Left by,"
 
 fail() { printf '  ERROR  %s\n' "$1"; ERR=1; }
 warn() { printf '  warn   %s\n' "$1"; }
@@ -76,7 +81,7 @@ done
 if allowed required-sections "$(basename "$F")"; then
   printf '  waived required-section check (topic-organised legacy note)\n'
 else
-  for S in "## Overview" "## Decisions Log" "## Session Log"; do
+  for S in "## Overview" "## Decisions Log"; do
     N=$(grep -c "^$S" "$F")
     if [ "$N" -eq 0 ]; then
       fail "missing required section '$S'"
@@ -92,11 +97,11 @@ if [ -f "$MEMF" ] && grep -qE '^\*\*(Status|Next step):\*\*' "$F"; then
   H=$(grep -n '^## Handoff' "$F" | head -1 | cut -d: -f1)
   [ -n "$H" ] && fail "memory.md exists but this file still carries a populated Handoff
            (line $H). Two files claiming to hold current state is the drift this
-           split exists to prevent. Move the six fields into memory.md and delete
+           split exists to prevent. Move the seven fields into memory.md and delete
            the Handoff section here, or delete memory.md — not both."
 fi
 
-# --- 4/5. Handoff: six fields per track, in order -----------------------------
+# --- 4/5. Handoff: seven fields per track, in order ---------------------------
 # A Handoff may carry several named tracks (### Track name — ...). That is a real
 # pattern, not sloppiness: UnliDisk ships two App Store products from one codebase
 # and keeps a self-contained handoff for each. Each track is validated on its own,
@@ -112,18 +117,25 @@ fi
 check_track() {
   _s=$1; _e=$2; _label=$3
 
-  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/ {
+  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/ {
            match($0, /^\*\*[^:]*:/); print substr($0, 3, RLENGTH-3) }' "$F")
 
   _dup=$(printf '%s\n' "$_got" | grep -v '^$' | sort | uniq -d | tr '\n' ' ')
   [ -n "$_dup" ] && fail "$_label repeats field(s): $_dup
-           two sessions each wrote a field without reconciling the other five —
-           the six fields describe one moment in time, so update all six or none"
+           two sessions each wrote a field without reconciling the other six —
+           the seven fields describe one moment in time, so update all seven or none"
 
   _norm=$(printf '%s\n' "$_got" | tr '\n' ',' | sed 's/Files touched[^,]*/Files touched/;s/,,*$/,/')
   [ "$_norm" = "$WANT" ] || fail "$_label fields wrong or out of order.
            expected: $WANT
            found:    $_norm"
+
+  # To-dos must say something, even if only "none this checkpoint". An empty field is
+  # the one shape that is certainly not a decision. This cannot check that it is true.
+  _td=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*To-dos:\*\*/{print}' "$F")
+  if [ -n "$_td" ] && ! printf '%s\n' "$_td" | grep -qE '^\*\*To-dos:\*\*[[:space:]]*[^[:space:]]'; then
+    fail "$_label: **To-dos:** is empty — write what you filed and closed, or \"none this checkpoint\""
+  fi
 
   _lb=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*Left by:\*\*/{print}' "$F")
   if [ -z "$_lb" ]; then
@@ -160,7 +172,7 @@ if [ -n "$HSTART" ]; then
     check_track "$HSTART" "$HEND" "Handoff"
   else
     FIRSTT=$(printf '%s\n' "$TRACKS" | head -1)
-    PRE=$(awk -v s="$HSTART" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/{c++} END{print c+0}' "$F")
+    PRE=$(awk -v s="$HSTART" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/{c++} END{print c+0}' "$F")
     [ "$PRE" -eq 0 ] || fail "Handoff has $PRE field(s) above its first track heading — a field
            outside every track belongs to no track and will be read as belonging to
            whichever one a reader happens to scroll into"
@@ -187,6 +199,24 @@ else
   N=$(grep -cEi "$CLAIM_RE" "$F" 2>/dev/null | tr -d ' ')
   M=$(grep -Ei "$CLAIM_RE" "$F" 2>/dev/null | grep -viE '\((verified|unverified)|unverified' | wc -l | tr -d ' ')
   [ "${M:-0}" -gt 0 ] && warn "$M of $N test-count claims carry no evidence marker (historical entries — do not rewrite; applies to new ones)"
+fi
+
+# --- 6b. no new Session Log entries -------------------------------------------
+# Staged mode only: map each added line to its line number in the new file and warn
+# if a dated entry lands inside ## Session Log.
+if [ "$STAGED" -eq 1 ]; then
+  SL=$(grep -n '^## Session Log' "$F" | tail -1 | cut -d: -f1)
+  if [ -n "$SL" ]; then
+    SLE=$(awk -v s="$SL" 'NR>s && /^## /{print NR; exit}' "$F")
+    [ -n "$SLE" ] || SLE=$(( $(wc -l < "$F") + 1 ))
+    NEWSL=$(git diff --cached -U0 -- "$F" | awk -v s="$SL" -v e="$SLE" '
+      /^@@/ { match($0, /\+[0-9]+/); n = substr($0, RSTART+1, RLENGTH-1) + 0; next }
+      /^\+\+\+/ { next }
+      /^\+/ { if (n > s && n < e && $0 ~ /20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) c++; n++; next }
+      END { print c+0 }')
+    [ "${NEWSL:-0}" -gt 0 ] && warn "$NEWSL new dated line(s) under ## Session Log — the Session Log is retired
+           (2026-09-24). git log is the session record; a decision goes in Decisions Log."
+  fi
 fi
 
 # --- 7. size ------------------------------------------------------------------

@@ -2,11 +2,15 @@
      memory.md holds CURRENT WORKING STATE ONLY, capped at 32,000 characters
      (~8,000 tokens) and enforced by Scripts/lint-memory.sh in pre-commit.
 
-     * The six fields below are atomic: Status, Task, Files touched, Next step,
-       Gotchas, Left by — in that order, no repeats, **Left by:** carries a
-       YYYY-MM-DD date. They describe ONE moment in time. Update all six or none;
+     * The seven fields below are atomic: Status, Task, Files touched, Next step,
+       Gotchas, To-dos, Left by — in that order, no repeats, **Left by:** carries a
+       YYYY-MM-DD date. They describe ONE moment in time. Update all seven or none;
        changing one in isolation produces a file that contradicts itself in
        adjacent lines, which reads as current and is worse than a stale file.
+     * **To-dos:** at every checkpoint, file what you deferred and close what you
+       finished in the Unli Rice to-do list (notes tagged `todo`), then record it in
+       that field: "filed 2 (...); closed 1 (...)" or "none this checkpoint". The
+       procedure is in AGENTS.md § "At every handoff".
      * No dated headings. Nothing here is a log. Finished work moves to
        PROJECT_NOTES.md; design detail goes to docs/ and is referenced by path.
      * A claim carries its own evidence or is marked unverified:
@@ -22,83 +26,45 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `main`, working tree clean, everything pushed to `origin/main`
-(the repo is **public**: `github.com/CalixOscar/unli-rice`). 380 tests, 0
-failures, 2 skipped (verified: `swift test` 2026-09-03, **after** this pass's
-`ContentView.swift` change). **Both targets ship as 1.2 (6)** at founder
-decision: `MARKETING_VERSION "1.2"`, `CURRENT_PROJECT_VERSION "6"` for Mac and
-Capture alike, confirmed in the generated `project.pbxproj` across all four
-configurations with no stale `5` left (`xcodegen generate` re-run). Mac skips
-build 5 entirely, which is fine — its last accepted build is **4**: the App
-Store install is still **1.1 (4)**, read from `/Applications/Unli
-Rice.app/Contents/Info.plist` with `_MASReceipt` present. The "build 5 already
-in the App Store" the founder recalled was the **Capture** TestFlight upload of
-2026-08-13, a different target. **Neither 1.2 build has been archived or
-uploaded** — that is the founder's step, not this session's.
-**Task:** Three pieces landed this pass. (1) The sidebar pane-switch lag fix —
-the three blurred `GeometryReader` circles moved out of `ContentView.body` into
-a standalone `BackgroundBlobs` that reads nothing from `store`, plus
-`.drawingGroup()`; the body observes `store`, so those blurs were re-rendering
-on all ~19 `@Published` writes a single sidebar click produces (`51ffb83`).
-**Builds clean but has not been watched in the running app** — the founder had
-believed this was already fixed; it never was. What *was* fixed earlier is a
-different sidebar bug, `e67f29f` (`closeAllPanes` never cleared `showingRepos`).
-(2) `docs/PLAN-sidebar-pane-switch-lag.md` records the mechanism, the step that
-landed, and the `@Published enum Pane` collapse deliberately not attempted
-(`16ae1d9`). Both targets were then set to 1.2 (6) for release. (3) One current Mac screenshot set, 8 panes, recaptured same-day at
-3024×1898 with a 2880×1800 set for App Store Connect; three blurs applied — the
-founder's first name and his son's name on Home, and one unreleased project name
-on To do (`01a1c3a`, `cd77f1b`). The other project names in that shot were
-checked against `origin/main` first and are already public there.
-Everything from the previous pass (`46da148` toast, `958d9fd` rating prompt,
-`1b01fb3` iPad copy, `92be76e` version bump, `37b4258` screenshots) is committed
-and still **unreleased** — it ships whenever the founder next archives.
-**Files touched:** `Sources/UnliRice/ContentView.swift` (`BackgroundBlobs`, the
-blur moved out of the observing body); `docs/PLAN-sidebar-pane-switch-lag.md`
-(new); `Screenshots/AppStore-Mac-2026-09-03/` (8 shots plus the
-`padded-2880x1800/` set, replacing the 4-shot set); `project.yml` (Mac
-`CURRENT_PROJECT_VERSION` 5 to 6); `memory.md`. No test file changed this pass.
-**Next step:** Watch the sidebar in the running app before archiving, and
-decide whether `51ffb83` actually fixed it — click To do / Repos / Notes / Home
-in sequence and see whether single clicks land. That observation has never been
-made; every claim about this lag, including the fix, is code-reading only, and
-1.2 (6) ships it either way. If it still lags, the remaining suspect is the 17
-`@Published` `Bool`s themselves (`closeAllPanes()`, `AppStore.swift:1094`)
-wanting a single `@Published enum Pane` — step 2 of
-`docs/PLAN-sidebar-pane-switch-lag.md`, swarm-shaped, not a quick fix. Then the
-founder archives and uploads both targets themselves; this session did not and
-will not. TestFlight "What to Test" copy for both apps was drafted in the
-session that set these numbers and is not stored in the repo — rewrite it from
-`git log 71e2a6d..HEAD` if it is needed again. `_AI Context/07_Prelaunch_Post_Mortem.md` still has not been run before
-any future distribution action — carried over, not touched.
-**Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
+**Status:** Unli Rice 1.3 is uploaded for App Store review on both platforms, with the To Do widget on Mac and iPhone; submitting it for review is the founder's click. Technical: Mac 1.3 (8) and Capture 1.3 (8) uploaded 2026-09-26 via `xcodebuild -exportArchive` app-store-connect (verified: "Upload succeeded" for both); Capture 1.3 (7) was uploaded first without `ITSAppUsesNonExemptEncryption` and is superseded by 8; Mac 1.3 (7) went to TestFlight internal-only and is installed on the founder's Mac, where the widget was confirmed showing their real to-dos (founder, 2026-09-26). On **`feature/todo-widget`**, pushed to origin with a PR. 439 tests, 0 failures, 2 skipped (verified: `swift test --scratch-path /tmp/unlirice-spm` 2026-09-26). `UnliRice` and `UnliRiceCapture` (with `UnliRiceCaptureWidget`) build and archive (verified: `xcodebuild` 2026-09-26). The iPhone widget has been built, installed on a simulator and its data file verified, but not seen on a home screen. AI sessions under `~/Documents` use the installed app's MCP helper, so AI to-dos land in the store the app reads.
+**Task:** Make Unli Rice 1.3 ready for the App Store on Mac and iPhone (founder goal, 2026-09-26): the To Do widget on both, the To Do list working for every customer on default settings, plain-language house rules shipped to customers, screenshots, What's New text, and the public guide. Built directly by Claude on founder instruction, not the swarm.
+**Files touched:** `Sources/UnliRiceWidgetShared/TodoWidgetView.swift` (layout shared by both widgets), `Sources/UnliRiceCaptureWidget/` (iPhone widget, Done intent, privacy manifest), `Sources/UnliRiceCore/` (PhoneTodoWidget, StudioTodo unmatchedAIItems/adding, RepoSnapshotFile(scans:), Autopilot + HouseRulesPreset house rules), `Sources/UnliRiceCapture/` (CaptureStore publishes the widget list and files queued Done taps on sync; AppLock hides the widget; sync on foreground; TodoView shows AI to-dos without a project list), `Sources/UnliRice/TodoPaneView.swift` (scan fallback, plain empty states, oldest-first AI items), `project.yml` (Capture widget target, App Group entitlement, versions 1.3), `Screenshots/AppStore-Mac-2026-09-26/`, `docs/release/1.3-whats-new.md`, tests.
+
+**Next step:** Founder: in App Store Connect, pick build 1.3 (8) for the Mac app and 1.3 (8) for Capture, paste the What's New text from `docs/release/1.3-whats-new.md`, upload the Mac screenshots in `Screenshots/AppStore-Mac-2026-09-26/`, and submit both for review.
+
+Before that, the guardrails' pre-launch gate applies: offer the 6-Month Post-Mortem (`_AI Context/07_Prelaunch_Post_Mortem.md`). The public guide update is committed in CalmdownOscar on branch `docs/unlirice-1.3-todo` (5a07d53) but NOT pushed: that repo's main carries the unpushed OpenGrail split, which must not deploy before opengrail.calmdownoscar.com is live. Merge and push it after the OpenGrail to-do is done. On a real iPhone, check the widget on the home screen, the locked state, and a Done tap reaching the Mac on the next sync.
+**Gotchas:** **Capture now has an App Group** (`group.com.calmdownoscar.unlirice`, shared with its widget); Xcode registered it and the widget's App ID on 2026-09-26 via `-allowProvisioningUpdates`. **The iPhone widget can't read Capture's notes**: Capture writes `phone-todo-widget.json` into the App Group after every sync, and Done taps queue in `phone-todo-done.json` until Capture's next sync, which archives them before publishing so the Mac gets them in the same pass. The widget is only as fresh as Capture's last sync. **Next upload of either app needs a build above 8**, and a version above 1.3 once 1.3 is approved (a version's train closes on approval). **A development-signed build cannot open the app group container on this Mac.** Xcode signs Debug with "Mac Team Provisioning Profile: *", which carries no `application-groups`; macOS then refuses `group.com.calmdownoscar.unlirice` with EPERM and no prompt ("Event log file is unavailable"). `-allowProvisioningUpdates` does not create an explicit Mac development profile, and XcodeGen serialises a target `attributes: SystemCapabilities` entry as a string, which Xcode ignores. Only the App Store/TestFlight build (its Store profile has the group) can test the widget against real notes. **`NSExtension` has no `INFOPLIST_KEY_*` mapping:** the widget's point identifier must live in `UnliRiceWidget-Info.plist`, or the .appex is built without it and never registers (the B0 spike appears to have been built that way). **There are two note stores.** `~/Documents/events.jsonl` (395 open notes) is the old development store every AI session wrote to until 2026-09-25; the app has only ever read the app group store. The old store is left untouched; its 11 AI-written notes were copied across. **`check-repos.sh --publish` can't write the app group container from Claude's shell** (TCC); the founder's own Terminal can. The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
 NOT pass `.skipsHiddenFiles` to an enumerator under `.git` — it is itself
 hidden and yields nothing. Security-scoped bookmarks are bound to the signing
-identity, so re-signing invalidates every folder grant. **Adding a file under
+identity, so re-signing invalidates every folder grant. **`swift test` can fail to codesign the test bundle in this iCloud folder** ("resource fork, Finder information … not allowed"), intermittently: use `swift test --scratch-path /tmp/unlirice-spm`, never a `.build` symlink. **Adding a file under
 `Sources/` requires `xcodegen generate`** — `swift test` globs sources and
 passes while Xcode fails; `.xcodeproj` is gitignored so the regeneration is
-local-only and never arrives via `git pull`. **App Store Connect can be ahead
-of `project.yml`:** before this session's bump, ASC's TestFlight already had
-Capture build **5** validated (uploaded 2026-08-13) while `project.yml` still
-said `CURRENT_PROJECT_VERSION "4"` for both targets — something incremented
-and uploaded a Capture build without committing the number back. Check ASC's
-actual last-uploaded build per target before ever setting
-`CURRENT_PROJECT_VERSION`; don't trust `project.yml` alone. `/Applications/Unli
-Rice.app` is the **App Store install** (`_MASReceipt`, was v1.1) — the shipped
-product, not a stale build; `dist/` is the local one. The eight Xcode schemes
-are distinct targets from `project.yml`, not duplicate apps. `deleteCapture`
+local-only and never arrives via `git pull`. **The sandbox makes `~/Documents`
+mean something else:** it resolves inside
+`~/Library/Containers/com.calmdownoscar.unlirice/Data/Documents/`, so any copy
+naming `~/Documents` as a place the user can visit is wrong for the App Store
+build and right for `swift run UnliRiceApp`. **App Store Connect can be ahead of
+`project.yml`** — check ASC's actual last-uploaded build per target before ever
+setting `CURRENT_PROJECT_VERSION`. `/Applications/Unli Rice.app` is the **App
+Store install** (`_MASReceipt`); `dist/` is the local one. `deleteCapture`
 purges `events.jsonl` via `TrashService`, so "no destructive delete" is true of
 the Mac's note tools but **not** of the phone. `Sources/UnliRiceCapture/
 Resources/Assets 2.xcassets` is still a stray duplicate, left for the founder
-to delete. **This file's Next step went stale and cost real time:** it still
-said "commit the `project.yml` bump" after `92be76e` had committed it, and a
-session was spent re-deriving that. Check `git log -10` before acting on
-anything here. macOS screenshot filenames contain a narrow no-break space
-(U+202F) before `AM`/`PM`, so a normal space in a shell path silently fails as
-"No such file" — glob them (`*10.32.22*`) rather than typing the name.
-**Left by:** Claude Opus 5 2026-09-03
+to delete. **This file's Next step has gone stale before and cost real time** —
+check `git log -10` before acting on anything here. macOS screenshot filenames
+contain a narrow no-break space (U+202F) before `AM`/`PM`, so a normal space in
+a shell path silently fails as "No such file" — glob them (`*10.32.22*`).
+**Screenshot filenames in `Screenshots/AppStore-Mac-2026-09-03/` do not match
+their contents:** `02-setup-tools.png` is All Notes and `03-map.png` is the
+Repos branch graph; check before citing one by name. **The Antigravity MCP
+bridge takes a bare filename only** — a path in `planFileName` is rejected, so
+the brief lands at the repo root and has to be moved into `docs/` afterwards;
+and it creates its result JSON **empty at dispatch**, so "the file exists" is
+not a completion signal — wait on the `agy` pid instead.
+**To-dos:** filed 0; closed 1 ("Put the new version of Unli Rice on your Mac to get the To Do widget", 826e288, founder confirmed the widget). Still open and still plain: "Refresh the project check so your To Do list is up to date".
+**Left by:** Claude Opus 5.5 2026-09-26
 
 ## Open hypotheses
 
@@ -114,6 +80,14 @@ anything here. macOS screenshot filenames contain a narrow no-break space
   if single clicks now land reliably; kills if the lag persists, which points at
   the 17 `@Published` writes themselves rather than the cost of each redraw.
   Delete this entry once someone has actually clicked the sidebar.
+- **The app may disagree with itself about where the Unli Rice folder is.**
+  `PROJECT_NOTES.md` records `openMirrorFolderInFinder()` being pointed at
+  `~/Documents/Unli Rice/` and away from "hidden `Group Containers`", while the
+  Connect card displays the sandbox container path. Under the App Sandbox those
+  may be the same place or two different places depending on how each resolves.
+  Confirms if the Finder button opens a different folder than the path shown on
+  the Connect screen; kills if they land in the same directory. One launch
+  settles it. If they differ it is a real bug, not a copy problem.
 
 ## Active constraints
 
@@ -128,6 +102,18 @@ anything here. macOS screenshot filenames contain a narrow no-break space
 - The app is shipped on the Mac App Store, so anything on this branch is a submission
   candidate and the pre-launch gate (`_AI Context/07_Prelaunch_Post_Mortem.md`) applies
   before it goes out.
+- **The public guide and the app's own copy are now expected to agree.** The guide at
+  `calmdownoscar.com/unlirice/user_guide.html` was audited against the code, so a string
+  changed in the app without changing the guide re-opens the divergence that
+  `docs/PLAN-copy-that-overstates.md` exists to close. Changing either means checking the
+  other.
+- **The Mirror folder is bidirectional, in one narrow way.** Exported files are
+  regenerated copies and edits to them are lost, but `Notes for Unli Rice/` is a drop box
+  that `RoutineDriver` ingests on every tick (`RoutineDriver.swift:164`). "The folder is
+  read-only" is wrong; "a tool can add a note but not edit one" is right.
+- **The widget build (B1–B6) had no swarm and no Codex review of the code**, by founder
+  instruction on 2026-09-25 ("just build it"). The plan itself was pre-mortemed; the
+  implementation was checked only by its author's tests and builds.
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/IOS_CAPTURE_RELEASE.md` §1.6 ("Decide iPad, deliberately") is **resolved**:
   keep `TARGETED_DEVICE_FAMILY: "1,2"`. The doc itself still poses it as an open
@@ -141,3 +127,8 @@ anything here. macOS screenshot filenames contain a narrow no-break space
   second language; the agreement test (`StudioTodoTests.swift`) is real and passes, but
   it will not catch a *new* `EventKind` added later without someone remembering to
   extend `KNOWN_EVENT_KINDS` in the Python file too.
+- **`docs/PLAN-copy-that-overstates.md` also went to the swarm without a Codex
+  pre-mortem**, by explicit founder instruction on 2026-09-07. Two of its three open
+  questions were answered by the swarm and one was resolved in the brief; none were
+  reviewed by a second tool. Same caveat as the AI-todo feature above: the code works,
+  the judgement in it is unreviewed.

@@ -4,7 +4,7 @@
 # CANONICAL COPY: ~/Documents/Unli Rice Vault/scripts/lint-memory.sh
 # Edit it there and re-run install-studio-hooks.sh.
 #
-# memory.md is the project's CURRENT WORKING STATE and nothing else: the six
+# memory.md is the project's CURRENT WORKING STATE and nothing else: the seven
 # atomic Handoff fields, plus active gotchas and open hypotheses. It is what an
 # agent should be able to read in full at the start of every session without
 # thinking about the cost. PROJECT_NOTES.md is the historical record and is not
@@ -14,6 +14,14 @@
 # carried a soft 40,000-char warning since 2026-08-29 and reached 119,551 chars
 # in Unli Rice anyway. A warning that never blocks is a warning nobody acts on.
 # 32,000 chars is roughly 8,000 tokens.
+#
+# 2026-09-19: a seventh field, **To-dos:**, between Gotchas and Left by. Founder
+# brief: "all LLMs need to update the to do list as part of their hand off." The
+# list is Unli Rice notes tagged `todo`; the procedure (file what you deferred,
+# close what you finished, with evidence) is in Unli Rice's AGENTS.md § "At every
+# handoff". Text alone never kept the list current, so the field is required and must
+# be non-empty. It proves the agent wrote something, not that it is true.
+# The field pattern now admits a hyphen, or "To-dos" would be invisible to it.
 #
 # Usage:
 #   lint-memory.sh [path]            check the whole file
@@ -27,7 +35,7 @@ F="${1:-memory.md}"
 HARD="${MEMORY_SIZE_MAX:-32000}"
 SOFT="${MEMORY_SIZE_WARN:-24000}"
 ERR=0
-WANT="Status,Task,Files touched,Next step,Gotchas,Left by,"
+WANT="Status,Task,Files touched,Next step,Gotchas,To-dos,Left by,"
 
 fail() { printf '  ERROR  %s\n' "$1"; ERR=1; }
 warn() { printf '  warn   %s\n' "$1"; }
@@ -41,24 +49,24 @@ allowed() { grep -qF "lint-allow $1 \"$2\"" "$F"; }
 CHARS=$(wc -c < "$F" | tr -d ' ')
 if [ "$CHARS" -gt "$HARD" ]; then
   fail "$CHARS characters, hard limit $HARD (~$(( HARD / 4 )) tokens).
-           memory.md holds current state only. Move finished work into
-           PROJECT_NOTES.md's Session Log or Decisions Log, and design detail into
+           memory.md holds current state only. Finished work is already in git log;
+           move decisions into PROJECT_NOTES.md's Decisions Log, and design detail into
            docs/ referenced by path. Do not raise the limit to make this pass."
 elif [ "$CHARS" -gt "$SOFT" ]; then
   warn "$CHARS characters (soft $SOFT, hard $HARD) — compact before it blocks a commit"
 fi
 
 # --- 2. no history in here ----------------------------------------------------
-# A dated ### heading means Session Log entries have started accumulating in the
+# A dated ### heading means log entries have started accumulating in the
 # working-state file. That is exactly how PROJECT_NOTES.md got to 119k.
 DATED=$(grep -cE '^#{2,3} 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "$F")
 if [ "${DATED:-0}" -gt 0 ]; then
   fail "$DATED dated heading(s) in memory.md — this file is not a log.
-           Dated entries belong in PROJECT_NOTES.md under Decisions Log or
-           Session Log. (**Left by:** carries the date for current state.)"
+           Decisions belong in PROJECT_NOTES.md's Decisions Log; what happened is
+           in git log. (**Left by:** carries the date for current state.)"
 fi
 
-# --- 3. the six fields, per track, in order -----------------------------------
+# --- 3. the seven fields, per track, in order ---------------------------------
 # Identical contract to the Handoff section it replaced, deliberately: the fields,
 # their order, the atomicity rule and the dated **Left by:** are unchanged, so
 # nothing new has to be learned and a half-migrated repo reads the same either way.
@@ -68,18 +76,25 @@ fi
 check_track() {
   _s=$1; _e=$2; _label=$3
 
-  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/ {
+  _got=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/ {
            match($0, /^\*\*[^:]*:/); print substr($0, 3, RLENGTH-3) }' "$F")
 
   _dup=$(printf '%s\n' "$_got" | grep -v '^$' | sort | uniq -d | tr '\n' ' ')
   [ -n "$_dup" ] && fail "$_label repeats field(s): $_dup
-           two sessions each wrote a field without reconciling the other five —
-           the six fields describe one moment in time, so update all six or none"
+           two sessions each wrote a field without reconciling the other six —
+           the seven fields describe one moment in time, so update all seven or none"
 
   _norm=$(printf '%s\n' "$_got" | tr '\n' ',' | sed 's/Files touched[^,]*/Files touched/;s/,,*$/,/')
   [ "$_norm" = "$WANT" ] || fail "$_label fields wrong or out of order.
            expected: $WANT
            found:    $_norm"
+
+  # To-dos must say something, even if only "none this checkpoint". An empty field is
+  # the one shape that is certainly not a decision. This cannot check that it is true.
+  _td=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*To-dos:\*\*/{print}' "$F")
+  if [ -n "$_td" ] && ! printf '%s\n' "$_td" | grep -qE '^\*\*To-dos:\*\*[[:space:]]*[^[:space:]]'; then
+    fail "$_label: **To-dos:** is empty — write what you filed and closed, or \"none this checkpoint\""
+  fi
 
   _lb=$(awk -v s="$_s" -v e="$_e" 'NR>s && NR<e && /^\*\*Left by:\*\*/{print}' "$F")
   if [ -z "$_lb" ]; then
@@ -102,7 +117,7 @@ if [ -z "$TRACKS" ]; then
   check_track "$START" "$END" "memory.md"
 else
   FIRSTT=$(printf '%s\n' "$TRACKS" | head -1)
-  PRE=$(awk -v s="$START" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z ]*:\*\*/{c++} END{print c+0}' "$F")
+  PRE=$(awk -v s="$START" -v e="$FIRSTT" 'NR>s && NR<e && /^\*\*[A-Z][A-Za-z -]*:\*\*/{c++} END{print c+0}' "$F")
   [ "$PRE" -eq 0 ] || fail "$PRE field(s) above the first track heading — a field outside
            every track belongs to no track and will be read as belonging to
            whichever one a reader happens to scroll into"

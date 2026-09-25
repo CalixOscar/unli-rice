@@ -2,12 +2,13 @@ import Foundation
 
 /// What is outstanding across the studio, derived from repository state and notes.
 ///
-/// **Nothing here is stored, and nothing can be ticked off.** Every item is computed
-/// from the state that makes it true, so it disappears when the work is actually done:
-/// push the commits and "6 commits on no remote" goes away on the next scan. A stored
+/// **The derivation stores nothing, and derived items cannot be ticked off.** Every item
+/// is computed from the state that makes it true, so it disappears when the work is actually
+/// done: push the commits and "6 commits on no remote" goes away on the next scan. A stored
 /// checklist drifts from reality the moment someone does the work without ticking the
 /// box — and this codebase has spent a lot of effort on notes that contradict the repo.
-/// Deriving is how the list stays honest.
+/// Deriving is how the list stays honest. One input it derives from is stored notes tagged
+/// `todo`: those are notes, and Done archives them.
 ///
 /// It adds no `EventKind` and writes nothing. Locked decision #3 — propose, never apply —
 /// holds: this reports, and the founder acts.
@@ -47,13 +48,28 @@ public struct StudioTodo: Equatable, Sendable {
 
         public static func < (a: Kind, b: Kind) -> Bool { a.rawValue < b.rawValue }
 
+        /// The group heading. Plain words: the founder reads this list, and is not a
+        /// developer (2026-09-25). The technical term, where one helps an AI, stays in
+        /// each item's evidence line instead.
         public var label: String {
             switch self {
-            case .atRisk:    return "at risk"
+            case .atRisk:    return "not backed up"
             case .declared:  return "next step"
-            case .aiFlagged: return "flagged by AI"
-            case .unshared:  return "unshared"
-            case .clutter:   return "clutter"
+            case .aiFlagged: return "suggested by AI"
+            case .unshared:  return "not merged yet"
+            case .clutter:   return "tidy-up"
+            }
+        }
+
+        /// Why the group is where it is, so the ordering is not arbitrary. One place, so
+        /// the Mac and phone panes can't word it differently.
+        public var blurb: String {
+            switch self {
+            case .atRisk:    return "only on this Mac — if the Mac is lost, this work is gone"
+            case .declared:  return "written down as the next step in the project's notes"
+            case .aiFlagged: return "an AI assistant suggested this for later"
+            case .unshared:  return "backed up online, but not yet part of the main version"
+            case .clutter:   return "harmless leftovers that crowd the list"
             }
         }
     }
@@ -71,9 +87,14 @@ public struct StudioTodo: Equatable, Sendable {
         /// directly instead of parsing an intent back out of `id`. Nil for every kind
         /// that isn't `.aiFlagged`.
         public let noteID: UUID?
+        /// The full text behind a shortened `title`, shown on request. Set only for a
+        /// memory.md next step, which is written for the next AI session and can run to
+        /// a paragraph; the list shows its first sentence (2026-09-25).
+        public let detail: String?
 
         public init(id: String, project: String, kind: Kind, title: String,
-                    evidence: String, fix: String? = nil, noteID: UUID? = nil) {
+                    evidence: String, fix: String? = nil, noteID: UUID? = nil,
+                    detail: String? = nil) {
             self.id = id
             self.project = project
             self.kind = kind
@@ -81,7 +102,35 @@ public struct StudioTodo: Equatable, Sendable {
             self.evidence = evidence
             self.fix = fix
             self.noteID = noteID
+            self.detail = detail
         }
+    }
+
+    /// A memory.md next step's headline, for the founder to scan: the first paragraph when
+    /// the field is written the current way (plain sentence, blank line, detail), else the
+    /// first sentence, cut at 160 characters. Markdown emphasis and code ticks removed.
+    /// `detail` is the full text, or nil when the headline already is all of it.
+    public static func headline(forNextStep text: String) -> (title: String, detail: String?) {
+        let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let plain = full.replacingOccurrences(of: "**", with: "")
+                        .replacingOccurrences(of: "`", with: "")
+        // Written the current way — a plain first paragraph, then the detail: the whole
+        // first paragraph is the headline, unless it runs long.
+        if let breakRange = plain.range(of: "\n\n") {
+            let lead = String(plain[..<breakRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+            if !lead.isEmpty && lead.count <= 240 { return (lead, full) }
+        }
+        var end = plain.endIndex
+        for marker in [". ", ".\n", "\n", "! ", "? "] {
+            if let r = plain.range(of: marker), r.lowerBound < end {
+                end = marker.hasPrefix("\n") ? r.lowerBound : plain.index(after: r.lowerBound)
+            }
+        }
+        var first = String(plain[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+        if first.count > 160 {
+            first = String(first.prefix(157)).trimmingCharacters(in: .whitespaces) + "…"
+        }
+        return first == full ? (full, nil) : (first, full)
     }
 
     /// What this list actually looked at.
@@ -134,17 +183,17 @@ public struct StudioTodo: Equatable, Sendable {
             var gaps: [String] = []
             switch dirt {
             case .none:
-                gaps.append("dirt not measured")
+                gaps.append("unsaved changes weren't checked")
             case .partial(let missing):
-                gaps.append("dirt not measured for \(missing.count) of \(repositories.count) repositories")
+                gaps.append("unsaved changes weren't checked in \(missing.count) of \(repositories.count) projects")
             case .complete:
                 break
             }
             switch nextSteps {
             case .none:
-                gaps.append("next steps not read")
+                gaps.append("next steps weren't read")
             case .partial(let missing):
-                gaps.append("next steps not read for \(missing.count) of \(repositories.count) repositories")
+                gaps.append("next steps weren't read in \(missing.count) of \(repositories.count) projects")
             case .complete:
                 break
             }
@@ -245,8 +294,11 @@ public struct StudioTodo: Equatable, Sendable {
                     id: "\(p)/unbacked",
                     project: p,
                     kind: .atRisk,
-                    title: "\(unbacked.count) branch \(unbacked.count == 1 ? "tip" : "tips") on no remote",
-                    evidence: names.prefix(4).joined(separator: ", ")
+                    title: unbacked.count == 1
+                        ? "1 piece of work is saved only on this Mac"
+                        : "\(unbacked.count) pieces of work are saved only on this Mac",
+                    evidence: "Not backed up online. Branches: "
+                            + names.prefix(4).joined(separator: ", ")
                             + (names.count > 4 ? " and \(names.count - 4) more" : ""),
                     fix: "git -C \"\(p)\" push --all"))
             }
@@ -258,8 +310,11 @@ public struct StudioTodo: Equatable, Sendable {
                     id: "\(p)/worktree-dirt",
                     project: p,
                     kind: .atRisk,
-                    title: "\(dirt) uncommitted \(dirt == 1 ? "file" : "files") in worktrees",
-                    evidence: "In no commit anywhere. Deleting the folder loses them.",
+                    title: dirt == 1
+                        ? "1 changed file hasn't been saved yet"
+                        : "\(dirt) changed files haven't been saved yet",
+                    evidence: "They're only in a side copy of the project (a worktree), in no saved "
+                            + "version anywhere. Deleting that folder would lose them.",
                     fix: nil))
             }
 
@@ -269,13 +324,15 @@ public struct StudioTodo: Equatable, Sendable {
             case .step(let step):
                 let trimmed = step.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
+                    let head = headline(forNextStep: trimmed)
                     out.append(Item(
                         id: "\(p)/next-step",
                         project: p,
                         kind: .declared,
-                        title: trimmed,
-                        evidence: "From \(p)/memory.md",
-                        fix: nil))
+                        title: head.title,
+                        evidence: "Written in \(p)'s notes (memory.md)",
+                        fix: nil,
+                        detail: head.detail))
                 }
             case .readNoStep:
                 // File was read and explicitly names no next step.
@@ -285,13 +342,15 @@ public struct StudioTodo: Equatable, Sendable {
                 // Falls back to snapshot's copy
                 if let declared = repo.nextStep,
                    !declared.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let head = headline(forNextStep: declared)
                     out.append(Item(
                         id: "\(p)/next-step",
                         project: p,
                         kind: .declared,
-                        title: declared.trimmingCharacters(in: .whitespacesAndNewlines),
-                        evidence: "From \(p)/memory.md, as of the last snapshot",
-                        fix: nil))
+                        title: head.title,
+                        evidence: "Written in \(p)'s notes (memory.md), as of the last check",
+                        fix: nil,
+                        detail: head.detail))
                 }
             }
 
@@ -304,8 +363,9 @@ public struct StudioTodo: Equatable, Sendable {
                     project: p,
                     kind: .aiFlagged,
                     title: note.title,
-                    evidence: "Flagged by \(note.creator), "
-                            + note.createdAt.formatted(.relative(presentation: .named)),
+                    evidence: TodoWording.subtitle(creator: note.creator,
+                                                   createdAt: note.createdAt,
+                                                   projects: [p]),
                     fix: nil,
                     noteID: note.id))
             }
@@ -324,9 +384,10 @@ public struct StudioTodo: Equatable, Sendable {
                     // the same slip as "3 branch tipes" — deriving one form from another
                     // instead of writing both.
                     title: openWork.count == 1
-                        ? "1 branch is ahead of \(repo.trunk ?? "the trunk")"
-                        : "\(openWork.count) branches are ahead of \(repo.trunk ?? "the trunk")",
-                    evidence: openWork.map { "\($0.name) +\($0.aheadOfTrunk ?? 0)" }
+                        ? "1 piece of finished work isn't part of \(repo.trunk ?? "the main version") yet"
+                        : "\(openWork.count) pieces of finished work aren't part of \(repo.trunk ?? "the main version") yet",
+                    evidence: "Backed up online, not merged. Branches: "
+                            + openWork.map { "\($0.name) +\($0.aheadOfTrunk ?? 0)" }
                                       .sorted().prefix(3).joined(separator: ", "),
                     fix: nil))
             }
@@ -340,8 +401,9 @@ public struct StudioTodo: Equatable, Sendable {
                     id: "\(p)/merged",
                     project: p,
                     kind: .clutter,
-                    title: "\(merged.count) merged branches could be deleted",
-                    evidence: "Nothing on them that is not on \(repo.trunk ?? "the trunk").",
+                    title: "\(merged.count) old, finished branches can be tidied away",
+                    evidence: "Everything on them is already in \(repo.trunk ?? "the main version"), so "
+                            + "deleting them loses nothing.",
                     fix: "git -C \"\(p)\" branch --merged \(repo.trunk ?? "main") | grep -v '\\*' | xargs -n1 git branch -d"))
             }
         }
@@ -352,6 +414,51 @@ public struct StudioTodo: Equatable, Sendable {
         }, coverage: coverage)
     }
 
+    /// Open AI-filed to-do notes, keyed by the LOWERCASED project tag, exactly as the two
+    /// pane loops do today. Behaviour-preserving extraction; do not re-key (P15).
+    /// Open to-dos that no repository in the list claims, as items of their own.
+    ///
+    /// The widget shows every open `todo` note (D9). The pane used to show only the ones
+    /// whose project tag matched a repo in the published snapshot, so a customer with no
+    /// snapshot, the default for everyone but the studio, saw none of their AI to-dos.
+    /// These rows close that gap: same wording as the widget, grouped under the tag.
+    public static func unmatchedAIItems(from notes: [Note], repoNames: Set<String>,
+                                        now: Date = Date()) -> [Item] {
+        let known = Set(repoNames.map { $0.lowercased() })
+        return notes
+            .filter { !$0.archived && $0.tags.contains("todo") }
+            .filter { note in !TodoWidgetList.projects(of: note).contains { known.contains($0.lowercased()) } }
+            .sorted { $0.createdAt < $1.createdAt }
+            .map { note in
+                let projects = TodoWidgetList.projects(of: note)
+                let project = projects.isEmpty ? "no project" : projects.joined(separator: ", ")
+                return Item(id: "\(project)/ai-todo/\(note.id.uuidString)",
+                            project: project,
+                            kind: .aiFlagged,
+                            title: note.title,
+                            evidence: TodoWording.subtitle(creator: note.creator,
+                                                           createdAt: note.createdAt,
+                                                           projects: projects, now: now),
+                            fix: nil,
+                            noteID: note.id)
+            }
+    }
+
+    /// This list plus extra items, with the same coverage.
+    public func adding(_ extra: [Item]) -> StudioTodo {
+        extra.isEmpty ? self : StudioTodo(items: items + extra, coverage: coverage)
+    }
+
+    public static func aiFlags(from notes: [Note], repoNames: Set<String>) -> [String: [Note]] {
+        var aiFlags: [String: [Note]] = [:]
+        for note in notes where note.tags.contains("todo") {
+            for tag in note.tags where repoNames.contains(where: { $0.lowercased() == tag }) {
+                aiFlags[tag, default: []].append(note)
+            }
+        }
+        return aiFlags
+    }
+
     /// Pull the `**Next step:**` field out of a memory.md body.
     ///
     /// Deliberately tolerant of the field spanning several lines, because the contract
@@ -360,15 +467,26 @@ public struct StudioTodo: Equatable, Sendable {
     public static func nextStep(fromMemory body: String) -> String? {
         guard let r = body.range(of: "**Next step:**") else { return nil }
         let rest = body[r.upperBound...]
-        var collected: [String] = []
+        // Paragraphs are kept: since 2026-09-25 the field opens with one plain sentence for
+        // the founder, then a blank line, then the detail for the next AI session. The
+        // headline comes from the first paragraph; Details and Fix with AI get the rest.
+        var paragraphs: [[String]] = [[]]
         for line in rest.split(separator: "\n", omittingEmptySubsequences: false) {
             let t = line.trimmingCharacters(in: .whitespaces)
-            // The next field ends it — the six are fixed and ordered.
+            // The next field, a heading, or a comment ends it — the fields are fixed and ordered.
             if t.hasPrefix("**") && t.contains(":**") { break }
-            if t.isEmpty && !collected.isEmpty { break }
-            if !t.isEmpty { collected.append(t) }
+            if t.hasPrefix("#") || t.hasPrefix("<!--") { break }
+            if t.isEmpty {
+                if !(paragraphs.last ?? []).isEmpty { paragraphs.append([]) }
+            } else {
+                paragraphs[paragraphs.count - 1].append(t)
+            }
         }
-        let joined = collected.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        let joined = paragraphs
+            .map { $0.joined(separator: " ") }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return joined.isEmpty ? nil : joined
     }
 }
