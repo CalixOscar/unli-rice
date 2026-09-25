@@ -162,8 +162,18 @@ unlocks on next release, a small inconsistency not worth stopping for? File it:
 
    **Body:** first line exactly `Handoff-ID: <uuid of your handoff note>` (the id
    `create_note` returned; see "At every handoff" below). Nothing else goes on that
-   line. The app links by this id, never by title. Then the context: what you found, why it's deferred, and the
-   technical detail the title left out.
+   line. The app links by this id, never by title. Then two parts, in this order:
+   - **Plain part, for the founder** — two or three sentences a non-developer can act
+     on: why it matters, and either what *they* need to do (sign in somewhere, decide
+     something, approve something) or "An AI can do this — use Fix with AI." No
+     commands, file paths, code names or acronyms here; explain a product name the
+     first time ("Vercel, the service that hosts the website").
+   - **`For the AI picking this up:`** on its own line, then everything technical:
+     what you found, why it's deferred, commands, paths, branches, evidence.
+
+   ✓ *"The website's hosting account is full, so new changes to calmdownoscar.com
+   can't go live. You need to sign in to Vercel (the service that hosts the site) and
+   delete old copies of the site — an AI can walk you through it."*
 2. `tag_note` with the fixed tag `todo`.
 3. `tag_note` again with the target project's exact folder name under
    `~/Documents/Projects`, lowercased — e.g. `calmdownoscar`, not `CalmdownOscar` or
@@ -185,19 +195,22 @@ still hold.
 
 ## At every handoff
 
-Every LLM, every project. Do this at each checkpoint, meaning each time you update
-`memory.md` (or the Handoff in `PROJECT_NOTES.md`), not only at the end. A session
+Every LLM, every project. Do this at each checkpoint, meaning each commit where you
+update `memory.md` (or the Handoff in `PROJECT_NOTES.md`), not only at the end. A session
 can be cut off without warning.
 
 0. **Catch up first.** If `**To-dos:**` says an earlier session "would have filed"
    items because Unli Rice wasn't connected, file them now, then say so.
-1. **Write one handoff note.** `create_note`, titled
+1. **Write one handoff note — only if you are filing a to-do in step 2.** It is the
+   note the founder lands on when they tap that to-do, and it feeds the "copy a prompt to
+   pick this up" action; with no to-do filed, nothing links to it and `memory.md` already
+   holds the same fields. `create_note`, titled
    `Handoff — <Project> — YYYY-MM-DD HH:MM — <tool>`. The body is the handoff fields
-   as they stand now, plus `git rev-parse --short HEAD`. `tag_note` it `handoff` and
-   the project tag (lowercased folder name). `handoff` is a reserved tag, like `todo`.
-   This is the note the founder lands on when they tap a to-do item. It also feeds the
-   "copy a prompt to pick this up" action, so write it for someone resuming cold.
-   Never append to an earlier handoff note; each checkpoint writes a new one.
+   as they stand now, plus `git rev-parse --short HEAD`, written for someone resuming
+   cold. `tag_note` it `handoff` and the project tag (lowercased folder name). `handoff`
+   is a reserved tag, like `todo`. Never append to an earlier handoff note; each
+   checkpoint that files a to-do writes a new one. (Narrowed 2026-09-24, founder
+   decision: a handoff note at every checkpoint duplicated `memory.md`.)
 2. **File what you deferred** as to-do items (above), each body starting
    `Handoff-ID: <the uuid create_note returned for that note>`.
 3. **Close what you finished, and only that.** `archive_note` with a reason naming the

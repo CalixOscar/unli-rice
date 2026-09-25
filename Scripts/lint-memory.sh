@@ -49,21 +49,21 @@ allowed() { grep -qF "lint-allow $1 \"$2\"" "$F"; }
 CHARS=$(wc -c < "$F" | tr -d ' ')
 if [ "$CHARS" -gt "$HARD" ]; then
   fail "$CHARS characters, hard limit $HARD (~$(( HARD / 4 )) tokens).
-           memory.md holds current state only. Move finished work into
-           PROJECT_NOTES.md's Session Log or Decisions Log, and design detail into
+           memory.md holds current state only. Finished work is already in git log;
+           move decisions into PROJECT_NOTES.md's Decisions Log, and design detail into
            docs/ referenced by path. Do not raise the limit to make this pass."
 elif [ "$CHARS" -gt "$SOFT" ]; then
   warn "$CHARS characters (soft $SOFT, hard $HARD) — compact before it blocks a commit"
 fi
 
 # --- 2. no history in here ----------------------------------------------------
-# A dated ### heading means Session Log entries have started accumulating in the
+# A dated ### heading means log entries have started accumulating in the
 # working-state file. That is exactly how PROJECT_NOTES.md got to 119k.
 DATED=$(grep -cE '^#{2,3} 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' "$F")
 if [ "${DATED:-0}" -gt 0 ]; then
   fail "$DATED dated heading(s) in memory.md — this file is not a log.
-           Dated entries belong in PROJECT_NOTES.md under Decisions Log or
-           Session Log. (**Left by:** carries the date for current state.)"
+           Decisions belong in PROJECT_NOTES.md's Decisions Log; what happened is
+           in git log. (**Left by:** carries the date for current state.)"
 fi
 
 # --- 3. the seven fields, per track, in order ---------------------------------

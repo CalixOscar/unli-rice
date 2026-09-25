@@ -30,6 +30,11 @@
 #     a lint-allow marker. A linter that blocks on a deferral you already decided
 #     on just trains you to pass --no-verify, which costs you every other check.
 #
+# 2026-09-24: the Session Log is retired — git log is the session record. It is no
+# longer a required section; an existing one stays as history, and new dated entries
+# added under it are warned about in staged mode (a warning, not an error, so a build
+# commit is never blocked over a diary line).
+#
 # Exit 1 on error, 0 otherwise. Warnings never block.
 
 STAGED=0
@@ -76,7 +81,7 @@ done
 if allowed required-sections "$(basename "$F")"; then
   printf '  waived required-section check (topic-organised legacy note)\n'
 else
-  for S in "## Overview" "## Decisions Log" "## Session Log"; do
+  for S in "## Overview" "## Decisions Log"; do
     N=$(grep -c "^$S" "$F")
     if [ "$N" -eq 0 ]; then
       fail "missing required section '$S'"
@@ -194,6 +199,24 @@ else
   N=$(grep -cEi "$CLAIM_RE" "$F" 2>/dev/null | tr -d ' ')
   M=$(grep -Ei "$CLAIM_RE" "$F" 2>/dev/null | grep -viE '\((verified|unverified)|unverified' | wc -l | tr -d ' ')
   [ "${M:-0}" -gt 0 ] && warn "$M of $N test-count claims carry no evidence marker (historical entries — do not rewrite; applies to new ones)"
+fi
+
+# --- 6b. no new Session Log entries -------------------------------------------
+# Staged mode only: map each added line to its line number in the new file and warn
+# if a dated entry lands inside ## Session Log.
+if [ "$STAGED" -eq 1 ]; then
+  SL=$(grep -n '^## Session Log' "$F" | tail -1 | cut -d: -f1)
+  if [ -n "$SL" ]; then
+    SLE=$(awk -v s="$SL" 'NR>s && /^## /{print NR; exit}' "$F")
+    [ -n "$SLE" ] || SLE=$(( $(wc -l < "$F") + 1 ))
+    NEWSL=$(git diff --cached -U0 -- "$F" | awk -v s="$SL" -v e="$SLE" '
+      /^@@/ { match($0, /\+[0-9]+/); n = substr($0, RSTART+1, RLENGTH-1) + 0; next }
+      /^\+\+\+/ { next }
+      /^\+/ { if (n > s && n < e && $0 ~ /20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/) c++; n++; next }
+      END { print c+0 }')
+    [ "${NEWSL:-0}" -gt 0 ] && warn "$NEWSL new dated line(s) under ## Session Log — the Session Log is retired
+           (2026-09-24). git log is the session record; a decision goes in Decisions Log."
+  fi
 fi
 
 # --- 7. size ------------------------------------------------------------------
