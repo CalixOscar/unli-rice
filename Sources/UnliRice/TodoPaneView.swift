@@ -80,6 +80,9 @@ struct TodoPaneView: View {
 
     /// "Checked 8 projects 2 hours ago" — when the list was last worked out, in words.
     private var checkedLine: String {
+        guard todo.coverage.snapshotRead else {
+            return "Add your code folders in Repos to also see work that isn't backed up"
+        }
         let n = todo.coverage.repositories.count
         let projects = n == 1 ? "1 project" : "\(n) projects"
         guard let at = todo.coverage.generatedAt else { return "Checked \(projects)" }
@@ -106,20 +109,18 @@ struct TodoPaneView: View {
         let folder = store.dataURL.deletingLastPathComponent().path
         switch state {
         case .unread:
-            return "To work out what's unfinished, Unli Rice needs a list of your projects, and it "
-                 + "hasn't been given one yet. Ask your AI assistant to run check-repos.sh --publish, "
-                 + "then come back. (It looked in \(folder).)"
+            return "When an AI assistant spots something for later, it shows up here, and on the "
+                 + "To do widget. To also see work that isn't backed up yet, add your code folders "
+                 + "in Repos."
         case .emptySnapshot:
-            return "The last check didn't find any projects. If that's wrong, ask your AI assistant "
-                 + "to run check-repos.sh --publish again."
+            return "The folders you added don't hold any projects Unli Rice can read. You can "
+                 + "change them in Repos."
         case .nothingOutstanding:
             let asOf = todo.coverage.generatedAt.map { " as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
-            return "All your work is backed up, and no project has a next step written down\(asOf). "
-                 + "If that seems wrong, ask your AI assistant to run check-repos.sh --publish to check again."
+            return "All your work is backed up, and no project has a next step written down\(asOf)."
         case .qualified(let message):
             let asOf = todo.coverage.generatedAt.map { " as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
-            return "Everything Unli Rice could check is backed up, but \(message)\(asOf). "
-                 + "If that seems wrong, ask your AI assistant to run check-repos.sh --publish to check again."
+            return "Everything Unli Rice could check is backed up, but \(message)\(asOf)."
         }
     }
 
@@ -241,17 +242,37 @@ struct TodoPaneView: View {
         let result: (StudioTodo, String) = await Task.detached(priority: .userInitiated) {
             let needsStop = folder.startAccessingSecurityScopedResource()
             defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
+            let opened = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+            defer { for (u, ok) in opened where ok { u.stopAccessingSecurityScopedResource() } }
 
-            guard let snap = try? RepoSnapshotFile.read(fromFolder: folder) else {
-                return (StudioTodo.unread(),
-                        "no readable snapshot in \(folder.path) — run check-repos.sh --publish")
+            // The studio publishes repos.json, with ancestry, from a script. No customer
+            // has that script, so without it the app scans the folders granted in Repos
+            // itself (refs only: "saved only on this Mac", not ahead/behind).
+            let published = try? RepoSnapshotFile.read(fromFolder: folder)
+            var found = published
+            if found == nil, !opened.isEmpty {
+                let scanner = GitRepoScanner()
+                var scans: [GitRepoScanner.Snapshot] = []
+                for (root, _) in opened {
+                    if let one = try? scanner.scan(repositoryAt: root) {
+                        scans.append(one)
+                    } else {
+                        scans.append(contentsOf: scanner.scanAll(in: root))
+                    }
+                }
+                if !scans.isEmpty { found = RepoSnapshotFile(scans: scans, deviceLabel: "this Mac") }
+            }
+            // AI to-dos show whatever else is missing: they are the part of this list that
+            // every customer has, and the widget already shows them all (D9).
+            guard let snap = found else {
+                let t = StudioTodo.unread()
+                    .adding(StudioTodo.unmatchedAIItems(from: allNotes, repoNames: []))
+                return (t, "no project list, and no folders added in Repos · \(folder.path)")
             }
 
             // memory.md lives in each project, under folders already granted for
             // scanning. Missing is normal: only one project has one so far.
             var steps: [String: MemoryRead] = [:]
-            let opened = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
-            defer { for (u, ok) in opened where ok { u.stopAccessingSecurityScopedResource() } }
             for (root, _) in opened {
                 guard let kids = try? FileManager.default.contentsOfDirectory(
                     at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
@@ -280,11 +301,13 @@ struct TodoPaneView: View {
             let aiFlags = StudioTodo.aiFlags(from: allNotes, repoNames: reposSet)
 
             let t = StudioTodo.derive(from: snap, nextSteps: steps, aiFlags: aiFlags)
-            byName = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, $0) })
+                .adding(StudioTodo.unmatchedAIItems(from: allNotes, repoNames: reposSet))
+            byName = Dictionary(snap.repos.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
             let readCount = steps.values.filter { $0 != .unreadable }.count
             return (t, "\(t.items.count) items from \(snap.repos.count) repos · "
-                     + "\(readCount) memory.md · snapshot "
-                     + snap.generatedAt.formatted(.relative(presentation: .named))
+                     + "\(readCount) memory.md · "
+                     + (published == nil ? "scanned in the app" : "snapshot "
+                        + snap.generatedAt.formatted(.relative(presentation: .named)))
                      + " · \(folder.path)")
         }.value
 

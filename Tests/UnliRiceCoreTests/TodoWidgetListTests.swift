@@ -137,3 +137,40 @@ final class TodoWidgetListTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(svc.getNote(id: item.id)).archived)
     }
 }
+
+extension TodoWidgetListTests {
+    /// A customer has no published project list. Their AI to-dos must still appear in the
+    /// pane, exactly as the widget shows them (2026-09-26).
+    func testAIToDosShowWithNoProjectList() {
+        let a = note("Delete old website copies", tags: ["todo", "calmdownoscar"], daysAgo: 3)
+        let b = note("Loose item", tags: ["todo"], daysAgo: 1)
+        let t = StudioTodo.unread().adding(StudioTodo.unmatchedAIItems(from: [b, a], repoNames: [], now: now))
+        XCTAssertEqual(t.items.map(\.title), ["Delete old website copies", "Loose item"])
+        XCTAssertEqual(t.items.map(\.kind), [.aiFlagged, .aiFlagged])
+        XCTAssertEqual(t.items[0].noteID, a.id)
+        XCTAssertEqual(t.items[1].project, "no project")
+        XCTAssertFalse(t.coverage.snapshotRead, "the list still says no project list was read")
+    }
+
+    /// With a project list, a to-do for a listed project is not repeated as unclaimed,
+    /// whatever the tag's case.
+    func testClaimedToDosAreNotRepeated() {
+        let claimed = note("Rate prompt", tags: ["todo", "badminton"], daysAgo: 2)
+        let other = note("Website", tags: ["todo", "calmdownoscar"], daysAgo: 2)
+        let extra = StudioTodo.unmatchedAIItems(from: [claimed, other], repoNames: ["Badminton"], now: now)
+        XCTAssertEqual(extra.map(\.noteID), [other.id])
+    }
+
+    /// The in-app scan becomes a project list the rest of the derivation understands.
+    func testScanBecomesAProjectList() {
+        let scan = GitRepoScanner.Snapshot(
+            name: "App", path: "/tmp/App", currentBranch: "main", detachedHead: false,
+            branches: [.init(name: "main", sha: "a", tipOnRemote: true, isCurrent: true),
+                       .init(name: "wip", sha: "b", tipOnRemote: false, isCurrent: false)],
+            remoteBranchCount: 1, worktrees: [], defaultBranch: "main")
+        let file = RepoSnapshotFile(scans: [scan], deviceLabel: "this Mac")
+        let t = StudioTodo.derive(from: file)
+        XCTAssertEqual(t.items.first?.kind, .atRisk)
+        XCTAssertEqual(t.items.first?.title, "1 piece of work is saved only on this Mac")
+    }
+}

@@ -416,6 +416,39 @@ public struct StudioTodo: Equatable, Sendable {
 
     /// Open AI-filed to-do notes, keyed by the LOWERCASED project tag, exactly as the two
     /// pane loops do today. Behaviour-preserving extraction; do not re-key (P15).
+    /// Open to-dos that no repository in the list claims, as items of their own.
+    ///
+    /// The widget shows every open `todo` note (D9). The pane used to show only the ones
+    /// whose project tag matched a repo in the published snapshot, so a customer with no
+    /// snapshot, the default for everyone but the studio, saw none of their AI to-dos.
+    /// These rows close that gap: same wording as the widget, grouped under the tag.
+    public static func unmatchedAIItems(from notes: [Note], repoNames: Set<String>,
+                                        now: Date = Date()) -> [Item] {
+        let known = Set(repoNames.map { $0.lowercased() })
+        return notes
+            .filter { !$0.archived && $0.tags.contains("todo") }
+            .filter { note in !TodoWidgetList.projects(of: note).contains { known.contains($0.lowercased()) } }
+            .sorted { $0.createdAt < $1.createdAt }
+            .map { note in
+                let projects = TodoWidgetList.projects(of: note)
+                let project = projects.isEmpty ? "no project" : projects.joined(separator: ", ")
+                return Item(id: "\(project)/ai-todo/\(note.id.uuidString)",
+                            project: project,
+                            kind: .aiFlagged,
+                            title: note.title,
+                            evidence: TodoWording.subtitle(creator: note.creator,
+                                                           createdAt: note.createdAt,
+                                                           projects: projects, now: now),
+                            fix: nil,
+                            noteID: note.id)
+            }
+    }
+
+    /// This list plus extra items, with the same coverage.
+    public func adding(_ extra: [Item]) -> StudioTodo {
+        extra.isEmpty ? self : StudioTodo(items: items + extra, coverage: coverage)
+    }
+
     public static func aiFlags(from notes: [Note], repoNames: Set<String>) -> [String: [Note]] {
         var aiFlags: [String: [Note]] = [:]
         for note in notes where note.tags.contains("todo") {

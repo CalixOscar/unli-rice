@@ -176,8 +176,8 @@ struct TodoView: View {
     private func phoneEmptyBody(for state: TodoEmptyState) -> String {
         switch state {
         case .unread:
-            return "Your Mac hasn't shared a list of your projects with this phone yet. Open Unli Rice "
-                 + "on your Mac, then pull down here to refresh."
+            return "When an AI assistant spots something for later, it shows up here. Pull down to "
+                 + "refresh after your Mac has synced."
         case .emptySnapshot:
             return "The last check on your Mac didn't find any projects."
         case .nothingOutstanding:
@@ -273,25 +273,28 @@ struct TodoView: View {
         let needsStop = folder.startAccessingSecurityScopedResource()
         defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
 
+        // AI to-dos come from the synced notes and show with or without a project list:
+        // a customer's Mac never publishes one (that is studio tooling).
+        let allNotes = (try? store.noteService.listNotes(includeArchived: false)) ?? []
+        notesByID = Dictionary(allNotes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let unclaimed = { (names: Set<String>) in
+            StudioTodo.unmatchedAIItems(from: allNotes, repoNames: names)
+        }
         do {
             let snap = try RepoSnapshotFile.read(fromFolder: folder)
             let reposSet = Set(snap.repos.map(\.name))
-            let allNotes = (try? store.noteService.listNotes(includeArchived: false)) ?? []
-            notesByID = Dictionary(allNotes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             repos = Dictionary(snap.repos.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
             let aiFlags = StudioTodo.aiFlags(from: allNotes, repoNames: reposSet)
-            todo = StudioTodo.derive(from: snap, aiFlags: aiFlags)
+            todo = StudioTodo.derive(from: snap, aiFlags: aiFlags).adding(unclaimed(reposSet))
             status = "\(snap.repos.count) repos · "
                    + snap.generatedAt.formatted(.relative(presentation: .named))
                    + (snap.isStale() ? " · may be out of date" : "")
         } catch let e as RepoSnapshotFile.ReadError {
-            todo = StudioTodo.unread()
-            status = e == .missing
-                ? "Your Mac has not published a snapshot yet."
-                : (e.localizedDescription)
+            todo = StudioTodo.unread().adding(unclaimed([]))
+            status = e == .missing ? "" : e.localizedDescription
         } catch {
-            todo = StudioTodo.unread()
-            status = "The snapshot could not be read."
+            todo = StudioTodo.unread().adding(unclaimed([]))
+            status = "The project list could not be read."
         }
     }
 }

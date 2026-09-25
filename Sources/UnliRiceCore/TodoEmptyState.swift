@@ -17,7 +17,7 @@ public enum TodoEmptyState: Equatable, Sendable {
     public var headline: String {
         switch self {
         case .unread:
-            return "Unli Rice hasn't checked your projects yet."
+            return "Nothing to do yet."
         case .emptySnapshot:
             return "The last check found no projects."
         case .nothingOutstanding:
@@ -30,7 +30,7 @@ public enum TodoEmptyState: Equatable, Sendable {
     public var renderedString: String {
         switch self {
         case .unread:
-            return "Unli Rice hasn't checked your projects yet."
+            return "Nothing to do yet."
         case .emptySnapshot:
             return "The last check found no projects."
         case .nothingOutstanding:
