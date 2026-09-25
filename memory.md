@@ -26,31 +26,11 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On **`feature/todo-widget`** (off `main` at `6918f2d`), local only, not pushed.
-`main` was fast-forwarded to `6918f2d` on 2026-09-19 (the copy fix + widget docs), also not
-pushed. Swarm dispatch 1 landed `900398d`..`eda7af1`: Part A (shared core + tests), Part C
-(MCP instructions), and the B0 spike widget. 414 tests, 0 failures, 2 skipped (verified:
-`swift test --scratch-path /tmp/unlirice-spm` 2026-09-19). `xcodebuild` of `UnliRice` with
-the embedded `UnliRiceWidget.appex` succeeded, signed team `22SNGN5JYD` (verified 2026-09-19,
-`/tmp/unlirice-b0`). Both 1.2 builds still unarchived; App Store install is 1.1 (4).
-**Task:** The to-do widget, `docs/PLAN-todo-widget.md` (settled). Build is split in two
-because B0 is a human-run gate. Dispatch 1 is done and verified against `git diff` and my own
-build and test run; its report (`docs/BUILD-todo-widget-1-REPORT.md`) misdescribes some of
-its own code (source names, subtitle format), but the code matches the plan.
-**Files touched:** Swarm: `Sources/UnliRiceCore/{StudioTodo,TodoWording,TodoHandoff,TodoLink,
-TodoPrompt,WidgetCorpus,EventStore,Agent/AgentSettings}.swift`, both To Do panes,
-`AppStore+TodoPrompt.swift`, `unlirice-mcp/main.swift`, `Sources/UnliRiceWidget/SpikeWidget.swift`,
-`UnliRiceWidget.entitlements`, `project.yml`, six new test files. Claude: `memory.md`,
-`docs/BUILD-todo-widget-1.md` (moved from the repo root).
-**Next step:** **B0 test (a) PASSED** (founder, 2026-09-22): the signed spike widget, default
-corpus, read `Notes: 214 · peak 11.8 MB`, a fresh run (the spike self-reports since `6365e0d`;
-an outside watcher could not catch the short-lived process). 11.8 MB is under the 30 MB line.
-**Test (b) is next:** in the test copy (`open ~/Library/Developer/UnliRice-B0/Build/Products/Debug/"Unli Rice.app"`),
-point the data folder at an empty throwaway folder, restart the Mac, and read the widget:
-`Notes: 0` or `logMissing` = pass, `folderFailed` = fail. Then point the test copy back at the
-default folder **before** opening the App Store copy. The result picks dispatch 2 (B1–B6,
-with the custom-folder fallback copy if (b) fails) or a plan revision.
-**Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
+**Status:** The To Do widget and the plain-language To Do list are built but not yet on your Mac; they need an Apple-signed build (TestFlight or an App Store update) to run. Technical: on **`feature/todo-widget`**, local only, not pushed, 18 ahead of `origin/main`. Widget B1–B6 plus plain wording in `7f8d29c`; this repo's `.mcp.json` now runs the installed app's helper (`0392294`). 429 tests, 0 failures, 2 skipped (verified: `swift test --scratch-path /tmp/unlirice-spm` 2026-09-26). `UnliRice` (with embedded `UnliRiceWidget.appex`) and `UnliRiceCapture` build (verified: `xcodebuild` Debug 2026-09-26). The widget registered with `pluginkit` from a local build (verified 2026-09-25) but has **not** been seen drawing real notes: a development-signed copy is refused the app group container (see Gotchas). AI sessions everywhere under `~/Documents` now use the installed App Store app's MCP helper (`~/Documents/.mcp.json`, edited 2026-09-25, not in git), so AI to-dos land in the store the app reads (513 open notes, 4 to-dos, verified via the app's `unlirice-cli` 2026-09-25). App Store install is still 1.1 (4).
+**Task:** The to-do widget, `docs/PLAN-todo-widget.md`: B1–B6 built directly by Claude, not the swarm (founder: "just build it", 2026-09-25), plus plain wording across the To Do list so a non-developer can read it. B0 test (b) was skipped by the founder; the widget is fail-closed instead (a custom folder it can't open shows "Can't read your to-do list right now").
+**Files touched:** `Sources/UnliRiceWidget/` (TodoWidget, TodoTimelineProvider, MarkTodoDoneIntent; spike removed), `Sources/UnliRiceCore/` (TodoWidgetList, StudioTodo, TodoEmptyState, TodoPrompt), `Sources/UnliRice/` (AppStore+TodoWidget, AppStore, AppStore+TodoPrompt, UnliRiceApp, ContentView, TodoPaneView), `Sources/UnliRiceCapture/TodoView.swift`, `UnliRice-Info.plist`, `UnliRiceWidget-Info.plist`, `project.yml`, `.mcp.json`, tests `TodoWidgetListTests.swift` and `StudioTodoTests.swift`, `memory.md`, `docs/PLAN-todo-widget.md` (build notes).
+**Next step:** Founder: say when to put Unli Rice 1.2 on TestFlight, because the widget can only be tried in an Apple-signed build. Then, on that build, run plan §7's hand checks (empty state; tap-through with the app closed, open and in two windows; Fix with AI copies the fenced handoff; Done updates an open To Do pane; double Done = one archive; bad `unlirice://` links do nothing; renamed log → "Can't read"; VoiceOver "Mark done: …") and record which reload path worked (Darwin notification or becoming active). Before archiving, check App Store Connect's last uploaded build for both targets; `CURRENT_PROJECT_VERSION` 6 may already be taken.
+**Gotchas:** **A development-signed build cannot open the app group container on this Mac.** Xcode signs Debug with "Mac Team Provisioning Profile: *", which carries no `application-groups`; macOS then refuses `group.com.calmdownoscar.unlirice` with EPERM and no prompt ("Event log file is unavailable"). `-allowProvisioningUpdates` does not create an explicit Mac development profile, and XcodeGen serialises a target `attributes: SystemCapabilities` entry as a string, which Xcode ignores. Only the App Store/TestFlight build (its Store profile has the group) can test the widget against real notes. **`NSExtension` has no `INFOPLIST_KEY_*` mapping:** the widget's point identifier must live in `UnliRiceWidget-Info.plist`, or the .appex is built without it and never registers (the B0 spike appears to have been built that way). **There are two note stores.** `~/Documents/events.jsonl` (395 open notes) is the old development store every AI session wrote to until 2026-09-25; the app has only ever read the app group store. The old store is left untouched; its 11 AI-written notes were copied across. **`check-repos.sh --publish` can't write the app group container from Claude's shell** (TCC); the founder's own Terminal can. The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
 NOT pass `.skipsHiddenFiles` to an enumerator under `.git` — it is itself
@@ -80,11 +60,8 @@ bridge takes a bare filename only** — a path in `planFileName` is rejected, so
 the brief lands at the repo root and has to be moved into `docs/` afterwards;
 and it creates its result JSON **empty at dispatch**, so "the file exists" is
 not a completion signal — wait on the `agy` pid instead.
-**To-dos:** None filed or closed: this session's Unli Rice MCP connection reported 0 notes,
-so it is not the real store. Would have filed: "Add the to-do field to the UnliDisk and
-Butter Smooth notes" (unlidisk, butter smooth); "Commit the linter script updates waiting in
-Architecturally, Butter Smooth and UnliDisk" (those three).
-**Left by:** Claude Opus 5 2026-09-22
+**To-dos:** filed 2 ("Refresh the project check so your To Do list is up to date", "Put the new version of Unli Rice on your Mac to get the To Do widget"); closed 0. Also: rewrote the 4 open to-dos in plain words and copied them, with 7 other AI-written notes, from the old `~/Documents` store into the app's store; archived the 2 replaced Vercel items in the old store as "replaced, not done"; took the "To-Do: Capture Inbox" note off the list (its 2 open items are now separate to-dos).
+**Left by:** Claude Opus 5.5 2026-09-26
 
 ## Open hypotheses
 
@@ -131,6 +108,9 @@ Architecturally, Butter Smooth and UnliDisk" (those three).
   regenerated copies and edits to them are lost, but `Notes for Unli Rice/` is a drop box
   that `RoutineDriver` ingests on every tick (`RoutineDriver.swift:164`). "The folder is
   read-only" is wrong; "a tool can add a note but not edit one" is right.
+- **The widget build (B1–B6) had no swarm and no Codex review of the code**, by founder
+  instruction on 2026-09-25 ("just build it"). The plan itself was pre-mortemed; the
+  implementation was checked only by its author's tests and builds.
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/IOS_CAPTURE_RELEASE.md` §1.6 ("Decide iPad, deliberately") is **resolved**:
   keep `TARGETED_DEVICE_FAMILY: "1,2"`. The doc itself still poses it as an open

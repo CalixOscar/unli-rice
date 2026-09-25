@@ -2324,3 +2324,28 @@ copy problem.
 same files are in the active App Store submission set, so listing captions may be attached
 to the wrong images. `08-todo.png` additionally shows the pre-`cbfa54a` header text.
 Re-shooting is a release task and was deliberately not done on this branch.
+
+## The to-do widget, and AI to-dos that never reached the app (2026-09-26)
+
+**Decision (founder, 2026-09-25): AI sessions use the installed app's store.** Every
+Claude Code session under `~/Documents` ran `swift run unlirice-mcp` with
+`UNLIRICE_DATA_PATH=~/Documents/events.jsonl` (from a `~/Documents/.mcp.json` dated
+2026-07-20), while the App Store app reads the app group store. The two share no note ids;
+the app held 502 open notes and **zero** to-dos, so no to-do an agent ever filed had reached
+it. `~/Documents/.mcp.json` and this repo's `.mcp.json` now run
+`/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`. The old store is untouched; its
+11 AI-written notes were copied across with a provenance line. The two `-byollm` /
+`-sharetoai` branch folders still carry the old config.
+
+**Decision (founder, 2026-09-25): Claude built B1–B6 directly**, not the swarm, and B0 test
+(b) was skipped; the widget is fail-closed instead. Build notes and deviations:
+`docs/PLAN-todo-widget.md` § "Build notes".
+
+**Decision: the To Do list is written for a non-developer** — plain group labels and item
+titles, a next step shown as its first sentence with the rest under Details, and to-do
+bodies that open with plain sentences before `For the AI picking this up:`. The rule is in
+the vault guardrails, the memory template and this repo's `AGENTS.md`.
+
+Open: the widget has not been seen drawing real notes. A development-signed build is
+refused the app group container (wildcard team profile, no `application-groups`); only a
+TestFlight/App Store build can run plan §7. Filed as a to-do for the founder.
