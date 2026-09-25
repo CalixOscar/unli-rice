@@ -66,8 +66,11 @@ targets:
         PRODUCT_NAME: UnliRiceCapture
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.3"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "8"
         INFOPLIST_KEY_CFBundleDisplayName: "Unli Rice Capture"
+        # Standard system encryption only (HTTPS, Data Protection), as the Mac app
+        # declares; without it every build waits on a manual compliance answer.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: 22SNGN5JYD
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Unli Rice Capture uses your microphone to dictate notes."
@@ -109,7 +112,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         # Must match the Capture app's versions, or upload is refused.
         MARKETING_VERSION: "1.3"
-        CURRENT_PROJECT_VERSION: "7"
+        CURRENT_PROJECT_VERSION: "8"
         TARGETED_DEVICE_FAMILY: "1,2"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
 

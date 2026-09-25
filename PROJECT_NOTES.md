@@ -2363,6 +2363,6 @@ connected assistants to file to-dos in plain words; a test keeps studio-only ter
 The phone widget reads a list Capture writes into a new App Group after each sync, and queues
 Done taps for Capture's next sync; it hides titles while the app lock is on.
 
-**Released:** Mac 1.3 (8) and Capture 1.3 (7) uploaded for review, founder-requested
+**Released:** Mac 1.3 (8) and Capture 1.3 (8) uploaded for review (Capture 1.3 (7) lacked the export-compliance key and is superseded), founder-requested
 ("ready for app store"). 1.2 was already approved, closing its train; build numbers 6 and 7
 were already used on the Mac. Submission itself is the founder's.
