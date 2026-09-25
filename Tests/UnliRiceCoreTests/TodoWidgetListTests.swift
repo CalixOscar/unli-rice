@@ -174,3 +174,59 @@ extension TodoWidgetListTests {
         XCTAssertEqual(t.items.first?.title, "1 piece of work is saved only on this Mac")
     }
 }
+
+extension TodoWidgetListTests {
+    private func tempDir() -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PhoneTodoWidget-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+        return dir
+    }
+
+    func testPhoneSnapshotListsOpenToDosOldestFirstAndRoundTrips() throws {
+        let dir = tempDir()
+        let newer = note("Newer", tags: ["todo", "badminton"], daysAgo: 1)
+        let older = note("Older", tags: ["todo"], daysAgo: 4)
+        let done = note("Done", tags: ["todo"], daysAgo: 9, archived: true)
+        try PhoneTodoWidget.write(.init(notes: [newer, done, older], locked: false), in: dir)
+        let read = try XCTUnwrap(PhoneTodoWidget.read(in: dir))
+        XCTAssertEqual(read.items.map(\.title), ["Older", "Newer"])
+        let rows = read.rows(hiding: [], now: now)
+        XCTAssertTrue(rows[1].subtitle.hasPrefix("Suggested by Claude · "), rows[1].subtitle)
+        XCTAssertTrue(rows[1].subtitle.hasSuffix("badminton"), rows[1].subtitle)
+    }
+
+    func testNoSnapshotReadsAsNilNotEmpty() {
+        XCTAssertNil(PhoneTodoWidget.read(in: tempDir()), "never written must not look like 'Nothing to do'")
+    }
+
+    func testLockFlagIsRewrittenWithoutLosingItems() throws {
+        let dir = tempDir()
+        try PhoneTodoWidget.write(.init(notes: [note("A", tags: ["todo"], daysAgo: 1)], locked: false), in: dir)
+        try PhoneTodoWidget.setLocked(true, in: dir)
+        let read = try XCTUnwrap(PhoneTodoWidget.read(in: dir))
+        XCTAssertTrue(read.locked)
+        XCTAssertEqual(read.items.count, 1)
+    }
+
+    func testQueuedDoneHidesTheRowThenArchivesOnceOnSync() throws {
+        let dir = tempDir()
+        let (svc, log) = try service()
+        let item = try svc.createNote(title: "Rate prompt for Kitchen Vision", body: "", source: "claude")
+        try svc.tagNote(id: item.id, tag: "todo", source: "claude")
+        try PhoneTodoWidget.write(.init(notes: try svc.listNotes(), locked: false), in: dir)
+
+        try PhoneTodoWidget.queueDone(item.id, in: dir)
+        try PhoneTodoWidget.queueDone(item.id, in: dir)   // a second tap
+        let snap = try XCTUnwrap(PhoneTodoWidget.read(in: dir))
+        XCTAssertTrue(snap.rows(hiding: PhoneTodoWidget.pendingDone(in: dir)).isEmpty)
+
+        let handled = PhoneTodoWidget.applyPendingDone(in: dir, service: svc)
+        XCTAssertEqual(handled, [item.id])
+        XCTAssertTrue(try XCTUnwrap(svc.getNote(id: item.id)).archived)
+        XCTAssertTrue(PhoneTodoWidget.pendingDone(in: dir).isEmpty, "applied taps leave the queue")
+        let text = try String(contentsOf: log, encoding: .utf8)
+        XCTAssertEqual(text.split(separator: "\n").filter { $0.contains("\"kind\":\"archived\"") }.count, 1)
+    }
+}

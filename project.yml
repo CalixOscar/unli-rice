@@ -56,9 +56,13 @@ targets:
         buildPhase: resources
     dependencies:
       - target: UnliRiceCoreiOS
+      - target: UnliRiceCaptureWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture
+        # The App Group is shared with the iPhone To Do widget (PhoneTodoWidget).
+        CODE_SIGN_ENTITLEMENTS: UnliRiceCapture.entitlements
         PRODUCT_NAME: UnliRiceCapture
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.2"
@@ -80,6 +84,33 @@ targets:
         # GENERATE_INFOPLIST_FILE does not add one on its own.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         # SpeechAnalyzer/SpeechTranscriber require 26; see Package.swift.
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+
+  UnliRiceCaptureWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - Sources/UnliRiceCaptureWidget
+      - Sources/UnliRiceWidgetShared
+    dependencies:
+      - target: UnliRiceCoreiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture.widget
+        PRODUCT_NAME: UnliRiceCaptureWidget
+        PRODUCT_MODULE_NAME: UnliRiceCaptureWidget
+        CODE_SIGN_ENTITLEMENTS: UnliRiceCaptureWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 22SNGN5JYD
+        GENERATE_INFOPLIST_FILE: YES
+        # NSExtension has no INFOPLIST_KEY_* mapping; see UnliRiceWidget-Info.plist.
+        INFOPLIST_FILE: UnliRiceCaptureWidget-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
+        # Must match the Capture app's versions, or upload is refused.
+        MARKETING_VERSION: "1.2"
+        CURRENT_PROJECT_VERSION: "6"
+        TARGETED_DEVICE_FAMILY: "1,2"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
 
   UnliRiceHost:
@@ -158,6 +189,7 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - Sources/UnliRiceWidget
+      - Sources/UnliRiceWidgetShared
     dependencies:
       - target: UnliRiceCore
     settings:
