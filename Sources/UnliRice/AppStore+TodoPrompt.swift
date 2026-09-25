@@ -18,8 +18,11 @@ extension AppStore {
     func copyTodoPrompt(for target: MCPTarget, item: StudioTodo.Item,
                         repo: RepoSnapshotFile.Repo?) {
         let note = item.noteID.flatMap { self.note(id: $0) }
-        let handoff = note.flatMap { itemNote in
-            TodoHandoff.handoffID(inBody: itemNote.body).flatMap { self.note(id: $0) }
+        // Through `TodoHandoff.target`, so an id naming a note that isn't tagged
+        // `handoff` is never pasted as one (P10).
+        let handoff = note.flatMap { itemNote -> Note? in
+            let resolved = TodoHandoff.target(for: itemNote, lookup: { self.note(id: $0) })
+            return resolved.id == itemNote.id ? nil : resolved
         }
         let body = TodoPrompt.build(
             target: target,

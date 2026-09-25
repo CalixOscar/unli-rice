@@ -37,6 +37,18 @@ final class AppStore: ObservableObject {
     /// selected note is archived out of the default list — see `reload()`.
     @Published var selectedNoteID: UUID?
 
+    /// Bumped when the to-do list may have changed outside this window — the widget's
+    /// Done button, or the app becoming active. The To Do pane keys its `load()` on it,
+    /// because that pane holds private state `reload()` doesn't touch (P4).
+    @Published var todoRefreshToken = 0
+
+    /// The to-do item a widget link opened, so the handoff it lands on knows which item
+    /// "Fix with AI…" is about when several items share one handoff.
+    @Published var todoOpenedFromItemID: UUID?
+
+    /// The open to-do ids the widget last drew from; see `reloadWidgetIfTodosChanged()`.
+    var widgetTodoIDs: Set<UUID>?
+
     /// Filters the note list by title, body, and tag. Lives here rather than in
     /// the view because it has to survive the list being rebuilt by `reload()`
     /// — an ingest run finishing mid-search would otherwise silently drop you
@@ -1034,6 +1046,7 @@ final class AppStore: ObservableObject {
                 selectedNoteID = nil
             }
             corpusLoaded = true
+            reloadWidgetIfTodosChanged()
         } catch {
             errorMessage = "\(error)"
             // Deliberately NOT setting corpusLoaded: an unreadable corpus and an empty

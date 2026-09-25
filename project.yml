@@ -170,7 +170,14 @@ targets:
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        # NSExtension has no INFOPLIST_KEY_* mapping: the key that used to be here was
+        # silently ignored, the built .appex carried no NSExtension at all, and macOS
+        # never registered a widget. It lives in this file instead (2026-09-25).
+        INFOPLIST_FILE: UnliRiceWidget-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
+        # An embedded extension's versions must match its app's, or upload is refused.
+        MARKETING_VERSION: "1.2"
+        CURRENT_PROJECT_VERSION: "6"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
 
   UnliRice:
@@ -214,6 +221,10 @@ targets:
         INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 calmdownoscar. All rights reserved.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         GENERATE_INFOPLIST_FILE: YES
+        # CFBundleURLTypes (the `unlirice://` scheme the to-do widget links through)
+        # has no INFOPLIST_KEY_* mapping, so it lives in this file; the generated keys
+        # above merge into it, as UnliRiceCapture-Info.plist does for Capture.
+        INFOPLIST_FILE: UnliRice-Info.plist
     postCompileScripts:
       - name: Embed sandboxed helpers
         basedOnDependencyAnalysis: false

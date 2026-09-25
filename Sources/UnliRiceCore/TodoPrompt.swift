@@ -46,7 +46,7 @@ public enum TodoPrompt {
             worked there, in that project's memory.md, and is reproduced verbatim below.
 
             Next step (verbatim):
-            \(item.title)
+            \(item.detail ?? item.title)
 
             """
         }

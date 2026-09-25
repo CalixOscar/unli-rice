@@ -59,8 +59,8 @@ struct TodoView: View {
             Text("To do")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("From your Mac's last snapshot. Git-derived items are read-only — tap an item to leave a note "
-                 + "about it. Items flagged by AI can be marked done.")
+            Text("What's worth doing across your projects, as your Mac last saw them. Tap an item to "
+                 + "leave a note about it. Items an AI assistant suggested can be ticked off with Done.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -78,7 +78,7 @@ struct TodoView: View {
                 Text(kind.label.uppercased())
                     .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(kind == .atRisk ? .orange : Theme.textSecondary)
-                Text(kindBlurb(kind))
+                Text(kind.blurb)
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
@@ -89,17 +89,6 @@ struct TodoView: View {
             ForEach(items) { item in
                 row(item, kind)
             }
-        }
-    }
-
-    /// Says why the group is where it is, so the ordering is not arbitrary.
-    private func kindBlurb(_ k: StudioTodo.Kind) -> String {
-        switch k {
-        case .atRisk:    return "exists on this Mac only — losing the disk loses it"
-        case .declared:  return "you wrote this down as the next step"
-        case .aiFlagged: return "an AI session flagged this, not you"
-        case .unshared:  return "finished, but nobody else can see it"
-        case .clutter:   return "costs nothing to leave, but hides the rest"
         }
     }
 
@@ -129,6 +118,19 @@ struct TodoView: View {
                 }
             }
             .buttonStyle(.plain)
+
+            if let detail = item.detail {
+                DisclosureGroup("Details") {
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                }
+                .font(.system(size: 11.5))
+            }
 
             if kind == .aiFlagged, let noteID = item.noteID {
                 Button("Done") {
@@ -174,13 +176,14 @@ struct TodoView: View {
     private func phoneEmptyBody(for state: TodoEmptyState) -> String {
         switch state {
         case .unread:
-            return status.isEmpty ? "The snapshot could not be read." : status
+            return "Your Mac hasn't shared a list of your projects with this phone yet. Open Unli Rice "
+                 + "on your Mac, then pull down here to refresh."
         case .emptySnapshot:
-            return "The snapshot was read and listed no repositories."
+            return "The last check on your Mac didn't find any projects."
         case .nothingOutstanding:
-            return "Every branch tip is on a remote, no worktree holds uncommitted work, and no memory.md names a next step."
+            return "All your work is backed up, and no project has a next step written down."
         case .qualified(let message):
-            return "Every branch tip in the snapshot is on a remote, but: \(message)."
+            return "Everything your Mac could check is backed up, but \(message)."
         }
     }
 

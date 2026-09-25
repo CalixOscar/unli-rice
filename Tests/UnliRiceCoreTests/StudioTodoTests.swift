@@ -27,7 +27,7 @@ final class StudioTodoTests: XCTestCase {
         ]))
         XCTAssertEqual(t.atRisk.count, 1)
         XCTAssertEqual(t.items.first?.kind, .atRisk)
-        XCTAssertTrue(t.items[0].title.contains("1 branch tip"))
+        XCTAssertTrue(t.items[0].title.contains("1 piece of work is saved only on this Mac"))
         XCTAssertNotNil(t.items[0].fix, "an at-risk item should name the command that fixes it")
     }
 
@@ -37,7 +37,7 @@ final class StudioTodoTests: XCTestCase {
         let t = StudioTodo.derive(from: snapshot([repo("X", [branch("main")])]),
                                   worktreeDirt: ["X": 12])
         XCTAssertEqual(t.atRisk.count, 1)
-        XCTAssertTrue(t.items[0].title.contains("12 uncommitted"))
+        XCTAssertTrue(t.items[0].title.contains("12 changed files"))
         XCTAssertNil(t.items[0].fix, "there is no safe one-liner for this — it needs a look")
     }
 
@@ -153,13 +153,13 @@ extension StudioTodoTests {
     /// as "3 branch tipes" — both from deriving one word form instead of writing both.
     func testAheadOfTrunkPluralisesTheNounAndTheVerb() {
         let one = StudioTodo.derive(from: snapshot([repo("X", [branch("a", ahead: 2)])]))
-        XCTAssertTrue(one.items.contains { $0.title == "1 branch is ahead of main" },
+        XCTAssertTrue(one.items.contains { $0.title == "1 piece of finished work isn't part of main yet" },
                       one.items.map(\.title).description)
 
         let many = StudioTodo.derive(from: snapshot([
             repo("X", [branch("a", ahead: 2), branch("b", ahead: 3)])
         ]))
-        XCTAssertTrue(many.items.contains { $0.title == "2 branches are ahead of main" },
+        XCTAssertTrue(many.items.contains { $0.title == "2 pieces of finished work aren't part of main yet" },
                       many.items.map(\.title).description)
     }
 
@@ -238,7 +238,7 @@ extension StudioTodoTests {
         let state = TodoEmptyState.for(coverage: cov)
         switch state {
         case .qualified(let msg):
-            XCTAssertTrue(msg.contains("dirt not measured for 1 of 2 repositories"), msg)
+            XCTAssertTrue(msg.contains("unsaved changes weren't checked in 1 of 2 projects"), msg)
         default:
             XCTFail("Expected .qualified, got \(state)")
         }
@@ -296,7 +296,7 @@ extension StudioTodoTests {
         XCTAssertEqual(t.items[0].noteID, noteID)
         XCTAssertEqual(t.items[0].project, "Nuptia")
         XCTAssertEqual(t.items[0].title, "Bump marketing URL")
-        XCTAssertTrue(t.items[0].evidence.contains("Flagged by claude"))
+        XCTAssertTrue(t.items[0].evidence.hasPrefix("Suggested by Claude · "), t.items[0].evidence)
         XCTAssertNil(t.items[0].fix)
     }
 
@@ -551,5 +551,41 @@ extension StudioTodoTests {
         XCTAssertEqual(flags["beta"]?.count, 1)
         XCTAssertEqual(flags["alpha"]?.first?.id, n1.id)
         XCTAssertEqual(flags["beta"]?.first?.id, n1.id)
+    }
+}
+
+extension StudioTodoTests {
+    /// A next step written for the next AI session shows as its first sentence, with
+    /// the full text kept for the Details disclosure and for Fix with AI (2026-09-25).
+    func testLongNextStepShowsItsFirstSentenceAndKeepsTheRest() {
+        let step = "**Test the widget** on a real Mac. Then run `xcodegen generate` and rebuild; "
+                 + "check the appex Info.plist carries NSExtension."
+        let t = StudioTodo.derive(from: snapshot([repo("X", [branch("main")])]),
+                                  nextSteps: ["X": .step(step)])
+        XCTAssertEqual(t.items[0].title, "Test the widget on a real Mac.")
+        XCTAssertEqual(t.items[0].detail, step)
+    }
+
+    func testShortNextStepHasNoDetail() {
+        let t = StudioTodo.derive(from: snapshot([repo("X", [branch("main")])]),
+                                  nextSteps: ["X": "Push the backlog"])
+        XCTAssertEqual(t.items[0].title, "Push the backlog")
+        XCTAssertNil(t.items[0].detail)
+    }
+
+    func testRunOnFirstSentenceIsCapped() {
+        let step = String(repeating: "word ", count: 60) + "end. Second sentence."
+        let head = StudioTodo.headline(forNextStep: step)
+        XCTAssertLessThanOrEqual(head.title.count, 160)
+        XCTAssertTrue(head.title.hasSuffix("…"))
+        XCTAssertEqual(head.detail, step.trimmingCharacters(in: .whitespaces))
+    }
+
+    func testPromptCarriesTheFullNextStepNotTheHeadline() {
+        let step = "Ship it. Then tidy the branches and update memory.md."
+        let t = StudioTodo.derive(from: snapshot([repo("X", [branch("main")])]),
+                                  nextSteps: ["X": .step(step)])
+        let prompt = TodoPrompt.build(target: MCPTarget.builtIn.first!, item: t.items[0])
+        XCTAssertTrue(prompt.contains(step), prompt)
     }
 }
