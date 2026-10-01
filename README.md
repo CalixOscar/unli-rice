@@ -59,11 +59,10 @@ codebase.
 
 ## How this got built
 
-Vibecoded in about 6 hours using the pipeline described at
-[calmdownoscar.com/apps](https://calmdownoscar.com/apps). Backend and systems
-work isn't really my strong side — I'm more of a front-end vibe coder — so
-rather than maintain something outside my lane long-term, it's open source.
-Issues and PRs welcome.
+Built in about 6 hours with AI-assisted development, using the multi-agent
+method described at [calmdownoscar.com/how_I_work](https://www.calmdownoscar.com/how_I_work/).
+Backend and systems work is where I most want experienced eyes, so rather than
+maintain it alone it's open source. Issues and PRs welcome.
 
 ## Privacy
 
