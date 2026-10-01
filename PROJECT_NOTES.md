@@ -2250,3 +2250,119 @@ Verified: `UnliRice` (macOS) and `UnliRiceCapture` (iOS) both BUILD SUCCEEDED;
 first-session gate, the `0`-means-uncounted rule, session counting, and legacy JSON
 without `sessionCount`. Full suite `swift test`: 380 tests, 2 skipped, 0 failures
 (was 375 before this change).
+
+## The guide audit, and four strings that outlived their invariant (2026-09-05 → 2026-09-07)
+
+The public user guide at `calmdownoscar.com/unlirice/user_guide.html` was audited claim by
+claim against `1f49c0f`. Fourteen claims did not survive. Six were flatly wrong; the rest
+overstated what the code enforces. The guide has been corrected and is live
+(`CalmdownOscar@92a6870`, `d6f02d5`, `40e4a53`).
+
+### The one that would have broken a beginner
+
+The guide told people the copied MCP block "goes inside an `mcpServers` object alongside
+any servers already there". What `MCPConfigRenderer.jsonSnippet` copies is a **complete
+file**, wrapper included (`MCPConfigRenderer.swift:26`). Following the instruction
+literally yields `mcpServers` nested inside `mcpServers` — a shape no client understands,
+and most fail silently rather than complain. §2 now carries the copied block, both cases
+worked through, the merged result, and the failure named.
+
+### Four of the fourteen were the app's, not the guide's
+
+The guide was repeating the app faithfully. Correcting the docs alone left the two
+disagreeing, and the app is the copy a user believes.
+
+The To Do one has a dated cause worth recording, because it is how a true statement
+becomes a false one with nobody editing it. "Nothing here can be ticked off" was **true**
+when `StudioTodo` was written, and § "A to-do list that cannot be ticked off" above
+records the reasoning. Then `docs/PLAN-ai-todo-actions.md` shipped a second kind of item —
+a stored note tagged `todo`, with a **Done** button, on Mac and phone both — and no string
+moved. Three docstrings still asserted the old invariant (`TodoPaneView.swift:6`,
+`StudioTodo.swift:5`, `AppStore.swift:89`), which is *why* it kept escaping: a reader
+quoted `StudioTodo`'s docstring almost verbatim into the public guide as a description of
+the feature.
+
+The other three: the Connect card described the folder as `~/Documents/Unli Rice/` while
+displaying the sandbox container path directly beneath it; the House Rules card claimed
+the assistant "reads" the conventions at session start when the MCP handshake only tells a
+client the vault is worth searching (`main.swift:83`); and the per-tool merge hint said
+"keeping any servers already there" without mentioning the wrapper, the same gap that made
+the guide's version damaging.
+
+Planned in `docs/PLAN-copy-that-overstates.md` (`1c906a9`), built by the swarm
+(`cbfa54a`), brief filed at `docs/PLAN-copy-that-overstates-BUILD.md`. The merge hint now
+branches on `target.format`, because the Codex row is TOML and JSON advice is wrong there.
+
+Verified independently rather than from the swarm's report: `swift build` clean and the
+full suite 380 tests, 2 skipped, 0 failures (verified: `swift test` 2026-09-07), matching
+the run's own claimed numbers; `git diff --stat` touched only the four permitted files;
+the run's stderr diagnostics were empty, so no tools were denied.
+
+### Two findings that outlived the copy fix
+
+**The Mirror folder is not one-way.** Documented here because a first pass at the guide
+got it wrong in the other direction. What Unli Rice writes out — `Context/`, `AGENTS.md`,
+`CLAUDE.md`, a file per note — are regenerated copies, and editing one is lost on the next
+rebuild. But `Notes for Unli Rice/` is a drop box: `RoutineDriver` runs
+`LocalFileImporter` over it on every tick and ingests what it finds
+(`RoutineDriver.swift:164`, `MirrorExporter.swift:42`). So a tool that cannot speak MCP
+can still *add* a note. What it cannot do is edit an existing one — that is the MCP-only
+capability, and it is the honest way to describe the difference.
+
+**A possible contradiction about where that folder is, not yet settled.**
+§ "App Store release packaging verification" above records
+`openMirrorFolderInFinder()` being pointed *at* `~/Documents/Unli Rice/` and away from
+"hidden `Group Containers`". Under the App Sandbox `~/Documents` resolves inside the
+container, which is what the Connect card displays. Whether those two now disagree about
+the folder's location needs one launch to settle. If they do, it is a real bug and not a
+copy problem.
+
+### Also
+
+`Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents:
+`02-setup-tools.png` is the All Notes pane and `03-map.png` is the Repos branch graph. The
+same files are in the active App Store submission set, so listing captions may be attached
+to the wrong images. `08-todo.png` additionally shows the pre-`cbfa54a` header text.
+Re-shooting is a release task and was deliberately not done on this branch.
+
+## The to-do widget, and AI to-dos that never reached the app (2026-09-26)
+
+**Decision (founder, 2026-09-25): AI sessions use the installed app's store.** Every
+Claude Code session under `~/Documents` ran `swift run unlirice-mcp` with
+`UNLIRICE_DATA_PATH=~/Documents/events.jsonl` (from a `~/Documents/.mcp.json` dated
+2026-07-20), while the App Store app reads the app group store. The two share no note ids;
+the app held 502 open notes and **zero** to-dos, so no to-do an agent ever filed had reached
+it. `~/Documents/.mcp.json` and this repo's `.mcp.json` now run
+`/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`. The old store is untouched; its
+11 AI-written notes were copied across with a provenance line. The two `-byollm` /
+`-sharetoai` branch folders still carry the old config.
+
+**Decision (founder, 2026-09-25): Claude built B1–B6 directly**, not the swarm, and B0 test
+(b) was skipped; the widget is fail-closed instead. Build notes and deviations:
+`docs/PLAN-todo-widget.md` § "Build notes".
+
+**Decision: the To Do list is written for a non-developer** — plain group labels and item
+titles, a next step shown as its first sentence with the rest under Details, and to-do
+bodies that open with plain sentences before `For the AI picking this up:`. The rule is in
+the vault guardrails, the memory template and this repo's `AGENTS.md`.
+
+Open: the widget has not been seen drawing real notes. A development-signed build is
+refused the app group container (wildcard team profile, no `application-groups`); only a
+TestFlight/App Store build can run plan §7. Filed as a to-do for the founder.
+
+## Unli Rice 1.3: the To Do list for everyone, and an iPhone widget (2026-09-26)
+
+**Decision (founder): the To Do list must work for every customer on default settings.**
+Customers have no published `repos.json` (studio tooling), so the pane showed only an
+instruction to run a studio script and hid their AI to-dos. Now every open AI to-do shows in
+the pane and on the phone, the Mac pane scans the folders granted in Repos itself when no
+snapshot exists, and no product copy names a studio script. The built-in house rules teach
+connected assistants to file to-dos in plain words; a test keeps studio-only terms out of them.
+
+**Decision (founder): the widget on iPhone too.** The layout is shared with the Mac widget.
+The phone widget reads a list Capture writes into a new App Group after each sync, and queues
+Done taps for Capture's next sync; it hides titles while the app lock is on.
+
+**Released:** Mac 1.3 (8) and Capture 1.3 (8) uploaded for review (Capture 1.3 (7) lacked the export-compliance key and is superseded), founder-requested
+("ready for app store"). 1.2 was already approved, closing its train; build numbers 6 and 7
+were already used on the Mac. Submission itself is the founder's.

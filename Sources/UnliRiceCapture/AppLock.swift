@@ -1,5 +1,7 @@
 import Foundation
 import LocalAuthentication
+import UnliRiceCore
+import WidgetKit
 
 /// Face ID / Touch ID / passcode gate for the capture list.
 ///
@@ -24,6 +26,12 @@ public final class AppLock: ObservableObject {
     @Published public var isEnabled: Bool {
         didSet {
             UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey)
+            // The To Do widget sits on the home screen, outside this gate: hide its
+            // titles the moment the lock is switched on, and show them when it's off.
+            if let dir = PhoneTodoWidget.containerURL() {
+                try? PhoneTodoWidget.setLocked(isEnabled, in: dir)
+                WidgetCenter.shared.reloadTimelines(ofKind: PhoneTodoWidget.kind)
+            }
             // Turning it on should not leave the app sitting unlocked behind the
             // switch that was just flipped; turning it off must not strand the
             // user behind a gate they just disabled.

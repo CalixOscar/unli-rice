@@ -259,3 +259,24 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
         return decoded
     }
 }
+
+extension RepoSnapshotFile {
+    /// A snapshot built inside the app from its own scan of the folders granted in Repos.
+    ///
+    /// For every Mac without a published `repos.json`, which means every customer: the
+    /// publishing script is studio tooling. A scan reads refs, not history, so it carries
+    /// no ancestry; only "saved only on this Mac" and declared next steps come from it.
+    public init(scans: [GitRepoScanner.Snapshot], generatedAt: Date = Date(), deviceLabel: String) {
+        self.init(generatedAt: generatedAt, deviceLabel: deviceLabel, repos: scans.map { s in
+            Repo(name: s.name,
+                 currentBranch: s.currentBranch,
+                 detachedHead: s.detachedHead,
+                 branches: s.branches.map {
+                     Branch(name: $0.name, sha: $0.sha, tipOnRemote: $0.tipOnRemote, isCurrent: $0.isCurrent)
+                 },
+                 remoteBranchCount: s.remoteBranchCount,
+                 worktrees: s.worktrees.map { Worktree(name: $0.name, branch: $0.branch, missing: $0.missing) },
+                 trunk: s.defaultBranch)
+        })
+    }
+}

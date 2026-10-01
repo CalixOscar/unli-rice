@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import UnliRiceCore
+import WidgetKit
 
 /// Why a typed note was refused.
 public enum CaptureTextError: Error, LocalizedError {
@@ -379,6 +380,13 @@ public final class CaptureStore: ObservableObject {
             ownShardFilename: ownShardFilename
         )
 
+        // Done taps queued by the To Do widget become archive events here, before the
+        // publish below, so they reach the Mac in this same sync.
+        if let widgetDir = PhoneTodoWidget.containerURL() {
+            noteService.rebuild()
+            PhoneTodoWidget.applyPendingDone(in: widgetDir, service: noteService)
+        }
+
         noteService.rebuild()
         updatePulledNotesForCurrentTab()
         rebuildCaptures()
@@ -396,6 +404,17 @@ public final class CaptureStore: ObservableObject {
                 event.device == ownDeviceLabel
             }
         )
+
+        publishTodoWidget()
+    }
+
+    /// Writes the open to-dos where the iPhone widget reads them, and asks it to redraw.
+    /// The widget can't reach these notes itself; this is its only source.
+    public func publishTodoWidget() {
+        guard let dir = PhoneTodoWidget.containerURL() else { return }
+        let notes = (try? noteService.listNotes(includeArchived: false)) ?? []
+        try? PhoneTodoWidget.write(.init(notes: notes, locked: AppLock.shared.isEnabled), in: dir)
+        WidgetCenter.shared.reloadTimelines(ofKind: PhoneTodoWidget.kind)
     }
 
     public func updatePulledNotesForCurrentTab() {

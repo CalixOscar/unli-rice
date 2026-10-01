@@ -3,14 +3,15 @@ import UnliRiceCore
 
 /// What is outstanding across the studio, in the order it would hurt to ignore.
 ///
-/// **Nothing here can be ticked off**, by design. Every line is derived from the state
-/// that makes it true, so it disappears when the work is done rather than when someone
-/// remembers to mark it. A checklist you tick is a second source of truth, and this
-/// codebase has already paid for notes that disagree with the repo.
+/// **Repo and memory.md items cannot be ticked off**, by design. They are derived
+/// from the state that makes them true, so each disappears when the work is actually
+/// done rather than when someone remembers to mark it. A checklist you tick is a second
+/// source of truth, and this codebase has already paid for notes that disagree with the
+/// repo. Items flagged by AI are stored notes tagged `todo`, where Done archives the note.
 ///
-/// It reads two things: the published repo snapshot, and each project's `memory.md`
-/// `**Next step:**`. Git tells you what is at risk; the note tells you what you meant
-/// to do. Neither alone is the list.
+/// It reads repository snapshots, each project's `memory.md` `**Next step:**`, and
+/// notes tagged `todo`. Git tells you what is at risk; the note tells you what you
+/// meant to do or what an AI flagged.
 struct TodoPaneView: View {
     @EnvironmentObject var store: AppStore
 
@@ -32,14 +33,14 @@ struct TodoPaneView: View {
                     empty
                 } else {
                     ForEach(StudioTodo.Kind.allCases, id: \.rawValue) { kind in
-                        let items = todo.items.filter { $0.kind == kind }
+                        let items = ordered(todo.items.filter { $0.kind == kind }, kind)
                         if !items.isEmpty { section(kind, items) }
                     }
                 }
             }
             .padding(22)
         }
-        .task { await load() }
+        .task(id: store.todoRefreshToken) { await load() }
     }
 
     // MARK: - Sections
@@ -49,29 +50,49 @@ struct TodoPaneView: View {
             Text("To do")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Derived from your repositories, each project's memory.md, and notes tagged `todo`. Nothing "
-                 + "here is ticked off — an item disappears when the work is actually "
-                 + "done, so the list cannot drift from what is true.")
+            Text("What's worth doing across your projects. Most items are worked out from your "
+                 + "project folders and disappear by themselves once the work is done, so they can't "
+                 + "go out of date. Items an AI assistant suggested have a Done button — tick them "
+                 + "off when they're finished.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             // Always visible, not only on failure. The equivalent line on the Repos
             // pane is what turned "why is this empty" from an afternoon of elimination
             // into one launch.
+            // The technical detail (paths, counts) stays one hover away for whoever is
+            // diagnosing an empty pane; the line itself is written for the founder.
+            // What wasn't checked matters when the list is empty (the empty state says
+            // so); with items showing, it is a caveat for whoever is diagnosing, on hover.
             if !sourceNote.isEmpty {
-                HStack(spacing: 8) {
-                    Text(sourceNote)
-                    if let gap = todo.coverage.gapSummary {
-                        Text("·")
-                        Text(gap)
-                            .foregroundStyle(Theme.brass)
-                    }
-                }
-                .font(.system(size: 10.5, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
-                .textSelection(.enabled)
+                Text(checkedLine)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Theme.textSecondary)
+                    .help(sourceNote + (todo.coverage.gapSummary.map { " · " + $0 } ?? ""))
             }
         }
+    }
+
+    /// AI suggestions oldest first, as on the widget, so nothing waits at the bottom
+    /// forever; the other groups keep their project order.
+    private func ordered(_ items: [StudioTodo.Item], _ kind: StudioTodo.Kind) -> [StudioTodo.Item] {
+        guard kind == .aiFlagged else { return items }
+        return items.sorted {
+            let a = $0.noteID.flatMap { store.note(id: $0) }?.createdAt ?? .distantFuture
+            let b = $1.noteID.flatMap { store.note(id: $0) }?.createdAt ?? .distantFuture
+            return a < b
+        }
+    }
+
+    /// "Checked 8 projects 2 hours ago" — when the list was last worked out, in words.
+    private var checkedLine: String {
+        guard todo.coverage.snapshotRead else {
+            return "Add your code folders in Repos to also see work that isn't backed up"
+        }
+        let n = todo.coverage.repositories.count
+        let projects = n == 1 ? "1 project" : "\(n) projects"
+        guard let at = todo.coverage.generatedAt else { return "Checked \(projects)" }
+        return "Checked \(projects) \(at.formatted(.relative(presentation: .named)))"
     }
 
     private var empty: some View {
@@ -94,15 +115,18 @@ struct TodoPaneView: View {
         let folder = store.dataURL.deletingLastPathComponent().path
         switch state {
         case .unread:
-            return "The snapshot at \(folder) could not be read, so this pane knows nothing about any repository. If you haven't published one yet, run: check-repos.sh --publish"
+            return "When an AI assistant spots something for later, it shows up here, and on the "
+                 + "To do widget. To also see work that isn't backed up yet, add your code folders "
+                 + "in Repos."
         case .emptySnapshot:
-            return "The snapshot was read and listed no repositories. If that seems wrong, publish a fresh snapshot: check-repos.sh --publish"
+            return "The folders you added don't hold any projects Unli Rice can read. You can "
+                 + "change them in Repos."
         case .nothingOutstanding:
             let asOf = todo.coverage.generatedAt.map { " as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
-            return "Every branch tip is on a remote, no worktree holds uncommitted work, and no memory.md names a next step\(asOf). If that seems wrong, publish a fresh snapshot: check-repos.sh --publish"
+            return "All your work is backed up, and no project has a next step written down\(asOf)."
         case .qualified(let message):
-            let asOf = todo.coverage.generatedAt.map { ", as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
-            return "Every branch tip in the snapshot is on a remote, but: \(message)\(asOf). If that seems wrong, publish a fresh snapshot: check-repos.sh --publish"
+            let asOf = todo.coverage.generatedAt.map { " as of \($0.formatted(.relative(presentation: .named)))" } ?? ""
+            return "Everything Unli Rice could check is backed up, but \(message)\(asOf)."
         }
     }
 
@@ -112,7 +136,7 @@ struct TodoPaneView: View {
                 Text(kind.label.uppercased())
                     .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(kind == .atRisk ? .orange : Theme.textSecondary)
-                Text(kindBlurb(kind))
+                Text(kind.blurb)
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
@@ -121,17 +145,6 @@ struct TodoPaneView: View {
                     .foregroundStyle(Theme.textSecondary)
             }
             ForEach(items) { row($0, kind) }
-        }
-    }
-
-    /// Says why the group is where it is, so the ordering is not arbitrary.
-    private func kindBlurb(_ k: StudioTodo.Kind) -> String {
-        switch k {
-        case .atRisk:    return "exists on this Mac only — losing the disk loses it"
-        case .declared:  return "you wrote this down as the next step"
-        case .aiFlagged: return "an AI session flagged this, not you"
-        case .unshared:  return "finished, but nobody else can see it"
-        case .clutter:   return "costs nothing to leave, but hides the rest"
         }
     }
 
@@ -147,10 +160,24 @@ struct TodoPaneView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
-            Text(item.evidence)
+            Text(evidenceLine(for: item, kind: kind))
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+            // A next step is written for the next AI session and can run to a paragraph;
+            // the row shows its first sentence and keeps the rest one click away.
+            if let detail = item.detail {
+                DisclosureGroup("Details") {
+                    Text(detail)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textSecondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                }
+                .font(.system(size: 11))
+            }
             // Only on declared next steps. At-risk and clutter items already carry an
             // exact command, and a menu on every row adds a decision to every line —
             // which teaches you to ignore it on the rows where the command was faster.
@@ -159,11 +186,22 @@ struct TodoPaneView: View {
                     .padding(.top, 2)
             }
             if kind == .aiFlagged, let noteID = item.noteID, let note = store.note(id: noteID) {
-                Button("Done") { store.archive(note); Task { await load() } }
-                    .font(.system(size: 11))
+                // Fix with AI here too: an item's own text tells the founder "an AI can do
+                // this — use Fix with AI", so the button has to be where they read that.
+                HStack(spacing: 14) {
+                    Button("Done") { store.archive(note, reason: "done"); Task { await load() } }
+                        .font(.system(size: 11))
+                    Button("Open") { store.closeAllPanes(); store.selectNote(note.id) }
+                        .font(.system(size: 11))
+                    NoteTodoPromptMenu(itemNote: note)
+                }
+                .padding(.top, 2)
             }
             if let fix = item.fix {
                 // Shown, never run. This pane reports; the founder acts.
+                Text("To fix it, ask your AI assistant to run this, or paste it into Terminal:")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Theme.textSecondary)
                 Text(fix)
                     .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(Theme.textSecondary)
@@ -183,10 +221,23 @@ struct TodoPaneView: View {
         }
     }
 
+    private func evidenceLine(for item: StudioTodo.Item, kind: StudioTodo.Kind) -> String {
+        if kind == .aiFlagged, let noteID = item.noteID, let note = store.note(id: noteID) {
+            let projectTags = note.tags.filter { $0 != "todo" && $0 != "handoff" }
+            let projects = projectTags.map { tag in
+                repos.values.first(where: { $0.name.lowercased() == tag.lowercased() })?.name ?? tag
+            }
+            return TodoWording.subtitle(creator: note.creator, createdAt: note.createdAt, projects: projects)
+        }
+        return item.evidence
+    }
+
     // MARK: - Loading
 
     private func load() async {
-        loading = true
+        // Only the first load shows a spinner. Later ones — the app becoming active, the
+        // widget ticking something off — refresh in place instead of flashing the pane.
+        if !loaded { loading = true }
         defer { loading = false; loaded = true }
 
         let folder = store.dataURL.deletingLastPathComponent()
@@ -197,17 +248,37 @@ struct TodoPaneView: View {
         let result: (StudioTodo, String) = await Task.detached(priority: .userInitiated) {
             let needsStop = folder.startAccessingSecurityScopedResource()
             defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
+            let opened = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+            defer { for (u, ok) in opened where ok { u.stopAccessingSecurityScopedResource() } }
 
-            guard let snap = try? RepoSnapshotFile.read(fromFolder: folder) else {
-                return (StudioTodo.unread(),
-                        "no readable snapshot in \(folder.path) — run check-repos.sh --publish")
+            // The studio publishes repos.json, with ancestry, from a script. No customer
+            // has that script, so without it the app scans the folders granted in Repos
+            // itself (refs only: "saved only on this Mac", not ahead/behind).
+            let published = try? RepoSnapshotFile.read(fromFolder: folder)
+            var found = published
+            if found == nil, !opened.isEmpty {
+                let scanner = GitRepoScanner()
+                var scans: [GitRepoScanner.Snapshot] = []
+                for (root, _) in opened {
+                    if let one = try? scanner.scan(repositoryAt: root) {
+                        scans.append(one)
+                    } else {
+                        scans.append(contentsOf: scanner.scanAll(in: root))
+                    }
+                }
+                if !scans.isEmpty { found = RepoSnapshotFile(scans: scans, deviceLabel: "this Mac") }
+            }
+            // AI to-dos show whatever else is missing: they are the part of this list that
+            // every customer has, and the widget already shows them all (D9).
+            guard let snap = found else {
+                let t = StudioTodo.unread()
+                    .adding(StudioTodo.unmatchedAIItems(from: allNotes, repoNames: []))
+                return (t, "no project list, and no folders added in Repos · \(folder.path)")
             }
 
             // memory.md lives in each project, under folders already granted for
             // scanning. Missing is normal: only one project has one so far.
             var steps: [String: MemoryRead] = [:]
-            let opened = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
-            defer { for (u, ok) in opened where ok { u.stopAccessingSecurityScopedResource() } }
             for (root, _) in opened {
                 guard let kids = try? FileManager.default.contentsOfDirectory(
                     at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
@@ -233,19 +304,16 @@ struct TodoPaneView: View {
             }
 
             let reposSet = Set(snap.repos.map(\.name))
-            var aiFlags: [String: [Note]] = [:]
-            for note in allNotes where note.tags.contains("todo") {
-                for tag in note.tags where reposSet.contains(where: { $0.lowercased() == tag }) {
-                    aiFlags[tag, default: []].append(note)
-                }
-            }
+            let aiFlags = StudioTodo.aiFlags(from: allNotes, repoNames: reposSet)
 
             let t = StudioTodo.derive(from: snap, nextSteps: steps, aiFlags: aiFlags)
-            byName = Dictionary(uniqueKeysWithValues: snap.repos.map { ($0.name, $0) })
+                .adding(StudioTodo.unmatchedAIItems(from: allNotes, repoNames: reposSet))
+            byName = Dictionary(snap.repos.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
             let readCount = steps.values.filter { $0 != .unreadable }.count
             return (t, "\(t.items.count) items from \(snap.repos.count) repos · "
-                     + "\(readCount) memory.md · snapshot "
-                     + snap.generatedAt.formatted(.relative(presentation: .named))
+                     + "\(readCount) memory.md · "
+                     + (published == nil ? "scanned in the app" : "snapshot "
+                        + snap.generatedAt.formatted(.relative(presentation: .named)))
                      + " · \(folder.path)")
         }.value
 
@@ -283,7 +351,7 @@ struct AITodoMenu: View {
                 }
             }
             Divider()
-            Text("Copies this next step, plus the repository state it came from, to paste into the LLM.")
+            Text("Copies instructions for this step, and where the project stands, to paste into your AI assistant.")
                 .foregroundColor(Theme.textPrimary)
         } label: {
             HStack(spacing: 4) {
@@ -299,6 +367,58 @@ struct AITodoMenu: View {
         // seconds. `allowsHitTesting(false)` keeps it from eating the click
         // that reopens the menu.
         .overlay(alignment: .bottomLeading) {
+            if let feedback {
+                Text(feedback)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Theme.emerald)
+                    .transition(.opacity)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .offset(y: 20)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func showFeedback(_ text: String) {
+        withAnimation { feedback = text }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation { feedback = nil }
+        }
+    }
+}
+
+/// "Fix with AI…" on a to-do or handoff note (B6). Reached by tapping a widget row, which
+/// opens the item's handoff: the copy happens here, on a click inside the app, never from
+/// a link (D10). Same targets and the same three-second confirmation as `AITodoMenu`.
+struct NoteTodoPromptMenu: View {
+    @EnvironmentObject var store: AppStore
+    let itemNote: Note
+
+    @State private var feedback: String?
+
+    var body: some View {
+        Menu {
+            ForEach(store.availableTargets) { target in
+                Button {
+                    store.copyTodoPrompt(for: target, itemNote: itemNote)
+                    showFeedback("Copied — paste it into \(target.displayName).")
+                } label: {
+                    Text(target.displayName)
+                }
+            }
+            Divider()
+            Text("Copies instructions for this to-do, and the notes it came from, to paste into your AI assistant.")
+                .foregroundColor(Theme.textPrimary)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu")
+                Text("Fix with AI…")
+            }
+            .font(.system(size: 11))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .overlay(alignment: .bottomTrailing) {
             if let feedback {
                 Text(feedback)
                     .font(.system(size: 10.5, weight: .medium))

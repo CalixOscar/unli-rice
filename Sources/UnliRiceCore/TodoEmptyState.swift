@@ -3,7 +3,7 @@ import Foundation
 /// Pure Core presentation decision for the To do pane's empty state.
 ///
 /// Both the Mac app and the phone render through this function so neither
-/// can round partial coverage or an unreadable snapshot up to "Nothing outstanding".
+/// can round partial coverage or an unreadable snapshot up to "Nothing to do".
 public enum TodoEmptyState: Equatable, Sendable {
     /// The snapshot was not read at all.
     case unread
@@ -17,24 +17,24 @@ public enum TodoEmptyState: Equatable, Sendable {
     public var headline: String {
         switch self {
         case .unread:
-            return "Nothing to read yet."
+            return "Nothing to do yet."
         case .emptySnapshot:
-            return "This snapshot contains no repositories."
+            return "The last check found no projects."
         case .nothingOutstanding:
-            return "Nothing outstanding"
+            return "Nothing to do"
         case .qualified:
-            return "Nothing outstanding that this can see."
+            return "Nothing to do, as far as Unli Rice can see."
         }
     }
 
     public var renderedString: String {
         switch self {
         case .unread:
-            return "Nothing to read yet."
+            return "Nothing to do yet."
         case .emptySnapshot:
-            return "This snapshot contains no repositories."
+            return "The last check found no projects."
         case .nothingOutstanding:
-            return "Nothing outstanding"
+            return "Nothing to do"
         case .qualified(let message):
             return message
         }

@@ -75,13 +75,23 @@ unattended can do more than the buttons can — the janitor may only tag and fla
 ingest may only create and append, and there is no delete anywhere in the
 codebase.
 
+## Ongoing development
+
+Unli Rice is an actively maintained, evolving open-source project. Development
+uses AI-assisted workflows and continues through new features, bug fixes,
+testing, and improvements informed by practical use.
+
+See [PROJECT_NOTES.md](PROJECT_NOTES.md) for the technical record, current
+status, and planned work. Issues and pull requests are welcome.
+
 ## How this got built
 
-Vibecoded in about 6 hours using the pipeline described at
-[calmdownoscar.com/apps](https://calmdownoscar.com/apps). Backend and systems
-work isn't really my strong side — I'm more of a front-end vibe coder — so
-rather than maintain something outside my lane long-term, it's open source.
-Issues and PRs welcome.
+Built with AI-assisted development using a multi-agent method: one model plans,
+a different one tries to break the plan, and every build is checked against the
+actual `git diff` and a real test run, never a tool's own report of success. The
+method is written up at [calmdownoscar.com/how_I_work](https://www.calmdownoscar.com/how_I_work/).
+It is one of seven apps I have published on the App Store, alongside the OpenGrail
+web atlas. Backend and systems work is where I most want experienced eyes.
 
 ## Privacy
 

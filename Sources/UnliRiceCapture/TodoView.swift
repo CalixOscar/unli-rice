@@ -21,6 +21,8 @@ struct TodoView: View {
     @State private var loaded = false
     @State private var noteFor: StudioTodo.Item?
     @State private var draft = ""
+    @State private var notesByID: [UUID: Note] = [:]
+    @State private var repos: [String: RepoSnapshotFile.Repo] = [:]
 
     var body: some View {
         ZStack {
@@ -57,8 +59,8 @@ struct TodoView: View {
             Text("To do")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(Theme.textPrimary)
-            Text("From your Mac's last snapshot. Git-derived items are read-only — tap an item to leave a note "
-                 + "about it. Items flagged by AI can be marked done.")
+            Text("What's worth doing across your projects, as your Mac last saw them. Tap an item to "
+                 + "leave a note about it. Items an AI assistant suggested can be ticked off with Done.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -76,7 +78,7 @@ struct TodoView: View {
                 Text(kind.label.uppercased())
                     .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
                     .foregroundStyle(kind == .atRisk ? .orange : Theme.textSecondary)
-                Text(kindBlurb(kind))
+                Text(kind.blurb)
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.textSecondary)
                 Spacer(minLength: 0)
@@ -87,17 +89,6 @@ struct TodoView: View {
             ForEach(items) { item in
                 row(item, kind)
             }
-        }
-    }
-
-    /// Says why the group is where it is, so the ordering is not arbitrary.
-    private func kindBlurb(_ k: StudioTodo.Kind) -> String {
-        switch k {
-        case .atRisk:    return "exists on this Mac only — losing the disk loses it"
-        case .declared:  return "you wrote this down as the next step"
-        case .aiFlagged: return "an AI session flagged this, not you"
-        case .unshared:  return "finished, but nobody else can see it"
-        case .clutter:   return "costs nothing to leave, but hides the rest"
         }
     }
 
@@ -119,7 +110,7 @@ struct TodoView: View {
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
-                    Text(item.evidence)
+                    Text(evidenceLine(for: item, kind: kind))
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -127,6 +118,19 @@ struct TodoView: View {
                 }
             }
             .buttonStyle(.plain)
+
+            if let detail = item.detail {
+                DisclosureGroup("Details") {
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                }
+                .font(.system(size: 11.5))
+            }
 
             if kind == .aiFlagged, let noteID = item.noteID {
                 Button("Done") {
@@ -145,6 +149,17 @@ struct TodoView: View {
         }
     }
 
+    private func evidenceLine(for item: StudioTodo.Item, kind: StudioTodo.Kind) -> String {
+        if kind == .aiFlagged, let noteID = item.noteID, let note = notesByID[noteID] {
+            let projectTags = note.tags.filter { $0 != "todo" && $0 != "handoff" }
+            let projects = projectTags.map { tag in
+                repos.values.first(where: { $0.name.lowercased() == tag.lowercased() })?.name ?? tag
+            }
+            return TodoWording.subtitle(creator: note.creator, createdAt: note.createdAt, projects: projects)
+        }
+        return item.evidence
+    }
+
     private func card(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title).font(.system(size: 14, weight: .semibold))
@@ -161,13 +176,14 @@ struct TodoView: View {
     private func phoneEmptyBody(for state: TodoEmptyState) -> String {
         switch state {
         case .unread:
-            return status.isEmpty ? "The snapshot could not be read." : status
+            return "When an AI assistant spots something for later, it shows up here. Pull down to "
+                 + "refresh after your Mac has synced."
         case .emptySnapshot:
-            return "The snapshot was read and listed no repositories."
+            return "The last check on your Mac didn't find any projects."
         case .nothingOutstanding:
-            return "Every branch tip is on a remote, no worktree holds uncommitted work, and no memory.md names a next step."
+            return "All your work is backed up, and no project has a next step written down."
         case .qualified(let message):
-            return "Every branch tip in the snapshot is on a remote, but: \(message)."
+            return "Everything your Mac could check is backed up, but \(message)."
         }
     }
 
@@ -257,28 +273,28 @@ struct TodoView: View {
         let needsStop = folder.startAccessingSecurityScopedResource()
         defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
 
+        // AI to-dos come from the synced notes and show with or without a project list:
+        // a customer's Mac never publishes one (that is studio tooling).
+        let allNotes = (try? store.noteService.listNotes(includeArchived: false)) ?? []
+        notesByID = Dictionary(allNotes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let unclaimed = { (names: Set<String>) in
+            StudioTodo.unmatchedAIItems(from: allNotes, repoNames: names)
+        }
         do {
             let snap = try RepoSnapshotFile.read(fromFolder: folder)
             let reposSet = Set(snap.repos.map(\.name))
-            let allNotes = (try? store.noteService.listNotes(includeArchived: false)) ?? []
-            var aiFlags: [String: [Note]] = [:]
-            for note in allNotes where note.tags.contains("todo") {
-                for tag in note.tags where reposSet.contains(where: { $0.lowercased() == tag }) {
-                    aiFlags[tag, default: []].append(note)
-                }
-            }
-            todo = StudioTodo.derive(from: snap, aiFlags: aiFlags)
+            repos = Dictionary(snap.repos.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+            let aiFlags = StudioTodo.aiFlags(from: allNotes, repoNames: reposSet)
+            todo = StudioTodo.derive(from: snap, aiFlags: aiFlags).adding(unclaimed(reposSet))
             status = "\(snap.repos.count) repos · "
                    + snap.generatedAt.formatted(.relative(presentation: .named))
                    + (snap.isStale() ? " · may be out of date" : "")
         } catch let e as RepoSnapshotFile.ReadError {
-            todo = StudioTodo.unread()
-            status = e == .missing
-                ? "Your Mac has not published a snapshot yet."
-                : (e.localizedDescription)
+            todo = StudioTodo.unread().adding(unclaimed([]))
+            status = e == .missing ? "" : e.localizedDescription
         } catch {
-            todo = StudioTodo.unread()
-            status = "The snapshot could not be read."
+            todo = StudioTodo.unread().adding(unclaimed([]))
+            status = "The project list could not be read."
         }
     }
 }

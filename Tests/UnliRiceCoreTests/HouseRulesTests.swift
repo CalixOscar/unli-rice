@@ -146,4 +146,18 @@ final class HouseRulesTests: XCTestCase {
         XCTAssertThrowsError(try store.save(HouseRulesLocalState(draftText: "replacement")))
         XCTAssertEqual(try Data(contentsOf: store.fileURL), corrupt)
     }
+
+    /// Every built-in preset tells an assistant how to file a to-do the user can read,
+    /// because those notes are what fill the To Do list and widget for every customer,
+    /// not only the studio (2026-09-26).
+    func testEveryBuiltInPresetTeachesPlainToDos() {
+        for preset in HouseRulesPreset.builtIn {
+            XCTAssertTrue(preset.body.contains("`todo`"), preset.title)
+            XCTAssertTrue(preset.body.contains("For the AI picking this up:"), preset.title)
+            XCTAssertTrue(preset.body.contains("unverified"), preset.title)
+            for studioOnly in ["memory.md", "check-repos", "Handoff-ID", "calmdownoscar"] {
+                XCTAssertFalse(preset.body.contains(studioOnly), "\(preset.title) mentions \(studioOnly)")
+            }
+        }
+    }
 }

@@ -1,14 +1,8 @@
 {
   "mcpServers": {
     "unlirice": {
-      "command": "swift",
-      "args": [
-        "run",
-        "--package-path",
-        ".",
-        "--quiet",
-        "unlirice-mcp"
-      ]
+      "command": "/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp",
+      "args": []
     }
   }
 }

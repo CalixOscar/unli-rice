@@ -80,7 +80,7 @@ while let line = readLine(strippingNewline: true) {
         ) != nil
             ? "Unli Rice notes supplement the instructions already in this project."
             : "No project folder was detected here; the notes carry the user's saved preferences and past decisions."
-        let instructions = "This workspace has an Unli Rice vault: \(noteCountStr). If the question plausibly touches the user's saved notes, preferences or past decisions, call search_notes or list_notes, and read `Wiki: index`. \(contextNote)"
+        let instructions = "This workspace has an Unli Rice vault: \(noteCountStr). If the question plausibly touches the user's saved notes, preferences or past decisions, call search_notes or list_notes, and read `Wiki: index`. \(contextNote) To file a to-do: create_note with a plain-English title a non-developer understands (no file names, code names or acronyms), tag it `todo` plus the project's lowercased folder name, and start the body with `Handoff-ID: <id of your handoff note>` if you wrote one. Then write two or three plain sentences for the founder — why it matters, and what they must do themselves or \"An AI can do this\" — and put every technical detail after a line reading `For the AI picking this up:`. Close a to-do only if you finished it in this session: archive_note with the commit or evidence as the reason."
         JSONRPC.writeLine(JSONRPC.result(id: id, [
             "protocolVersion": "2024-11-05",
             "capabilities": ["tools": [:]],
