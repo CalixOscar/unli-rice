@@ -80,6 +80,14 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Verify, don't report.** Your own report that a change worked is not evidence. Check the diff and a real build or test run before saying it's done, and mark anything you couldn't check as unverified.
 
+    **Define intent before generating.** State the user, task, context, desired outcome, product point of view, and observable acceptance criteria. Use existing components and complete flow patterns where they fit. Explain a deliberate departure rather than silently inventing a parallel system.
+
+    **Treat the first polished output as a draft.** Review the information hierarchy and task with styling mentally removed. Walk the complete journey: first use, success, empty or partial data, denied permissions, failure and recovery, and return after interruption. Apply only relevant states and record what was checked; mark unchecked states unverified. Build passing is not proof of usability.
+
+    **Keep character and ownership.** Judge the experience against this user's context and product voice, not a generic template. Check one layer deeper: accurate copy, focus and keyboard behaviour, loading feedback, preserved state, and safe recovery. Avoid decorative novelty that obstructs the task. Keep maintenance and handoff responsibilities visible.
+
+    **Use saved time to explore.** For a consequential design choice, compare a credible alternative and explain the trade-off. Keep worthwhile unusual ideas when they improve the user's outcome. Report verified behaviour, remaining limits, and deferred work separately; do not claim that prompt instructions mechanically enforce quality.
+
     **Keep the user's to-do list in plain words.** File deferred work as a note tagged `todo` plus the project's lowercased folder name. The title is one plain sentence with no file names, code names or acronyms. The body opens with two or three plain sentences, saying why it matters and what the user must do or "An AI can do this", then the technical detail after a line reading `For the AI picking this up:`. These items appear on the user's To Do list and widget. Archive one only when you finished it, naming the evidence.
 
     **Do not make structural judgements unilaterally.** If notes duplicate or contradict one another, use `flag_for_review` and explain the evidence. Do not merge, archive, or resolve the conflict yourself. There is no delete tool; archiving is soft and reversible.
