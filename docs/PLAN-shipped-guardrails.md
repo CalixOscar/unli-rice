@@ -107,6 +107,24 @@ built-in to contain "Exception Guardrail", so the body ends with one.
   `xcodegen generate && swift build && swift test`, plus Phase 1 checks 1, 3 and 4
   under Verification. Checks 2 and 5 are now asserted by the tests.
 
+### Verified on the Mac — 2026-10-17
+
+- `xcodegen generate && swift build && swift test`: **382 tests, 0 failures, 2
+  skipped**. Built with `--scratch-path /tmp/unlirice-spm-build`, because the in-tree
+  `.build` fails codesign in this iCloud-synced folder.
+- **Check 1 passed.** Under More → "What your AI should always do", the gallery shows
+  "Engineering Guardrails" fourth, at ~702 tokens and 2,803 characters. (Check 1 above
+  still says "Engineering Hygiene … beside the two existing presets"; that text is stale.)
+- **Check 3 passed.** After "Use as Draft", `events.jsonl` was byte-identical (same
+  SHA-1, 4 events) and only `house-rules.json` changed.
+- **Check 4 passed.** A draft edit survived quit and relaunch in `draftText`, and the
+  built-in was unchanged. Built-ins cannot be edited in the gallery, so the edit lives
+  in the draft, not in `customPresets` as check 4 says.
+- Checks 3 and 4 ran against a throwaway vault (`UNLIRICE_DATA_PATH`). The
+  development-signed `dist/` build cannot open the App Store build's app group
+  container, and showed "The House Rules state file is unavailable." That is a
+  signing limit, not a defect in this change.
+
 ### The shipped text
 
 ```text

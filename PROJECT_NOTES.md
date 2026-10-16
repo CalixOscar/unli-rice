@@ -2302,3 +2302,20 @@ This is the first change built under the new pipeline: two Haiku `builder-light`
 steps, then the planner reviewed the diff. **Unverified:** the build ran in a cloud
 container with no Swift, so the new tests (`testBuiltInPresetIDsAreUnique`,
 `testEngineeringGuardrailsPresetShipsNoStudioSpecifics`) have not been run.
+
+## Engineering Guardrails verified on the Mac (2026-10-17)
+
+The "Unverified" in the entry above is closed. On the Mac, `swift test` ran **382
+tests, 0 failures, 2 skipped**, including both new `HouseRulesTests`. Plan checks 1, 3
+and 4 passed: the gallery shows the preset, choosing it left `events.jsonl`
+byte-identical, and a draft edit survived a relaunch while the built-in stayed
+unchanged. Details are in `docs/PLAN-shipped-guardrails.md` § "Verified on the Mac".
+
+One lesson is worth keeping. A development-signed `dist/` build cannot open the App
+Store build's app group container, so House Rules reports "state file is unavailable"
+and the real vault is out of reach. Reading the vault through the `unlirice` MCP then
+shows the App Store copy's data, not the build under test. A check that "nothing was
+written" proves nothing in that setup. The working setup is the unsigned debug binary
+pointed at a throwaway vault:
+`UNLIRICE_DATA_PATH=<scratch>/events.jsonl /tmp/unlirice-spm-build/debug/UnliRiceApp`.
+Every file it writes can then be read directly.
