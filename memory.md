@@ -22,40 +22,40 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On branch `chore/plan-high-build-low` off `main` (the repo is
-**public**: `github.com/CalixOscar/unli-rice`). This pass changed docs and agent
-config only, no Swift. App state is unchanged from the last pass: 380 tests, 0
-failures, 2 skipped (verified: `swift test` 2026-09-03; not re-run this pass because
-no source changed, and the cloud container has no `swift`). Both targets are set to
-**1.2 (6)**. **Neither has been archived or uploaded.** The App Store install is
-still Mac **1.1 (4)**.
-**Task:** The founder changed the pipeline to **plan high, build low**. Claude and
-Codex both plan on their best models and build with cheaper ones: Claude through
-`.claude/agents/builder.md` (Sonnet) and `builder-light.md` (Haiku), Codex through a
-smaller Codex model. Antigravity leaves the pipeline. Whichever tool didn't plan a
-feature writes its pre-mortem and a new **post-mortem**, both in
-`docs/dialogue/<slug>.md`, the Claude-Codex bridge. Decision recorded in
-`PROJECT_NOTES.md` § "Plan high, build low". Still unreleased from earlier passes:
-the sidebar lag fix `51ffb83` (never watched in the running app), plus `46da148`,
-`958d9fd`, `1b01fb3`, `92be76e`, `37b4258`.
-**Files touched:** `CLAUDE.md` (the "What Claude does here" section rewritten);
-`AGENTS.md` (new "How work moves" section, and the note-contract pointer no longer
-says swarm); `.claude/agents/builder.md`, `.claude/agents/builder-light.md` (new);
-`docs/dialogue/README.md` (new); `.gitignore` (`.claude/agents/` is now
-tracked, the rest of `.claude/` is still ignored); `PROJECT_NOTES.md` (one
-appended section);
-`memory.md`.
-**Next step:** (1) The founder updates the vault's `_AI Context/04_Guardrails.md`.
-This session could not reach the vault, so the "tool roles" and "pipeline"
-sections there still describe the five-stage swarm pipeline, **and the vault wins
-over this repo until that changes.** The replacement text was drafted in the
-session. If it is lost, rebuild it from `PROJECT_NOTES.md` § "Plan high, build low"
-and `docs/dialogue/README.md`. Then re-run `install-studio-hooks.sh` if any script
-changed. (2) Add a `build` profile with a smaller model to `~/.codex/config.toml` on
-the Mac. (3) Carried over: watch the sidebar in the running app before archiving
-(step 2 of `docs/PLAN-sidebar-pane-switch-lag.md` if it still lags), then the
-founder archives and uploads both targets. `_AI Context/07_Prelaunch_Post_Mortem.md`
-has still not been run before distribution.
+**Status:** On branch `chore/plan-high-build-low` (pushed; **not merged to
+`main`**). The public repo is `github.com/CalixOscar/unli-rice`. The last *verified*
+suite is 380 tests, 0 failures, 2 skipped (verified: `swift test` 2026-09-03).
+**This pass's Swift is unverified.** It was built in a cloud container with no
+Swift, so nothing has been compiled or run. After this pass the expected count is
+382. Both targets are set to **1.2 (6)**, and neither has been archived or uploaded.
+**Task:** Two pieces landed. (1) The pipeline is now **plan high, build low**
+(`90f7b6e`): Claude and Codex each plan on their best model and build with cheaper
+ones, the builders are `.claude/agents/builder.md` (Sonnet) and `builder-light.md`
+(Haiku), and the Claude↔Codex bridge is `docs/dialogue/`. (2) Phase 1 of
+`docs/PLAN-shipped-guardrails.md` is built. A fourth built-in House Rules preset,
+**Engineering Guardrails** (`engineering-guardrails`), ships the engineering hygiene
+and the plan-high, build-low workflow generically, with no tool or studio names and
+the note-safety basics first. The founder skipped the Codex pre-mortem; the plan
+header records the skip. Both build steps went to Haiku builders and the planner
+reviewed the diff. Phase 2 (installing hooks into user repos) was **not** built.
+Still unreleased from earlier: the sidebar lag fix `51ffb83` (never watched in the
+running app), `46da148`, `958d9fd`, `1b01fb3`, `92be76e`, `37b4258`.
+**Files touched:** `Sources/UnliRiceCore/HouseRulesPreset.swift` (the fourth
+`builtIn` entry and `engineeringGuardrailsBody`);
+`Tests/UnliRiceCoreTests/HouseRulesTests.swift` (2 tests);
+`docs/PLAN-shipped-guardrails.md` (header, and the "Phase 1 as built" section);
+`docs/dialogue/shipped-guardrails.md` (new); `PROJECT_NOTES.md` (appended);
+`memory.md`. From the previous step: `CLAUDE.md`, `AGENTS.md`, `.claude/agents/`,
+`docs/dialogue/README.md`, `.gitignore`.
+**Next step:** (1) On the Mac, check out this branch and run `xcodegen generate &&
+swift build && swift test`, expecting 382 tests, 0 failures. Then open the House
+Rules gallery and run plan Verification checks 1, 3 and 4. Only then merge to `main`.
+(2) Codex writes the post-mortem in `docs/dialogue/shipped-guardrails.md`. (3) The
+founder pastes the new pipeline into the vault's `_AI Context/04_Guardrails.md`,
+which still describes the swarm and overrides the repo until it changes. (4) Add a
+`build` profile to `~/.codex/config.toml`. (5) Carried over: watch the sidebar
+before archiving, then the founder archives and uploads both targets after
+`_AI Context/07_Prelaunch_Post_Mortem.md`.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do

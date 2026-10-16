@@ -22,6 +22,22 @@ final class HouseRulesTests: XCTestCase {
         XCTAssertTrue(standard.body.contains("`janitor` or `ingest`"))
     }
 
+    func testBuiltInPresetIDsAreUnique() {
+        let ids = HouseRulesPreset.builtIn.map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count)
+    }
+
+    func testEngineeringGuardrailsPresetShipsNoStudioSpecifics() throws {
+        let preset = try XCTUnwrap(HouseRulesPreset.builtIn.first { $0.id == "engineering-guardrails" })
+        XCTAssertLessThan(preset.approximateTokenCount, 1_000)
+        for studioOnly in ["calmdownoscar", "Spark", "Antigravity", "App Store", "Claude", "Codex", "Sonnet", "Haiku"] {
+            XCTAssertFalse(preset.body.localizedCaseInsensitiveContains(studioOnly), studioOnly)
+        }
+        XCTAssertTrue(preset.body.contains("`janitor` or `ingest`"))
+        XCTAssertTrue(preset.body.contains("flag_for_review"))
+        XCTAssertTrue(preset.body.contains("docs/dialogue/"))
+    }
+
     func testImporterValidatesAndSuffixesDuplicateTitles() throws {
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         let preset = try HouseRulesPresetImporter.makePreset(

@@ -2278,3 +2278,27 @@ yet**: the session that made this change ran in a cloud container without the va
 Repo-side changes are in `CLAUDE.md`, `AGENTS.md`, `.claude/agents/`, and
 `docs/dialogue/README.md`. Plans written before this date say "the swarm". Read that
 as "the planner's builder models".
+
+## Engineering Guardrails ships as a built-in preset (2026-10-16)
+
+Phase 1 of `docs/PLAN-shipped-guardrails.md` is built. It adds a fourth built-in House
+Rules preset, `engineering-guardrails`, beside Standard, Codebase and Minimalist. The
+gallery renders `builtIn` generically, so no UI code changed, and the drafts-only
+guarantee in `HouseRulesPreset`'s docstring is untouched.
+
+The plan changed in three ways before the build. All three were founder decisions or
+found while revising the plan:
+- **The preset ships the plan-high, build-low workflow, not only hygiene.** With the
+  tool names removed it stops being studio policy. The shipped text names no vendor
+  or model, and a test enforces that by rejecting "Claude", "Codex", "Sonnet",
+  "Haiku", "Antigravity", "calmdownoscar", "Spark" and "App Store".
+- **The body opens with the note-safety basics.** Choosing a preset replaces the
+  House Rules. A hygiene-only preset would therefore silently drop `source` identity,
+  the reserved `janitor`/`ingest` names, and flag-don't-resolve.
+- **The Codex pre-mortem was skipped at founder direction**, and the plan's header
+  records it. The post-mortem is open in `docs/dialogue/shipped-guardrails.md`.
+
+This is the first change built under the new pipeline: two Haiku `builder-light`
+steps, then the planner reviewed the diff. **Unverified:** the build ran in a cloud
+container with no Swift, so the new tests (`testBuiltInPresetIDsAreUnique`,
+`testEngineeringGuardrailsPresetShipsNoStudioSpecifics`) have not been run.

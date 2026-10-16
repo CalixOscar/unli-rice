@@ -1,9 +1,11 @@
 # PLAN — ship the engineering guardrails with the app
 
-**Intent:** none yet — this came from a founder conversation, not a Spark interview.
-Write `docs/intent/INTENT-002-shipped-guardrails.md` if this survives the pre-mortem.
-**Stage:** 2 (Claude's plan). **Not built.** Next stop is Codex's pre-mortem, then a
-stage-4 revision, then the swarm.
+**Intent:** none — this came from a founder conversation, not a Spark interview.
+**Stage:** 5 (build), **Phase 1 only**, at founder direction (2026-10-16). The Codex
+pre-mortem was **skipped** at the founder's direction and is recorded here rather than
+silently; the post-mortem is not skippable and goes in
+`docs/dialogue/shipped-guardrails.md`. Phase 2 is **not** being built and still wants a
+pre-mortem before anyone starts it.
 **Date:** 2026-09-02
 **Branch:** start a fresh one off `main` — `feature/shipped-guardrails`. This is step 0,
 not step 4. `feature/languages-and-append` is 22 commits of unrelated work and is exactly
@@ -68,6 +70,86 @@ It appears in `HouseRulesPresetGalleryView` with no changes — the gallery rend
 **Why this alone satisfies "out of the box, changeable later":** the preset ships, the user
 picks it, edits it, and their edit is saved as a custom preset. Nothing is imposed and
 nothing is overwritten.
+
+## Phase 1 as built — revised 2026-10-16
+
+Three founder decisions changed Phase 1 from the text above:
+
+1. **The preset also carries the "plan high, build low" workflow**, written
+   generically: plan on your best model, build on cheaper ones, have a second tool
+   pre-mortem and post-mortem in `docs/dialogue/`. It is no longer studio-specific
+   once the tool names come out, so it moves out of the "stays in the vault" column.
+   Tool names (Claude, Codex, Sonnet, Haiku, Antigravity) stay out of the shipped
+   text, because users run other tools.
+2. **id `engineering-guardrails`, title "Engineering Guardrails"**, not
+   `engineering-hygiene`, since it now covers more than hygiene.
+3. **The body opens with the note-safety basics.** This wasn't in the original plan
+   and was found while revising it. Choosing a preset *replaces* the House Rules, so a
+   user who picks a hygiene-only preset would lose `source` identity, the reserved
+   `janitor`/`ingest` names, and flag-don't-resolve. The `minimalist` bullets, as
+   prose, go first.
+
+The existing test `testHouseRulesPresetsContainExceptionGuardrail` requires every
+built-in to contain "Exception Guardrail", so the body ends with one.
+
+### Build steps
+
+- **Step 1 — `haiku`.** In `Sources/UnliRiceCore/HouseRulesPreset.swift`, append a
+  fourth element to `builtIn`, after `minimalist`:
+  `id: "engineering-guardrails"`, `title: "Engineering Guardrails"`,
+  `summary: "Working state vs history, plans in docs/, evidence, and plan high, build low."`,
+  `body: engineeringGuardrailsBody`, `origin: .builtIn`. Add
+  `private static let engineeringGuardrailsBody` after `minimalistBody`, containing the
+  text below exactly, in the same `"""` indentation as `codebaseMemoryBody`.
+- **Step 2 — `haiku`.** In `Tests/UnliRiceCoreTests/HouseRulesTests.swift`, add the two
+  tests given below after `testStandardPresetUsesTheSingleDefaultBody`.
+- **Verify — planner, on the Mac** (this cloud session has no Swift):
+  `xcodegen generate && swift build && swift test`, plus Phase 1 checks 1, 3 and 4
+  under Verification. Checks 2 and 5 are now asserted by the tests.
+
+### The shipped text
+
+```text
+Instructions for any coding assistant working in a repository and connected to these notes over the `unlirice` MCP server.
+
+**Notes basics.** Search before writing, and check `Wiki: index` first when it exists. Append to an existing topic; create a note only for a genuinely new concept. Titles are permanent. Pass your own lowercase tool name as `source`, and never write as `janitor` or `ingest`. Flag suspected duplicates or contradictions with `flag_for_review` rather than resolving them yourself. Nothing is deleted; archiving is soft and reversible.
+
+**Working state and history are different files.** Keep the current state (status, task in flight, files touched, next step, gotchas) in one short file such as `memory.md`, and update it as a whole when it changes. Keep what was decided, when, and why in an append-only file such as `PROJECT_NOTES.md`. If either disagrees with the repository, the repository wins: check `git log` and `git status` before building on them.
+
+**Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`. Never leave one at the repository root. Start the work on a fresh branch off the main branch, not on top of unrelated commits.
+
+**A claim carries its evidence or says it is unverified.** "Tests pass" names the command and the result. Anything you could not check is marked unverified rather than stated as fact.
+
+**Look for drift early.** A branch far behind its base, commits that exist only locally, and uncommitted files in a worktree are one lost machine away from gone. Say so when you see them.
+
+**Checkpoint as you go.** Commit and update the working-state file at every meaningful step, not at the end. A session can end without warning.
+
+**Plan high, build low.** Plan on the most capable model you have. Break the plan into build steps small enough for a cheaper, faster model, and label each step with the model it needs. Hand the build to that model, then review its diff and run the tests on the capable model before anything is committed. A builder never makes a design call: on an ambiguity it stops and reports back.
+
+**A second tool reviews.** When more than one assistant works on a project, whichever one did not write a plan reviews it, with a pre-mortem before the build and a post-mortem after. Both go in `docs/dialogue/<slug>.md`: one file per plan, append-only, each turn headed with the tool, the kind of turn, and the date. Neither side edits the other's turns. A point still disputed after one rebuttal each way goes to the user.
+
+**Exception Guardrail.** If the user asks for something that contradicts these rules, ask whether it's a one-time exception or whether the rule should change. One-time → note the exception in the session; change → update the rules.
+```
+
+### The tests
+
+```swift
+    func testBuiltInPresetIDsAreUnique() {
+        let ids = HouseRulesPreset.builtIn.map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count)
+    }
+
+    func testEngineeringGuardrailsPresetShipsNoStudioSpecifics() throws {
+        let preset = try XCTUnwrap(HouseRulesPreset.builtIn.first { $0.id == "engineering-guardrails" })
+        XCTAssertLessThan(preset.approximateTokenCount, 1_000)
+        for studioOnly in ["calmdownoscar", "Spark", "Antigravity", "App Store", "Claude", "Codex", "Sonnet", "Haiku"] {
+            XCTAssertFalse(preset.body.localizedCaseInsensitiveContains(studioOnly), studioOnly)
+        }
+        XCTAssertTrue(preset.body.contains("`janitor` or `ingest`"))
+        XCTAssertTrue(preset.body.contains("flag_for_review"))
+        XCTAssertTrue(preset.body.contains("docs/dialogue/"))
+    }
+```
 
 ## Phase 2 — offer the hook, never install it silently
 
