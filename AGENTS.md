@@ -20,13 +20,34 @@ here.
 > Connect status), mark it explicitly as unverified instead of stating it as
 > fact.
 
+## How work moves — plan high, build low
+
+The studio guardrails in the vault are authoritative. This is the part Codex needs
+when it is working in this repo.
+
+- **Claude and Codex are both planners.** Each one plans on its best model and
+  builds with a cheaper one: Claude uses Sonnet or Haiku subagents, and Codex uses a
+  smaller Codex model (a `build` profile in `~/.codex/config.toml` is the easy way
+  to switch). Antigravity no longer builds plans.
+- **For any one plan, the planner owns it end to end.** That means the
+  `docs/PLAN-<slug>.md`, handing build steps to the cheaper model, reviewing that
+  model's diff, running the tests, and updating `memory.md`. A builder model never
+  makes a design call. On an ambiguity it stops and reports back.
+- **The other tool reviews**, on its best model. It writes the pre-mortem before the
+  build and the post-mortem after, both in `docs/dialogue/<slug>.md`. That file is
+  the bridge between Claude and Codex: append-only, one file per plan. The format
+  is in `docs/dialogue/README.md`.
+- Older plans say "the swarm builds it". Read that as "the planner's builder
+  models build it".
+
 ## Open plan — Note Contract validation
 
 `docs/PLAN-note-contract.md` is a stage-2 plan — architecture, files to
 touch, edge cases, gotchas — for structural validation on the MCP write path,
 so `create_note`/`append_to_note` stop accepting note shapes that contradict
 themselves. **Not built, and not yet pre-mortemed.** Next step is Codex
-against §9 "Open questions", then Claude revises, then the swarm builds it.
+against §9 "Open questions", then Claude revises, then Claude's builder models
+build it.
 If you are picking up implementation work here, read it first rather than
 re-deriving the design. Left by Claude Code 2026-08-29.
 

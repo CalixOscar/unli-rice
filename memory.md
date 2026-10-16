@@ -22,55 +22,40 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `main`, working tree clean, everything pushed to `origin/main`
-(the repo is **public**: `github.com/CalixOscar/unli-rice`). 380 tests, 0
-failures, 2 skipped (verified: `swift test` 2026-09-03, **after** this pass's
-`ContentView.swift` change). **Both targets ship as 1.2 (6)** at founder
-decision: `MARKETING_VERSION "1.2"`, `CURRENT_PROJECT_VERSION "6"` for Mac and
-Capture alike, confirmed in the generated `project.pbxproj` across all four
-configurations with no stale `5` left (`xcodegen generate` re-run). Mac skips
-build 5 entirely, which is fine — its last accepted build is **4**: the App
-Store install is still **1.1 (4)**, read from `/Applications/Unli
-Rice.app/Contents/Info.plist` with `_MASReceipt` present. The "build 5 already
-in the App Store" the founder recalled was the **Capture** TestFlight upload of
-2026-08-13, a different target. **Neither 1.2 build has been archived or
-uploaded** — that is the founder's step, not this session's.
-**Task:** Three pieces landed this pass. (1) The sidebar pane-switch lag fix —
-the three blurred `GeometryReader` circles moved out of `ContentView.body` into
-a standalone `BackgroundBlobs` that reads nothing from `store`, plus
-`.drawingGroup()`; the body observes `store`, so those blurs were re-rendering
-on all ~19 `@Published` writes a single sidebar click produces (`51ffb83`).
-**Builds clean but has not been watched in the running app** — the founder had
-believed this was already fixed; it never was. What *was* fixed earlier is a
-different sidebar bug, `e67f29f` (`closeAllPanes` never cleared `showingRepos`).
-(2) `docs/PLAN-sidebar-pane-switch-lag.md` records the mechanism, the step that
-landed, and the `@Published enum Pane` collapse deliberately not attempted
-(`16ae1d9`). Both targets were then set to 1.2 (6) for release. (3) One current Mac screenshot set, 8 panes, recaptured same-day at
-3024×1898 with a 2880×1800 set for App Store Connect; three blurs applied — the
-founder's first name and his son's name on Home, and one unreleased project name
-on To do (`01a1c3a`, `cd77f1b`). The other project names in that shot were
-checked against `origin/main` first and are already public there.
-Everything from the previous pass (`46da148` toast, `958d9fd` rating prompt,
-`1b01fb3` iPad copy, `92be76e` version bump, `37b4258` screenshots) is committed
-and still **unreleased** — it ships whenever the founder next archives.
-**Files touched:** `Sources/UnliRice/ContentView.swift` (`BackgroundBlobs`, the
-blur moved out of the observing body); `docs/PLAN-sidebar-pane-switch-lag.md`
-(new); `Screenshots/AppStore-Mac-2026-09-03/` (8 shots plus the
-`padded-2880x1800/` set, replacing the 4-shot set); `project.yml` (Mac
-`CURRENT_PROJECT_VERSION` 5 to 6); `memory.md`. No test file changed this pass.
-**Next step:** Watch the sidebar in the running app before archiving, and
-decide whether `51ffb83` actually fixed it — click To do / Repos / Notes / Home
-in sequence and see whether single clicks land. That observation has never been
-made; every claim about this lag, including the fix, is code-reading only, and
-1.2 (6) ships it either way. If it still lags, the remaining suspect is the 17
-`@Published` `Bool`s themselves (`closeAllPanes()`, `AppStore.swift:1094`)
-wanting a single `@Published enum Pane` — step 2 of
-`docs/PLAN-sidebar-pane-switch-lag.md`, swarm-shaped, not a quick fix. Then the
-founder archives and uploads both targets themselves; this session did not and
-will not. TestFlight "What to Test" copy for both apps was drafted in the
-session that set these numbers and is not stored in the repo — rewrite it from
-`git log 71e2a6d..HEAD` if it is needed again. `_AI Context/07_Prelaunch_Post_Mortem.md` still has not been run before
-any future distribution action — carried over, not touched.
+**Status:** On branch `chore/plan-high-build-low` off `main` (the repo is
+**public**: `github.com/CalixOscar/unli-rice`). This pass changed docs and agent
+config only, no Swift. App state is unchanged from the last pass: 380 tests, 0
+failures, 2 skipped (verified: `swift test` 2026-09-03; not re-run this pass because
+no source changed, and the cloud container has no `swift`). Both targets are set to
+**1.2 (6)**. **Neither has been archived or uploaded.** The App Store install is
+still Mac **1.1 (4)**.
+**Task:** The founder changed the pipeline to **plan high, build low**. Claude and
+Codex both plan on their best models and build with cheaper ones: Claude through
+`.claude/agents/builder.md` (Sonnet) and `builder-light.md` (Haiku), Codex through a
+smaller Codex model. Antigravity leaves the pipeline. Whichever tool didn't plan a
+feature writes its pre-mortem and a new **post-mortem**, both in
+`docs/dialogue/<slug>.md`, the Claude-Codex bridge. Decision recorded in
+`PROJECT_NOTES.md` § "Plan high, build low". Still unreleased from earlier passes:
+the sidebar lag fix `51ffb83` (never watched in the running app), plus `46da148`,
+`958d9fd`, `1b01fb3`, `92be76e`, `37b4258`.
+**Files touched:** `CLAUDE.md` (the "What Claude does here" section rewritten);
+`AGENTS.md` (new "How work moves" section, and the note-contract pointer no longer
+says swarm); `.claude/agents/builder.md`, `.claude/agents/builder-light.md` (new);
+`docs/dialogue/README.md` (new); `.gitignore` (`.claude/agents/` is now
+tracked, the rest of `.claude/` is still ignored); `PROJECT_NOTES.md` (one
+appended section);
+`memory.md`.
+**Next step:** (1) The founder updates the vault's `_AI Context/04_Guardrails.md`.
+This session could not reach the vault, so the "tool roles" and "pipeline"
+sections there still describe the five-stage swarm pipeline, **and the vault wins
+over this repo until that changes.** The replacement text was drafted in the
+session. If it is lost, rebuild it from `PROJECT_NOTES.md` § "Plan high, build low"
+and `docs/dialogue/README.md`. Then re-run `install-studio-hooks.sh` if any script
+changed. (2) Add a `build` profile with a smaller model to `~/.codex/config.toml` on
+the Mac. (3) Carried over: watch the sidebar in the running app before archiving
+(step 2 of `docs/PLAN-sidebar-pane-switch-lag.md` if it still lags), then the
+founder archives and uploads both targets. `_AI Context/07_Prelaunch_Post_Mortem.md`
+has still not been run before distribution.
 **Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
@@ -97,8 +82,10 @@ said "commit the `project.yml` bump" after `92be76e` had committed it, and a
 session was spent re-deriving that. Check `git log -10` before acting on
 anything here. macOS screenshot filenames contain a narrow no-break space
 (U+202F) before `AM`/`PM`, so a normal space in a shell path silently fails as
-"No such file" — glob them (`*10.32.22*`) rather than typing the name.
-**Left by:** Claude Opus 5 2026-09-03
+"No such file" — glob them (`*10.32.22*`) rather than typing the name. Plans dated before
+2026-10-16 say "the swarm builds it": read that as the planner's builder models.
+The `builder` subagents load only when Claude Code starts in the repo root.
+**Left by:** Claude Opus 5.5 2026-10-16
 
 ## Open hypotheses
 

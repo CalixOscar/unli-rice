@@ -8,7 +8,9 @@ default.profraw
 
 # Local tool state and agent worktrees can contain transcripts, prompts, and
 # machine-specific paths. Project-wide agent instructions belong in AGENTS.md.
-.claude/
+.claude/*
+# Builder subagent definitions are shared config; the rest of .claude/ stays local.
+!.claude/agents/
 .codex/
 
 # Credentials and Apple signing material must never enter the repository.

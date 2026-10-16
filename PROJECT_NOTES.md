@@ -2250,3 +2250,31 @@ Verified: `UnliRice` (macOS) and `UnliRiceCapture` (iOS) both BUILD SUCCEEDED;
 first-session gate, the `0`-means-uncounted rule, session counting, and legacy JSON
 without `sessionCount`. Full suite `swift test`: 380 tests, 2 skipped, 0 failures
 (was 375 before this change).
+
+## Plan high, build low: the pipeline loses the swarm (2026-10-16)
+
+Founder decision. Claude and Codex both plan on their best models and build with
+cheaper ones. Claude uses Sonnet through the `builder` subagent and Haiku through
+`builder-light`, both defined in `.claude/agents/`. Codex uses a smaller Codex model.
+Antigravity leaves the pipeline. It is still a supported MCP client of the app, but
+it no longer receives plans.
+
+The planner/reviewer roles are now per plan rather than fixed. Before this, Claude
+always planned and Codex always pre-mortemed. Now whichever tool plans a feature owns
+it end to end: plan, build dispatch, review of the builder's diff, tests, and
+`memory.md`. The other tool writes the pre-mortem and a new post-mortem stage after
+the build. Both go in `docs/dialogue/<slug>.md`, which is append-only with one file
+per plan. That file is the bridge. It was chosen over `unlirice` notes because it is
+versioned with the code it argues about, and because it works when the MCP server
+isn't running.
+
+The change in risk: cheaper builders make more local mistakes than the swarm's large
+passes did, so every builder diff gets a best-model review before commit. Steps are
+labelled `sonnet` or `haiku` in the plan, which keeps "does this step need judgement?"
+a planning decision rather than the builder's own.
+
+The vault's `04_Guardrails.md` is authoritative for this and **has not been updated
+yet**: the session that made this change ran in a cloud container without the vault.
+Repo-side changes are in `CLAUDE.md`, `AGENTS.md`, `.claude/agents/`, and
+`docs/dialogue/README.md`. Plans written before this date say "the swarm". Read that
+as "the planner's builder models".
