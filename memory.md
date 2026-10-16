@@ -26,7 +26,8 @@
 `main`**). The public repo is `github.com/CalixOscar/unli-rice`. The suite is **382
 tests, 0 failures, 2 skipped** (verified: `swift test --scratch-path
 /tmp/unlirice-spm-build` 2026-10-17). Plan Phase 1 checks 1, 3 and 4 passed (verified
-2026-10-17, on a throwaway vault). Local `main` has 6 commits (`cbfa54a`..`6918f2d`)
+2026-10-17, on a throwaway vault). A Codex review of the Codex builder setup was dispatched 2026-10-17 through the bridge
+(output due in `docs/dialogue/codex-builder-setup.md`). Local `main` has 6 commits (`cbfa54a`..`6918f2d`)
 that are neither on `origin/main` nor on this branch. Both targets are set to **1.2
 (6)**, and neither has been archived or uploaded.
 **Task:** "Plan high, build low" (`90f7b6e`) and the **Engineering Guardrails**
@@ -34,28 +35,33 @@ built-in House Rules preset (`d57737c`, Phase 1 of `docs/PLAN-shipped-guardrails
 are built and verified on the Mac. Outside the repo, the vault's
 `_AI Context/04_Guardrails.md` now describes the new pipeline: Tool roles, the
 six-step Tier 2 pipeline, the bridge, three gates, and Astra removed. That vault change
-is **uncommitted in the vault's git**. `~/.codex/config.toml` gained
-`[profiles.build]` (`gpt-reserve`, medium) and `[profiles.build-light]` (`gpt-6-luna`,
-low). Phase 2 (installing hooks into user repos) was **not** built. Still unreleased
+is **uncommitted in the vault's git**. Codex build profiles are
+`~/.codex/build.config.toml` (`gpt-reserve`, medium) and `build-light.config.toml`
+(`gpt-6-luna`, low) (verified: `codex -p <name> exec` banner 2026-10-17); the bridge
+(`~/.tools/codex-mcp-bridge`, not a git repo) gained a `profile` option. Phase 2 (installing hooks into user repos) was **not** built. Still unreleased
 from earlier: the sidebar lag fix `51ffb83` (never watched in the running app),
 `46da148`, `958d9fd`, `1b01fb3`, `92be76e`, `37b4258`.
 **Files touched:** This session: `docs/PLAN-shipped-guardrails.md` ("Verified on the
-Mac"), `PROJECT_NOTES.md` (appended), `memory.md`. Outside the repo: the vault's
-`_AI Context/04_Guardrails.md`, and `~/.codex/config.toml` (backup at
-`~/.codex/config.toml.bak-2026-10-17`). Earlier on this branch:
+Mac"), `PROJECT_NOTES.md` (appended), `AGENTS.md` (Codex profile line), `memory.md`.
+Outside the repo: the vault's `_AI Context/04_Guardrails.md`,
+`~/.codex/build.config.toml`, `~/.codex/build-light.config.toml`, and
+`~/.tools/codex-mcp-bridge/index.js`. `~/.codex/config.toml` is unchanged (backups
+`config.toml.bak-2026-10-17*`). Earlier on this branch:
 `Sources/UnliRiceCore/HouseRulesPreset.swift`,
 `Tests/UnliRiceCoreTests/HouseRulesTests.swift`,
 `docs/dialogue/shipped-guardrails.md`, `docs/dialogue/README.md`, `CLAUDE.md`,
 `AGENTS.md`, `.claude/agents/`, `.gitignore`.
-**Next step:** (1) The founder decides whether to merge this branch into `main` and
+**Next step:** (0) Check Codex's review run: its `logs/codex-<stamp>.result.json`,
+then read `docs/dialogue/codex-builder-setup.md` and respond as planner. (1) The founder decides whether to merge this branch into `main` and
 push. Local `main`'s 6 unpushed commits come along, and `memory.md` /
 `PROJECT_NOTES.md` will likely conflict. (2) Codex writes the post-mortem in
 `docs/dialogue/shipped-guardrails.md`. (3) The founder commits the vault's
-`04_Guardrails.md`. (4) The Codex bridge has no `--profile` option; the planner passes
-the profile's model and effort by hand until one is added. (5) Carried over: watch the
+`04_Guardrails.md`. (5) Carried over: watch the
 sidebar before archiving, then the founder archives and uploads both targets after
 `_AI Context/07_Prelaunch_Post_Mortem.md`.
-**Gotchas:** **Build with `--scratch-path /tmp/unlirice-spm-build`.** The in-tree
+**Gotchas:** **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
+`[profiles.*]` in `config.toml` is ignored, and `-p` works only on runtime commands
+(`exec`, not `doctor`). **Build with `--scratch-path /tmp/unlirice-spm-build`.** The in-tree
 `.build` fails codesign ("resource fork, Finder information, or similar detritus") in
 this iCloud folder; `Scripts/make-app.sh` (release) still works.
 **A development-signed build cannot open the App Store build's app group container**,

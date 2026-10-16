@@ -27,8 +27,9 @@ when it is working in this repo.
 
 - **Claude and Codex are both planners.** Each one plans on its best model and
   builds with a cheaper one: Claude uses Sonnet or Haiku subagents, and Codex uses a
-  smaller Codex model (a `build` profile in `~/.codex/config.toml` is the easy way
-  to switch). Antigravity no longer builds plans.
+  smaller Codex model, chosen per step with `codex -p build` (multi-file steps) or
+  `codex -p build-light` (small mechanical edits). Each profile is its own file,
+  `~/.codex/<name>.config.toml`. Antigravity no longer builds plans.
 - **For any one plan, the planner owns it end to end.** That means the
   `docs/PLAN-<slug>.md`, handing build steps to the cheaper model, reviewing that
   model's diff, running the tests, and updating `memory.md`. A builder model never
