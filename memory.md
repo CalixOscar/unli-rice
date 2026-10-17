@@ -28,8 +28,9 @@ tests, 0 failures, 2 skipped** (verified: `swift test --scratch-path
 /tmp/unlirice-spm-build` 2026-10-17). Plan Phase 1 checks 1, 3 and 4 passed (verified
 2026-10-17, on a throwaway vault). Codex reviewed the Codex builder setup 2026-10-17: 7 findings in
 `docs/dialogue/codex-builder-setup.md` (citations spot-checked), answered by Claude.
-The fixes are drafted in `docs/PLAN-codex-builder-contract.md`, **waiting for founder
-approval, not built**. Local `main` has 6 commits (`cbfa54a`..`6918f2d`)
+The fixes are drafted in `docs/PLAN-codex-builder-contract.md`. Codex pre-mortemed
+that plan 2026-10-17: 8 findings in `docs/dialogue/codex-builder-contract.md`, citations
+spot-checked. **Not yet answered or revised; nothing built.** Local `main` has 6 commits (`cbfa54a`..`6918f2d`)
 that are neither on `origin/main` nor on this branch. Both targets are set to **1.2
 (6)**, and neither has been archived or uploaded.
 **Task:** "Plan high, build low" (`90f7b6e`) and the **Engineering Guardrails**
@@ -47,7 +48,8 @@ from earlier: the sidebar lag fix `51ffb83` (never watched in the running app),
 Mac"), `PROJECT_NOTES.md` (appended), `AGENTS.md` (Codex profile line),
 `docs/REVIEW-codex-builder-setup.md`, `docs/dialogue/codex-builder-setup.md`
 (Codex's review and Claude's response), `docs/PLAN-codex-builder-contract.md` (new),
-`memory.md`.
+`docs/REVIEW-codex-builder-contract.md` and `docs/dialogue/codex-builder-contract.md`
+(Codex's pre-mortem), `memory.md`.
 Outside the repo: the vault's `_AI Context/04_Guardrails.md`,
 `~/.codex/build.config.toml`, `~/.codex/build-light.config.toml`, and
 `~/.tools/codex-mcp-bridge/index.js`. `~/.codex/config.toml` is unchanged (backups
@@ -56,8 +58,9 @@ Outside the repo: the vault's `_AI Context/04_Guardrails.md`,
 `Tests/UnliRiceCoreTests/HouseRulesTests.swift`,
 `docs/dialogue/shipped-guardrails.md`, `docs/dialogue/README.md`, `CLAUDE.md`,
 `AGENTS.md`, `.claude/agents/`, `.gitignore`.
-**Next step:** (0) The founder approves `docs/PLAN-codex-builder-contract.md` (or
-asks for a Codex pre-mortem on it first). Then build steps 1–6. Step 1 fixes the
+**Next step:** (0) Claude answers the 8 pre-mortem findings in
+`docs/dialogue/codex-builder-contract.md` and revises the plan; the founder approves;
+then build steps 1–6. Step 1 fixes the
 shipped preset's commit-before-review contradiction (`HouseRulesPreset.swift:118`)
 and must land before this branch merges. (1) The founder decides whether to merge this branch into `main` and
 push. Local `main`'s 6 unpushed commits come along, and `memory.md` /
