@@ -29,7 +29,8 @@ commits exist only on this Mac until it is pushed). The public repo is
 smoke test passes 13/13 (verified: `node ~/.tools/codex-mcp-bridge/test/smoke.mjs`
 2026-10-17). Engineering Guardrails Phase 1 checks 1, 3 and 4 passed (verified
 2026-10-17, on a throwaway vault). `docs/PLAN-codex-builder-contract.md` is **built and
-verified**; its dialogue is at `State: built`, waiting for Codex's post-mortem. Local
+verified**. Codex's post-mortem is in and answered (dialogue `State: closed`): four
+bridge follow-ups were accepted but **not yet planned or built**. Local
 `main` has 6 commits (`cbfa54a`..`6918f2d`) that are neither on `origin/main` nor on
 this branch. Both targets are set to **1.2 (6)**, and neither has been archived or
 uploaded.
@@ -59,8 +60,10 @@ from earlier: the sidebar lag fix `51ffb83` (never watched in the running app),
 `~/.codex/build.config.toml` and `build-light.config.toml` (`config.toml` unchanged,
 backups `config.toml.bak-2026-10-17*`); `~/.tools/codex-mcp-bridge/index.js`,
 `runner.mjs` and `test/smoke.mjs` (backup `~/.tools/codex-mcp-bridge.bak-2026-10-17`).
-**Next step:** (1) Codex writes the post-mortem in
-`docs/dialogue/codex-builder-contract.md`; then Claude replies. (2) Codex writes the
+**Next step:** (1) With the founder's go-ahead, a small follow-up plan for the four
+accepted post-mortem fixes in `docs/dialogue/codex-builder-contract.md`: empty-profile
+refusal, duplicate/malformed profile refusal, timeout cleanup-failed evidence, and
+smoke-test log ownership. (2) Codex writes the
 older post-mortem in `docs/dialogue/shipped-guardrails.md`. (3) The founder decides
 whether to push this branch and merge it into `main`. Local `main`'s 6 unpushed commits
 come along, and `memory.md` / `PROJECT_NOTES.md` will likely conflict. (4) The founder
@@ -71,9 +74,10 @@ the bridge sandbox. (7) Carried over: watch the sidebar before archiving, then t
 founder archives and uploads both targets after `_AI Context/07_Prelaunch_Post_Mortem.md`.
 **Gotchas:** **Every bridge run is told to run the project's build/tests**, even a
 one-line brief; a cheap model will try. Keep briefs explicit about what *not* to do.
-**The bridge prompt says "implement all tasks" in the file it writes, and
-`planFileName` defaults to a root `PLAN.md`**; a review brief must say "write one file,
-change nothing else" and name a `docs/` path. **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
+**The bridge prompt says "implement all tasks" in the file it writes**, so a review
+brief must say "write one file, change nothing else". The bridge now refuses a missing
+`planFileName` or one outside `docs/`. **Don't run the bridge's `test/smoke.mjs` while a
+real dispatch is running:** its cleanup deletes every new file in the shared `logs/`. **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
 `[profiles.*]` in `config.toml` is ignored, and `-p` works only on runtime commands
 (`exec`, not `doctor`). **Build with `--scratch-path /tmp/unlirice-spm-build`.** The in-tree
 `.build` fails codesign ("resource fork, Finder information, or similar detritus") in

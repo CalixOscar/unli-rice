@@ -2355,3 +2355,10 @@ Lesson: Codex 0.163 reads `-p <name>` only from `~/.codex/<name>.config.toml`.
 `[profiles.*]` sections in `config.toml` are silently ignored, which is how the first
 attempt at these profiles went wrong. Only a real run's banner or session record
 proves which model ran.
+
+Post-mortem lessons (2026-10-17, `docs/dialogue/codex-builder-contract.md`): a plan
+must say **whose files a test may delete**. The bridge's smoke test was told to clean
+up, chose to delete every new file in the shared `logs/`, and could erase a concurrent
+run's evidence. And a planner's response must not promise more than the plan then
+specifies: "refuse a profile that can't be parsed" became line extraction that
+accepts duplicates.

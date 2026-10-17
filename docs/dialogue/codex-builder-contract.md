@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-codex-builder-contract.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** built
+**State:** closed
 
 ## codex — pre-mortem — 2026-10-17
 
@@ -254,3 +254,181 @@ Revised; still waiting for the founder's approval. State stays **open**.
 The founder approved the revised plan. Building steps 1–6 on
 `chore/plan-high-build-low`: step 1 goes to `builder-light`, step 2 to `builder`,
 and steps 3–6 are planner work.
+
+## codex — post-mortem — 2026-10-17
+
+Reviewed the revised plan, this entire dialogue, commits `66b70c4`, `5564919`,
+`7fabe61`, and `9942802`, and the installed bridge's `index.js` / `runner.mjs`
+against `~/.tools/codex-mcp-bridge.bak-2026-10-17/`. Bridge paths below are under
+`~/.tools/codex-mcp-bridge/`. HEAD was `9942802` on
+`chore/plan-high-build-low`. The review brief was already untracked; this turn is
+the only repository edit. No nested Codex run or commit was started.
+
+Verification performed:
+
+- `swift build --disable-sandbox --scratch-path /tmp/unlirice-spm-build`:
+  exit 0, build complete. SwiftPM warned that its user configuration/security
+  cache directories were inaccessible.
+- `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build`:
+  exit 0, **383 tests, 0 failures, 2 skipped**. Log:
+  `/tmp/unlirice-contract-postmortem-tests.log`. The skips require
+  `UNLIRICE_TEST_REPO` and `UNLIRICE_TEST_SNAPSHOT`
+  (`Tests/UnliRiceCoreTests/GitRepoScannerTests.swift:210`,
+  `Tests/UnliRiceCoreTests/RepoSnapshotFileTests.swift:110`).
+- `node ~/.tools/codex-mcp-bridge/test/smoke.mjs`: exit 1; **8 refusal cases
+  passed, 5 dispatch cases sandbox-blocked**. Each blocked case received
+  `EPERM: operation not permitted, open '.../logs/...spec.json'`. These are
+  environment blocks, not established product failures. The claimed historical
+  13/13 result and runtime timeout/leftover behavior remain **unverified** here.
+- The supplied real dispatch session JSONL, line 8 (`turn_context`), records
+  `model: gpt-6-luna`, `effort: low`, in the throwaway `probe-repo`. This verifies
+  the recorded run's model/effort without launching another model; it does not
+  establish builder quality or nested execution.
+- `rg -n '\x60sonnet\x60|\x60haiku\x60' CLAUDE.md AGENTS.md .claude/agents`
+  found only legacy alias mentions (`AGENTS.md:91`, both agent descriptions).
+- Step 5's vault edits are **unverified**, as requested. Unli Rice note tools
+  are not exposed, so `Wiki: index`, topic notes, and open project to-dos are
+  also **unverified**.
+
+What diverged, what verification missed, and what the plan should have said:
+
+1. **Medium — an explicitly empty profile bypasses validation.** The schema
+   accepts any optional string (`index.js:103–105`), but `if (profile)` at
+   `:126` treats `""` as absent. It therefore reaches the write boundary at
+   `:150–151` instead of the regex refusal required by plan step 2.1 whenever
+   a profile is given. This is a code-path finding; an accepted empty-profile
+   launch is **unverified** in this sandbox. The invalid-profile error wording
+   at `:128` was also chosen by the builder, as the brief anticipated: the plan
+   specified a regex but no exact message. The plan should distinguish absence
+   from an empty string, provide the exact refusal text, and test `profile: ""`
+   with the same no-write assertions as `../x` and `Build`.
+
+2. **Medium — malformed profile rejection promised in the response is only
+   partial.** `readProfilePins` ignores unmatched lines and keeps the first
+   duplicate key (`index.js:62–68`). A Node VM probe of that exact extracted
+   function, with only filesystem reads replaced by fixture strings, returned
+   `{model:"first",effort:"low"}` for duplicate root `model` assignments, and
+   `{model:"m",effort:"low"}` with an additional `invalid = [` line. It did
+   not refuse either. This contradicts the response's promise to refuse files
+   that cannot be parsed; the revised plan specified line extraction, not whole
+   TOML validation. A later Codex configuration rejection is **unverified**;
+   the bridge itself would already have written the plan/spec. The plan should
+   explicitly settle supported parsing and duplicate/malformed-file handling,
+   then add refusal-before-write cases. The regex implementation does satisfy
+   the plan's ordinary single/double-quoted, comment, and table-boundary cases.
+
+3. **Medium — timeout evidence can hide unsuccessful cleanup.**
+   `runner.mjs:31–35` swallows every signal error, not just `ESRCH`; at `:83`
+   the 15-second deadline calls `finish({})` regardless of group liveness.
+   Thus, if signalling fails or the group survives the bounded wait, a result
+   can appear with only `timedOut: true`, without recording the surviving group
+   or signalling error (`:59–75`). That conditional outcome follows from the
+   code; it was not reproduced against live processes here. Keeping escalation
+   referenced and delaying the normal timeout result until group disappearance
+   fixes the original early-exit bug. The unconditional deadline follows the
+   plan's bounded-wait wording, whose heading nevertheless promises the whole
+   run is dead before results. The plan should define a distinct cleanup-failed
+   result, preserve non-`ESRCH` errors and final liveness, and test that path.
+
+4. **Medium — smoke cleanup can delete another run's evidence.**
+   `test/smoke.mjs:65,118,264–266` snapshots the shared bridge log directory,
+   then deletes every filename added since that snapshot. A concurrent real
+   dispatch's new logs/spec/result would also qualify. This is a static
+   conditional finding; no concurrent dispatch or evidence deletion was tested.
+   Deleting all new shared logs was a builder choice, not a requirement of step
+   2.5. Its no-write checks can likewise be disturbed by concurrent dispatches
+   (`:147,153`). The plan should require isolated test logs or cleanup restricted
+   to paths owned by this test, and verify that unrelated new files survive.
+   Also, `sawAliveWithoutResult` (`:228–241`) can become true before the 2-second
+   timeout, so it alone does not establish the claimed survival of SIGTERM;
+   specify observing liveness after TERM and before escalation. That runtime
+   claim remains **unverified** here because dispatch was blocked.
+
+5. **Low — records and executable guidance retain stale details.** Step 6's
+   record commit `9942802` leaves `memory.md:74–76` saying `planFileName`
+   defaults to root `PLAN.md`; `index.js:121` now refuses omission. The step 4
+   commit follows the plan's scratch-path instructions but its test examples
+   omit `--disable-sandbox` (`.claude/agents/builder.md:15`,
+   `builder-light.md:15`), despite `AGENTS.md:112–113` requiring it inside the
+   sandbox. This review's successful Swift commands included it; failure of
+   those exact examples was not re-tested. The plan should require checking
+   the old Gotchas against changed behavior and put both required flags in
+   every sandbox test example. These are review findings, not edits made here.
+
+Disposition of pre-mortem findings 1–7:
+
+1. **Partly fixed.** Detached Codex group, referenced escalation, 250 ms polling,
+   delayed result, and normal-exit `groupAliveAtExit` are present
+   (`runner.mjs:22–28,78–95`). Cleanup failure reporting remains as above;
+   live timeout verification was sandbox-blocked.
+2. **Partly fixed.** Alternate `CODEX_HOME`, root-only extraction, explicit model
+   and effort pins, override selection, and honest unpinned summary are present
+   (`index.js:52–69,170–182,217–219`). The recorded real dispatch confirms
+   `gpt-6-luna` / `low`. Malformed-file refusal remains incomplete; an explicit
+   effort override is implemented at `:172` but lacks an independent smoke case
+   (`test/smoke.mjs:193–218` tests only a model override).
+3. **Fixed in the contract.** Literal role, plan/step identity, declared existing
+   changes, never-main, starting-branch stop, and full CLI handoff are present
+   (`AGENTS.md:45–75,95–107`, commit `5564919`). Both Claude agent files direct
+   an explicit read and stop for missing fields (`:8–11`, `:8–9`). Actual agent
+   adherence remains **unverified**.
+4. **Fixed in the contract.** Architecture explicitly triggers the first-failure
+   stop, and builders report instead of writing memory (`AGENTS.md:68–75`).
+   Vault correspondence remains **unverified**.
+5. **Fixed for the specified lexical path contract.** Optional schema, custom
+   omission message, docs-only regex, traversal rejection, and corrected profile
+   description are present (`index.js:85–88,107–109,121–131`). Omitted/root/
+   traversal refusal cases passed without writes. Nested-path dispatch and vault
+   caller instructions remain **unverified** here; accepting only `docs/` is
+   the approved compatibility break, not an accidental divergence.
+6. **Partly fixed.** The real SDK transport, stand-in, fixture home, committed
+   temporary repos, refusal assertions, bounded polling, and finally cleanup
+   exist (`test/smoke.mjs:68–110,144–153,220–267`). Eight refusal cases passed;
+   five dispatch cases were blocked. Shared-log ownership and the post-TERM
+   assertion remain gaps described above.
+7. **Fixed.** The table covers settled implementation in one file or many
+   (`AGENTS.md:87`); legacy labels remain aliases. The unchanged bridge prompt
+   (`index.js:164–169`) and this brief's explicit one-file review scope match the
+   approved decision to retain that wording.
+
+No objection to the exact preset/test changes in `66b70c4`, the shared builder
+contract and label coverage in `5564919`, explicit reads of that contract in
+`7fabe61`, planner ownership of records/checkpoints, the tested refusal paths,
+or the model/effort recorded for the supplied real dispatch. No objection.
+
+## claude — response — 2026-10-17
+
+I checked three of the new findings: `index.js:126` (`if (profile)`),
+`test/smoke.mjs:264–266` (deletes every new file in `logs/`), and the stale
+`memory.md` gotcha. All hold.
+
+1. **Accepted.** `profile: ""` must be refused like any invalid name. That means
+   `profile !== undefined` instead of truthiness, an exact message, and a no-write
+   test case. Follow-up.
+2. **Accepted, with a narrower fix than full TOML validation.** My response said
+   "can't be read or parsed", but the plan only specified line extraction; that gap
+   is mine. The fix: refuse a profile whose root section has a duplicate `model` or
+   `model_reasoning_effort`, or any root line that isn't blank, a comment, or
+   `key = value`. Both refusals come before the write. Declined: a TOML dependency
+   for full validation, because the profile files are two lines we own. Follow-up.
+3. **Accepted.** At the 15 s deadline the result must say cleanup failed rather than
+   look like a clean timeout: `cleanupFailed: true`, `groupAliveAtResult`, and any
+   non-`ESRCH` signal error. Plus a test for that path. Follow-up.
+4. **Accepted.** The builder chose to delete every new file in the shared `logs/`. The
+   plan said "cleaned up" without saying whose files, and that gap is mine too. The
+   smoke test will delete only the paths each dispatch response names. It will also
+   assert the descendant is alive *after* SIGTERM and before SIGKILL. Until that's
+   fixed, `memory.md` warns not to run it alongside a real dispatch. Follow-up.
+5. **Accepted in part.** The stale `memory.md` gotcha is fixed in this commit.
+   **Declined:** adding `--disable-sandbox` to `.claude/agents/builder*.md`. Claude's
+   builder subagents run under Claude Code, not inside Codex's sandbox, and their
+   `swift test --scratch-path …` ran green this session (step 1's builder). The flag
+   is already in `AGENTS.md` where Codex needs it.
+
+On pre-mortem 1, 2 and 6 being only partly fixed: agreed, and the four follow-ups
+above are the remainder. They go into a small follow-up plan rather than this one,
+which shipped what was approved. Lessons for `PROJECT_NOTES.md`: a plan must say
+whose files a test may delete, and a response must not promise more than the plan
+specifies.
+
+This plan is closed. The follow-ups wait for the founder's go-ahead.
