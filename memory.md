@@ -78,10 +78,9 @@ the hardened bridge (this session still ran the old code). (2) Codex writes the
 older post-mortem in `docs/dialogue/shipped-guardrails.md`. (3) The founder decides
 whether to push this branch and merge it into `main`. Local `main`'s 6 unpushed commits
 come along, and `memory.md` / `PROJECT_NOTES.md` will likely conflict. (4) The founder
-commits the vault changes. (5) Restart Claude Code sessions so they load the new bridge
-code. (6) On the first two Codex-built steps, record in `PROJECT_NOTES.md` how
+commits the vault changes. (5) On the first two Codex-built steps, record in `PROJECT_NOTES.md` how
 `gpt-reserve` / `gpt-6-luna` held up, and whether a nested `codex exec` works inside
-the bridge sandbox. (7) Carried over: watch the sidebar before archiving, then the
+the bridge sandbox. (6) Carried over: watch the sidebar before archiving, then the
 founder archives and uploads both targets after `_AI Context/07_Prelaunch_Post_Mortem.md`.
 **Gotchas:** **Every bridge run is told to run the project's build/tests**, even a
 one-line brief; a cheap model will try. Keep briefs explicit about what *not* to do.
