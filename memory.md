@@ -30,7 +30,10 @@ smoke test passes 13/13 (verified: `node ~/.tools/codex-mcp-bridge/test/smoke.mj
 2026-10-17). Engineering Guardrails Phase 1 checks 1, 3 and 4 passed (verified
 2026-10-17, on a throwaway vault). `docs/PLAN-codex-builder-contract.md` is **built and
 verified**. Codex's post-mortem is in and answered (dialogue `State: closed`): four
-bridge follow-ups were accepted but **not yet planned or built**. Local
+bridge follow-ups were accepted and are now planned in `docs/PLAN-bridge-hardening.md`:
+Codex's pre-mortem is in and answered (7 findings, plan revised; dialogue
+`docs/dialogue/bridge-hardening.md` `State: open`). That plan is **waiting for the
+founder's approval and not built**. Local
 `main` has 6 commits (`cbfa54a`..`6918f2d`) that are neither on `origin/main` nor on
 this branch. Both targets are set to **1.2 (6)**, and neither has been archived or
 uploaded.
@@ -40,6 +43,8 @@ whose checkpoint line now waits for review (`66b70c4`). (3) **One builder contra
 both tools**: `AGENTS.md` § "Builder contract" (`5564919`) holds the handoff fields,
 "never `main`", the builder circuit breaker, and the `build` / `build-light` /
 `planner` label table. Claude's `.claude/agents/builder*.md` point at it (`7fabe61`).
+(4) **Bridge hardening, planned only**: `docs/PLAN-bridge-hardening.md` (one `build`
+step on the three bridge files, 26 smoke cases), revised against Codex's pre-mortem.
 Outside the repo: the Codex profiles `~/.codex/build.config.toml` (`gpt-reserve`,
 medium) and `build-light.config.toml` (`gpt-6-luna`, low). The bridge now refuses a
 bad profile or a plan path outside `docs/`, pins the profile's model and effort, and
@@ -55,15 +60,17 @@ from earlier: the sidebar lag fix `51ffb83` (never watched in the running app),
 `docs/PLAN-shipped-guardrails.md`, `docs/PLAN-codex-builder-contract.md`,
 `docs/REVIEW-codex-builder-setup.md`, `docs/REVIEW-codex-builder-contract.md`,
 `docs/dialogue/codex-builder-setup.md`, `docs/dialogue/codex-builder-contract.md`,
+`docs/PLAN-bridge-hardening.md`, `docs/REVIEW-bridge-hardening.md`,
+`docs/dialogue/bridge-hardening.md`,
 `PROJECT_NOTES.md`, `memory.md`. Outside the repo: the vault's
 `_AI Context/04_Guardrails.md` and `scripts/templates/PLAN.md`;
 `~/.codex/build.config.toml` and `build-light.config.toml` (`config.toml` unchanged,
 backups `config.toml.bak-2026-10-17*`); `~/.tools/codex-mcp-bridge/index.js`,
 `runner.mjs` and `test/smoke.mjs` (backup `~/.tools/codex-mcp-bridge.bak-2026-10-17`).
-**Next step:** (1) With the founder's go-ahead, a small follow-up plan for the four
-accepted post-mortem fixes in `docs/dialogue/codex-builder-contract.md`: empty-profile
-refusal, duplicate/malformed profile refusal, timeout cleanup-failed evidence, and
-smoke-test log ownership. (2) Codex writes the
+**Next step:** (1) The founder approves (or changes) `docs/PLAN-bridge-hardening.md`.
+On approval: a `claude — settled` turn in `docs/dialogue/bridge-hardening.md`, step 0's
+backup to `~/.tools/codex-mcp-bridge.bak-2026-10-17-hardening` (the older `.bak-2026-10-17`
+must stay), then step 1 to the `builder` subagent. (2) Codex writes the
 older post-mortem in `docs/dialogue/shipped-guardrails.md`. (3) The founder decides
 whether to push this branch and merge it into `main`. Local `main`'s 6 unpushed commits
 come along, and `memory.md` / `PROJECT_NOTES.md` will likely conflict. (4) The founder
@@ -77,7 +84,8 @@ one-line brief; a cheap model will try. Keep briefs explicit about what *not* to
 **The bridge prompt says "implement all tasks" in the file it writes**, so a review
 brief must say "write one file, change nothing else". The bridge now refuses a missing
 `planFileName` or one outside `docs/`. **Don't run the bridge's `test/smoke.mjs` while a
-real dispatch is running:** its cleanup deletes every new file in the shared `logs/`. **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
+real dispatch is running:** its cleanup deletes every new file in the shared `logs/`
+(true until `docs/PLAN-bridge-hardening.md` is built). **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
 `[profiles.*]` in `config.toml` is ignored, and `-p` works only on runtime commands
 (`exec`, not `doctor`). **Build with `--scratch-path /tmp/unlirice-spm-build`.** The in-tree
 `.build` fails codesign ("resource fork, Finder information, or similar detritus") in
