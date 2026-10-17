@@ -9,7 +9,7 @@ dialogue. **Pre-mortem:** done by Codex on 2026-10-17, in
 `docs/dialogue/bridge-hardening.md` (7 findings, all answered). The post-mortem is
 not skippable.
 **Planner:** claude. **Reviewer:** codex.
-**State:** revised against the pre-mortem; waiting for the founder's approval.
+**State:** approved by the founder 2026-10-17; building.
 **Tier:** 1 (tooling outside the app). Every change is in the Codex bridge at
 `~/.tools/codex-mcp-bridge/`. No app code, data model, persistence, server, auth or
 dependency changes. The founder still approves the plan before it is built.

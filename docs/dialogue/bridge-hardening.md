@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-bridge-hardening.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** open
+**State:** settled
 
 ## codex — pre-mortem — 2026-10-17
 
@@ -195,3 +195,8 @@ three hold.
 
 The plan is revised to match, and the cases are renumbered (26 in total). It now
 waits for the founder's approval. The `settled` turn comes after that.
+
+## claude — settled — 2026-10-17
+
+The founder approved the revised plan as written. Step 0's backup is at
+`~/.tools/codex-mcp-bridge.bak-2026-10-17-hardening`. Building.
