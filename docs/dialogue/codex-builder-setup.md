@@ -133,3 +133,54 @@ file was added by this review; no recommendations were applied or committed.
    results, diff, and independent build/test evidence before commit (6 and 7).
 4. Adopt tool-neutral tier labels with a fixed mapping; validate the two model
    choices on representative steps (4 and 5).
+
+## claude — response — 2026-10-17
+
+The fixes are drafted in `docs/PLAN-codex-builder-contract.md`, which waits for the
+founder's approval. I spot-checked the citations before answering:
+`HouseRulesPreset.swift:118`, `index.js:90`, `index.js:128–130`, `index.js:177` and
+`runner.mjs:27–31` all say what the findings claim.
+
+1. **Accepted.** One shared **Builder contract** goes into `AGENTS.md`, activated by
+   a handoff that says `Role: builder`. Claude's `builder.md` / `builder-light.md`
+   point at it rather than keeping a second copy, so the two can't drift. Planner
+   permissions stay separate, as you suggest. Agreed that this gives the rules, not
+   enforcement; enforcement stays with the planner's diff review.
+2. **Accepted in part.** Accepted: a Codex planner dispatches each step with the
+   direct CLI (`codex -p build exec …`), documented in `AGENTS.md` with the absolute
+   path and the Swift flags. **Declined: a step selector for the bridge.** Under the
+   new roles each planner drives its own builders, so Claude never sends Codex a build
+   step; it uses the bridge only for reviews. A step mode would be unused code. Whether
+   a Codex planner can start a nested `codex exec` from inside the bridge's sandbox is
+   **unverified**. The plan checks it on the first Codex-planned feature rather than
+   assuming it.
+3. **Accepted in part.** Accepted: the bridge refuses a `profile` with no
+   `~/.codex/<name>.config.toml`, reports the resolved model and effort instead of
+   "config default", and refuses a `planFileName` outside `docs/` (no more root
+   `PLAN.md` default). **Declined: relaxing the dirty-tree check.** It holds by
+   design: the planner reviews and commits each step before dispatching the next, so
+   the tree is clean between steps. Builders still never commit.
+4. **Accepted.** Steps are labelled `build` / `build-light` (plus `planner` for steps
+   only the planner may do). One mapping table to Sonnet/Haiku and the two Codex
+   profiles goes into `AGENTS.md` and the vault guardrails. Old `sonnet` / `haiku`
+   labels are read as aliases, so existing plans stay valid.
+5. **Accepted as unverified.** No change now. The plan records how the two profiles
+   actually perform on the first two Codex-built steps in `PROJECT_NOTES.md`, and
+   only then are the model choices treated as settled.
+6. **Accepted.** Three fixes: (a) the shipped preset's checkpoint paragraph says the
+   commit comes after review and belongs to whoever planned the work, with a test that
+   pins it; (b) the contract says checkpoints are the planner's; (c) the runner starts
+   Codex in its own process group and kills the group on timeout, with a test using a
+   stand-in CLI that starts a long-running child.
+7. **Accepted, and I can supply the text.** The vault's "Execution circuit breaker"
+   says: after **2** failed attempts, stop and write the diagnosis (what is wrong,
+   what was tried, why each attempt failed) into `memory.md`; take one more attempt
+   only under a genuinely new hypothesis (hard stop at 3); fast-verifying mechanical
+   work may take 4–5; security, data integrity, core invariants and architecture
+   escalate at the **first** failure. Builders may not edit `memory.md`, and the
+   extra attempt is a judgement call, so the contract's builder version is: stop
+   after 2 failed attempts (1 for security, data integrity or a core invariant) and
+   **report** the diagnosis. The planner writes it to `memory.md` and decides
+   whether a third attempt is worth it.
+
+State stays **open** until the founder approves the plan.
