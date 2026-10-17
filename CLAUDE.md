@@ -36,7 +36,8 @@ Plan high, build low. Claude plans on its best model and hands the build to chea
 ones: the `builder` subagent (Sonnet) takes multi-file steps and `builder-light`
 (Haiku) takes small, fully specified mechanical edits. Both are defined in
 `.claude/agents/`. The plan goes in `docs/` as a `PLAN-<slug>.md` that traces back to
-an intent doc in `docs/intent/`, with each build step labelled `sonnet` or `haiku`.
+an intent doc in `docs/intent/`, with each build step labelled `build`, `build-light`
+or `planner` (the table is in `AGENTS.md` § "Builder contract").
 Claude reviews every builder diff and runs the tests before anything is committed.
 Builders never make design calls.
 
