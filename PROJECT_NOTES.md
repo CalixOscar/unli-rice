@@ -2362,3 +2362,36 @@ up, chose to delete every new file in the shared `logs/`, and could erase a conc
 run's evidence. And a planner's response must not promise more than the plan then
 specifies: "refuse a profile that can't be parsed" became line extraction that
 accepts duplicates.
+
+## Bridge hardening: the four post-mortem gaps closed (2026-10-17)
+
+`docs/PLAN-bridge-hardening.md` is built. It closes the four bridge gaps from Codex's
+post-mortem of the builder contract. Codex's pre-mortem
+(`docs/dialogue/bridge-hardening.md`, 7 findings) was answered before the founder
+approved.
+
+Decided:
+- **An empty profile name is invalid**, not absent: `profile: ""` is refused like
+  `../x`.
+- **The bridge reads profile files more strictly than TOML, on purpose.** Each root
+  line is blank, a comment, or a one-line `key = value` with a quoted string (no
+  backslash in double quotes), `true`, `false` or a number. `model` and
+  `model_reasoning_effort` are quoted and set once. Anything else is refused before
+  anything is written. Declined: a TOML library, since the files are two lines we own.
+- **A timed-out result says whether cleanup worked.** It carries `cleanupFailed`,
+  `groupAliveAtResult`, and the first non-ESRCH `signalError`.
+- **The test switch lives in the run spec, not the environment.** `index.js` never
+  writes `testSignals`, so a real dispatch can't inherit it. This was Codex's
+  pre-mortem finding 1: an environment variable would have let a real run skip its
+  timeout kill.
+- **The smoke test deletes only the five paths each of its dispatches reports**,
+  after waiting for its runners to exit. It treats any new `logs/` file it can't
+  prove is another repo's run as a failure.
+
+Verified: the bridge smoke test passes 26/26 (`node ~/.tools/codex-mcp-bridge/test/smoke.mjs`,
+2026-10-17). `logs/` held the same files before and after the run, and no stand-in
+process was left. The bridge diff against
+`~/.tools/codex-mcp-bridge.bak-2026-10-17-hardening` holds only the planned hunks.
+
+Not tested: a group that survives a real SIGKILL, and a group already gone when it is
+signalled (ESRCH). Neither can be produced on demand.
