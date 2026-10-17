@@ -2319,3 +2319,39 @@ written" proves nothing in that setup. The working setup is the unsigned debug b
 pointed at a throwaway vault:
 `UNLIRICE_DATA_PATH=<scratch>/events.jsonl /tmp/unlirice-spm-build/debug/UnliRiceApp`.
 Every file it writes can then be read directly.
+
+## One builder contract for both tools (2026-10-17)
+
+`docs/PLAN-codex-builder-contract.md` is built. It came out of two Codex passes:
+a review of the Codex builder setup (`docs/dialogue/codex-builder-setup.md`, 7
+findings) and a pre-mortem of the plan (`docs/dialogue/codex-builder-contract.md`, 8
+findings). All were answered before the founder approved.
+
+Decided:
+- **The builder rules live once, in `AGENTS.md` § "Builder contract".** It applies to
+  Claude's `builder` / `builder-light` subagents and Codex's `build` / `build-light`
+  profiles alike. A run is a builder because its handoff starts `Role: builder`, not
+  because of its model. Claude's agent files point at the contract instead of copying
+  it.
+- **Step labels name the job, not a model:** `build`, `build-light`, `planner`.
+  `sonnet` / `haiku` are aliases for old plans.
+- **Builders get a stricter circuit breaker than planners.** They stop after two
+  failed attempts, or after one on security, data integrity, a core invariant or the
+  architecture. They report the diagnosis; the planner writes it to `memory.md` and
+  decides on any further attempt.
+- **The bridge pins, never guesses.** With a profile it passes that profile's model and
+  effort explicitly and refuses a profile missing either. Plans must live under
+  `docs/`, which deliberately breaks the old root `PLAN.md` default. Declined: a bridge
+  step selector (each planner drives its own builders), and relaxing the dirty-tree
+  check (the planner commits each reviewed step first).
+- **The shipped preset's checkpoint waits for review** and belongs to the planner. It
+  had said "commit at every step" a paragraph before "review before commit".
+
+Verified: 383 tests, 0 failures, 2 skipped; the bridge smoke test passes 13/13,
+including a descendant that ignores SIGTERM; and a real `build-light` run through the
+bridge used `gpt-6-luna` at `low`, according to Codex's own session record.
+
+Lesson: Codex 0.163 reads `-p <name>` only from `~/.codex/<name>.config.toml`.
+`[profiles.*]` sections in `config.toml` are silently ignored, which is how the first
+attempt at these profiles went wrong. Only a real run's banner or session record
+proves which model ran.

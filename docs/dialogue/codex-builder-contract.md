@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-codex-builder-contract.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** settled
+**State:** built
 
 ## codex — pre-mortem — 2026-10-17
 
