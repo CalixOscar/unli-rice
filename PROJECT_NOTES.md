@@ -2395,3 +2395,14 @@ process was left. The bridge diff against
 
 Not tested: a group that survives a real SIGKILL, and a group already gone when it is
 signalled (ESRCH). Neither can be produced on demand.
+
+Correction and post-mortem (2026-10-17, `docs/dialogue/bridge-hardening.md`):
+"anything else is refused" above is too broad. The bridge checks the *form* of each
+root line and is strict about the two keys it pins. It still accepts a repeated
+non-pinned key and a number like `1__2`. Those are Codex's to judge. The builder had
+left two planned assertions out of smoke case 22; they were added, and the test is
+still 26/26. Known gap: a setup failure before the test's `try`, such as a sandbox
+refusing the sentinel write, leaves its `$TMPDIR` folder behind, but never a `logs/`
+file. Lessons: a builder's pasted test output is not evidence (one report misnamed a
+case), and a plan that says "everything else is settled" must say so only of what
+it actually spells out.

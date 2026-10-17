@@ -26,14 +26,14 @@
 commits exist only on this Mac until it is pushed). The public repo is
 `github.com/CalixOscar/unli-rice`. The suite is **383 tests, 0 failures, 2 skipped**
 (verified: `swift test --scratch-path /tmp/unlirice-spm-build` 2026-10-17). The bridge
-smoke test passes 26/26, with `logs/` unchanged by the run (verified:
-`node ~/.tools/codex-mcp-bridge/test/smoke.mjs` 2026-10-17). Engineering Guardrails Phase 1 checks 1, 3 and 4 passed (verified
+smoke test passes 26/26, with `logs/` unchanged by the run, including a real
+dispatch's files (verified: `node ~/.tools/codex-mcp-bridge/test/smoke.mjs` 2026-10-17,
+after the case-22 fix). Engineering Guardrails Phase 1 checks 1, 3 and 4 passed (verified
 2026-10-17, on a throwaway vault). `docs/PLAN-codex-builder-contract.md` is **built and
 verified**. Codex's post-mortem is in and answered (dialogue `State: closed`): four
 bridge follow-ups were accepted, and `docs/PLAN-bridge-hardening.md` now closes them. It is
-**built and verified**: Codex pre-mortem answered, founder-approved, dialogue
-`docs/dialogue/bridge-hardening.md` `State: built`. Its **Codex post-mortem is not yet
-written**. Local
+**built and verified**, and Codex's post-mortem is in and answered (dialogue
+`docs/dialogue/bridge-hardening.md` `State: closed`). Local
 `main` has 6 commits (`cbfa54a`..`6918f2d`) that are neither on `origin/main` nor on
 this branch. Both targets are set to **1.2 (6)**, and neither has been archived or
 uploaded.
@@ -47,7 +47,9 @@ both tools**: `AGENTS.md` § "Builder contract" (`5564919`) holds the handoff fi
 subagent): `profile: ""` refused, profile files read by a strict subset, timed-out
 results carry `cleanupFailed` / `groupAliveAtResult` / `signalError`, the test signal
 switch is a spec field (`testSignals`), never an env var, and the smoke test deletes
-only the files its own runs report.
+only the files its own runs report. Post-mortem fix: smoke case 22 got its two missing
+assertions. Known limits, accepted: repeated non-pinned keys and `1__2` pass the
+parser, and an early setup failure leaves a `$TMPDIR` folder.
 Outside the repo: the Codex profiles `~/.codex/build.config.toml` (`gpt-reserve`,
 medium) and `build-light.config.toml` (`gpt-6-luna`, low). The bridge now refuses a
 bad profile or a plan path outside `docs/`, pins the profile's model and effort, and
@@ -64,16 +66,15 @@ from earlier: the sidebar lag fix `51ffb83` (never watched in the running app),
 `docs/REVIEW-codex-builder-setup.md`, `docs/REVIEW-codex-builder-contract.md`,
 `docs/dialogue/codex-builder-setup.md`, `docs/dialogue/codex-builder-contract.md`,
 `docs/PLAN-bridge-hardening.md`, `docs/REVIEW-bridge-hardening.md`,
-`docs/dialogue/bridge-hardening.md`,
+`docs/dialogue/bridge-hardening.md`, `docs/REVIEW-postmortem-bridge-hardening.md`,
 `PROJECT_NOTES.md`, `memory.md`. Outside the repo: the vault's
 `_AI Context/04_Guardrails.md` and `scripts/templates/PLAN.md`;
 `~/.codex/build.config.toml` and `build-light.config.toml` (`config.toml` unchanged,
 backups `config.toml.bak-2026-10-17*`); `~/.tools/codex-mcp-bridge/index.js`,
 `runner.mjs` and `test/smoke.mjs` (backups `~/.tools/codex-mcp-bridge.bak-2026-10-17`,
 before the builder contract, and `.bak-2026-10-17-hardening`, before bridge hardening).
-**Next step:** (1) Codex's post-mortem of bridge-hardening, briefed in
-`docs/REVIEW-postmortem-bridge-hardening.md`. Once its result JSON exists, check it,
-then answer the post-mortem in `docs/dialogue/bridge-hardening.md` and close it. (2) Codex writes the
+**Next step:** (1) Restart Claude Code sessions so the `codex-bridge` MCP server loads
+the hardened bridge (this session still ran the old code). (2) Codex writes the
 older post-mortem in `docs/dialogue/shipped-guardrails.md`. (3) The founder decides
 whether to push this branch and merge it into `main`. Local `main`'s 6 unpushed commits
 come along, and `memory.md` / `PROJECT_NOTES.md` will likely conflict. (4) The founder
@@ -86,7 +87,8 @@ founder archives and uploads both targets after `_AI Context/07_Prelaunch_Post_M
 one-line brief; a cheap model will try. Keep briefs explicit about what *not* to do.
 **The bridge prompt says "implement all tasks" in the file it writes**, so a review
 brief must say "write one file, change nothing else". The bridge now refuses a missing
-`planFileName` or one outside `docs/`. **The bridge smoke test takes about a minute** (four 2 s timeouts run to
+`planFileName` or one outside `docs/`. **A builder's pasted test output is not evidence:** `builder-light` misnamed a case in
+its pasted smoke output on 2026-10-17. Rerun it yourself. **The bridge smoke test takes about a minute** (four 2 s timeouts run to
 their 10 s / 15 s cleanup deadlines), and it reads the real `~/.codex/build*.config.toml`. **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
 `[profiles.*]` in `config.toml` is ignored, and `-p` works only on runtime commands
 (`exec`, not `doctor`). **Build with `--scratch-path /tmp/unlirice-spm-build`.** The in-tree
