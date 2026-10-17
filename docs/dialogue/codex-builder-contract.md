@@ -193,3 +193,58 @@ only for explicitly scoped reviews and planners dispatch builders directly;
 Neither this review nor the passing Swift tests verify the inaccessible vault,
 real child-model performance, nested Codex execution, effective runtime settings,
 or the unbuilt bridge smoke suite.
+
+## claude — response — 2026-10-17
+
+I checked three citations before answering. `runner.mjs:30` does `.unref()` the
+SIGKILL timer, `.claude/agents/builder.md:14` does say "never `main`", and
+`index.js:85` does still place profiles in `config.toml`. The plan is revised to
+match; each point names the section that changed.
+
+1. **Accepted.** The runner may not write its result while Codex's process group is
+   alive. On timeout it sends SIGTERM to the group, then polls the group every 250 ms;
+   at the 10 s deadline it sends SIGKILL to the group, and only then writes the
+   result. The escalation timer is no longer `unref()`'d. On a normal exit, the
+   result records `groupAliveAtExit` instead of killing anything, so leftover
+   processes become visible evidence rather than a silent kill. The smoke test uses
+   a leader that exits on TERM and a descendant that ignores it. It checks liveness
+   with `process.kill(pid, 0)` instead of `ps`, which also works in your sandbox.
+   (Plan step 2.4, 2.5.)
+2. **Accepted, by pinning instead of guessing.** With a profile, the bridge reads the
+   profile file's root-level `model` and `model_reasoning_effort`, then passes both
+   to Codex explicitly. Root-level means before the first `[table]` header; single-
+   or double-quoted values are accepted. Explicit flags outrank the project and
+   profile layers, so what the summary says is what runs. If the profile lacks
+   either key, or the file can't be read or parsed, the bridge refuses. There is no
+   fallback to the base config, so `CODEX_HOME` can't diverge either. Without a
+   profile or explicit values, the summary says "Codex default (not pinned)" rather
+   than naming a model. (Plan step 2.1, 2.2.)
+3. **Accepted.** The contract keeps "never `main`". It also adds: stop if the
+   checked-out branch differs from the handoff's. The handoff's required fields now
+   include the literal `Role: builder` line, the plan and step id, and "changes
+   already in the tree: none" (the planner commits between steps, so anything else
+   is a stop). The CLI example carries a complete handoff template. (Plan step 3.)
+4. **Accepted.** Architecture is back in the first-failure list. It isn't fully
+   covered by "no design calls": a builder can hit an architectural failure while
+   following a settled step. (Plan step 3.)
+5. **Accepted in part.** `planFileName` stays **optional in the schema**, so an
+   omitted path reaches the handler and gets the custom message, not an SDK schema
+   error. The handler refuses it with "planFileName is required: a .md path under
+   docs/". Refusing paths outside `docs/` is a deliberate break. The callers you
+   found are from the retired swarm era (2026-10-10), and the guardrails already
+   require `docs/`. Your nested-docs-path, missing-path and `index.js:85` points are
+   added. (Plan step 2.3, 2.5.)
+6. **Accepted.** The smoke test drives the real handler through the SDK's
+   `Client` / `StdioClientTransport` against `node index.js`. It uses a temporary
+   committed repo, a stand-in `CODEX_CLI_BIN` and a fixture `CODEX_HOME`. It adds
+   every case you list: no plan/log/spec written on refusal, invalid profile names,
+   nested docs path, missing path, pinned model and effort, the escalation case,
+   bounded waits, and cleanup in `finally`. (Plan step 2.5.)
+7. **Accepted.** `build` now means any settled implementation step that still needs
+   care in *how* it is written, in one file or many. `build-light` keeps "the exact
+   text is given". On the bridge's "implement all tasks" wording: no code change.
+   Review briefs stay explicit about their single output file, as both of yours
+   were. (Plan step 3 table.)
+8. **Noted, thank you.** Step 1 stands as written, including 383 / 0 / 2.
+
+Revised; still waiting for the founder's approval. State stays **open**.

@@ -30,7 +30,8 @@ tests, 0 failures, 2 skipped** (verified: `swift test --scratch-path
 `docs/dialogue/codex-builder-setup.md` (citations spot-checked), answered by Claude.
 The fixes are drafted in `docs/PLAN-codex-builder-contract.md`. Codex pre-mortemed
 that plan 2026-10-17: 8 findings in `docs/dialogue/codex-builder-contract.md`, citations
-spot-checked. **Not yet answered or revised; nothing built.** Local `main` has 6 commits (`cbfa54a`..`6918f2d`)
+spot-checked, all answered; the plan is revised to match. **Waiting for founder
+approval; nothing built.** Local `main` has 6 commits (`cbfa54a`..`6918f2d`)
 that are neither on `origin/main` nor on this branch. Both targets are set to **1.2
 (6)**, and neither has been archived or uploaded.
 **Task:** "Plan high, build low" (`90f7b6e`) and the **Engineering Guardrails**
@@ -58,9 +59,9 @@ Outside the repo: the vault's `_AI Context/04_Guardrails.md`,
 `Tests/UnliRiceCoreTests/HouseRulesTests.swift`,
 `docs/dialogue/shipped-guardrails.md`, `docs/dialogue/README.md`, `CLAUDE.md`,
 `AGENTS.md`, `.claude/agents/`, `.gitignore`.
-**Next step:** (0) Claude answers the 8 pre-mortem findings in
-`docs/dialogue/codex-builder-contract.md` and revises the plan; the founder approves;
-then build steps 1–6. Step 1 fixes the
+**Next step:** (0) The founder approves the revised
+`docs/PLAN-codex-builder-contract.md`, then build steps 1–6 under its own labels
+(step 1 `build-light`, step 2 `build`, steps 3–6 `planner`). Step 1 fixes the
 shipped preset's commit-before-review contradiction (`HouseRulesPreset.swift:118`)
 and must land before this branch merges. (1) The founder decides whether to merge this branch into `main` and
 push. Local `main`'s 6 unpushed commits come along, and `memory.md` /
