@@ -38,6 +38,13 @@ final class HouseRulesTests: XCTestCase {
         XCTAssertTrue(preset.body.contains("docs/dialogue/"))
     }
 
+    func testEngineeringGuardrailsCheckpointWaitsForReview() throws {
+        let preset = try XCTUnwrap(HouseRulesPreset.builtIn.first { $0.id == "engineering-guardrails" })
+        XCTAssertTrue(preset.body.contains("once its diff has been reviewed"))
+        XCTAssertTrue(preset.body.contains("never the builder"))
+        XCTAssertFalse(preset.body.contains("label each step with the model it needs"))
+    }
+
     func testImporterValidatesAndSuffixesDuplicateTitles() throws {
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         let preset = try HouseRulesPresetImporter.makePreset(

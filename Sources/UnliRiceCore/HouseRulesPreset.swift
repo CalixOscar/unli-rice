@@ -115,9 +115,9 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Look for drift early.** A branch far behind its base, commits that exist only locally, and uncommitted files in a worktree are one lost machine away from gone. Say so when you see them.
 
-    **Checkpoint as you go.** Commit and update the working-state file at every meaningful step, not at the end. A session can end without warning.
+    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file; don't wait for the end. Whoever planned the work does this, never the builder. A session can end without warning.
 
-    **Plan high, build low.** Plan on the most capable model you have. Break the plan into build steps small enough for a cheaper, faster model, and label each step with the model it needs. Hand the build to that model, then review its diff and run the tests on the capable model before anything is committed. A builder never makes a design call: on an ambiguity it stops and reports back.
+    **Plan high, build low.** Plan on the most capable model you have. Break the plan into build steps small enough for a cheaper, faster model, and label each step with the tier it needs: a full build step, or a small, fully specified edit. Hand the build to that model, then review its diff and run the tests on the capable model before anything is committed. A builder never makes a design call: on an ambiguity it stops and reports back.
 
     **A second tool reviews.** When more than one assistant works on a project, whichever one did not write a plan reviews it, with a pre-mortem before the build and a post-mortem after. Both go in `docs/dialogue/<slug>.md`: one file per plan, append-only, each turn headed with the tool, the kind of turn, and the date. Neither side edits the other's turns. A point still disputed after one rebuttal each way goes to the user.
 
