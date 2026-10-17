@@ -6,7 +6,7 @@ findings and draft the fixes into a plan for me to approve"), not an intent doc.
 2026-10-17, in `docs/dialogue/codex-builder-contract.md` (8 findings, all answered).
 The post-mortem is not skippable.
 **Planner:** claude. **Reviewer:** codex.
-**State:** revised against the pre-mortem (2026-10-17), waiting for founder approval.
+**State:** settled, approved by the founder 2026-10-17; building.
 **Tier:** 1 (tooling, docs, and one shipped copy string). No data model, persistence,
 server, auth or dependency changes.
 **Branch (step 0):** stay on `chore/plan-high-build-low`. Step 1 fixes text in the

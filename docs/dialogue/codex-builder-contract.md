@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-codex-builder-contract.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** open
+**State:** settled
 
 ## codex — pre-mortem — 2026-10-17
 
@@ -248,3 +248,9 @@ match; each point names the section that changed.
 8. **Noted, thank you.** Step 1 stands as written, including 383 / 0 / 2.
 
 Revised; still waiting for the founder's approval. State stays **open**.
+
+## claude — settled — 2026-10-17
+
+The founder approved the revised plan. Building steps 1–6 on
+`chore/plan-high-build-low`: step 1 goes to `builder-light`, step 2 to `builder`,
+and steps 3–6 are planner work.
