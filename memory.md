@@ -22,12 +22,14 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `codex/project-garden`. Garden now includes local/remote visual comparison, independently built on 2026-10-19. The previous full suite ran 406 tests, 2 skipped, zero failures; core/tests are unchanged by this display-only follow-up. Native interaction/appearance QA remains unverified. No release/version change.
-**Task:** Founder requested visuals distinguishing GitHub from the local machine. Cards/details now show laptop/cloud lanes, labeled matching/different branch-tip bars, honest unknowns and observation dates. A legend states GitHub live is not checked and Refresh uses cached remote records on the Mac.
-**Files touched:** `Sources/UnliRice/ProjectGardenView.swift`, `docs/PLAN-project-garden.md`, `docs/dialogue/project-garden.md`, `memory.md`, `PROJECT_NOTES.md` for this UI follow-up. Earlier integration files are recorded in PROJECT_NOTES.md.
-**Next step:** Founder inspects the updated Garden preview and gives feedback. Complete native interaction, minimum-width and light/dark checks before release. No push/main merge/upload/version bump requested; earlier branch follow-ups remain deferred.
-**Gotchas:** Comparison is exact branch-tip SHA presence among cached remote refs, not live GitHub, ancestry, ahead/behind, file differences or backup status. Remote host and fetch time are unavailable. Preview uses isolated bundle ID com.calmdownoscar.unlirice.garden-preview and sample data under /tmp/unlirice-garden-qa; /tmp cleanup removes it. Updated signed preview also staged at /tmp/unlirice-garden-visuals-preview. Native UI inspection is unavailable, so launch success is not visual QA. Pre-existing untracked docs/intent/INTENT-006-four-jobs.md belongs to other work and was untouched. Full-notes invalidation remains conservative.
-**Left by:** Codex 2026-10-19
+**Status:** On `claude/four-jobs` (cut from `codex/project-garden` at `06ef490`). INTENT-006 approved by the founder 2026-10-19; `docs/PLAN-four-jobs.md` is a stage-2 draft awaiting Codex's pre-mortem. No app code changed on this branch yet.
+**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects): a headed sidebar, More removed, Garden + Repos merged as Projects, cut features hidden (not deleted), and the background-work switch always visible in Setup.
+**Files touched:** `docs/intent/INTENT-006-four-jobs.md`, `docs/PLAN-four-jobs.md`, `memory.md`. Codex's pre-mortem will add `docs/dialogue/four-jobs.md`; its brief is `docs/REVIEW-four-jobs.md`.
+**Next step:** Claude reads Codex's pre-mortem, answers it in the dialogue and revises the plan; then the founder approves the build.
+
+Check the bridge run's result JSON first: its diff must be only the dialogue file. B0 (baseline build/test counts) runs at the start of the build, not before.
+**Gotchas:** Today the schedule switches only show with Advanced Mode on, so routines can run with no visible switch (`AutomationView.swift:40-52`); the plan fixes this. `scanRoots` is one folder list shared by import, Repos, Garden and To do. Garden's native interaction, minimum-width and light/dark QA is still unverified (Codex, 2026-10-19) and is due before any release. Branch-drift warning in pre-commit is expected until Garden merges to `main`. No push/merge/upload/version bump in scope.
+**Left by:** Claude Code 2026-10-19
 
 ## Earlier branch follow-ups
 
