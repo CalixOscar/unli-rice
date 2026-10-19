@@ -50,6 +50,7 @@ struct ProjectGardenView: View {
                     .font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                 }
                 summary
+                comparisonLegend
                 controls
                 content
                 if let report {
@@ -134,6 +135,38 @@ struct ProjectGardenView: View {
         .background(Theme.bgCard)
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.borderLight, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+
+    private var comparisonLegend: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("This Mac and remote records")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+            HStack(alignment: .top, spacing: 18) {
+                legendItem("laptopcomputer", title: "This Mac", detail: "local branches/linked worktrees", color: Theme.accentColor)
+                legendItem("cloud", title: "Recorded remote", detail: "last fetched refs", color: Theme.violet)
+                legendItem("globe", title: "Remote live", detail: "Not checked", color: Theme.textSecondary)
+            }
+            Text("Remote records are saved on this Mac. Refresh does not contact GitHub or other remote hosts.")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.bgCard)
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(Theme.borderLight, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func legendItem(_ icon: String, title: String, detail: String, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon).foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textPrimary)
+                Text(detail).font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+            }
+        }
     }
 
     private var controls: some View {
@@ -283,7 +316,7 @@ private struct ProjectGardenCard: View {
                     Label("\(project.notes.count) notes", systemImage: "note.text")
                     Label("\(project.todoCount) to-do · \(project.reviewCount) review", systemImage: "flag")
                 }.font(.system(size: 10.5)).foregroundStyle(Theme.textSecondary)
-                repositoryLine
+                RepositoryComparison(repository: project.repository, compact: true)
                 if let issue = project.issues.first {
                     Label(issue, systemImage: "info.circle").font(.system(size: 10.5))
                         .foregroundStyle(Theme.textSecondary).lineLimit(2)
@@ -300,17 +333,6 @@ private struct ProjectGardenCard: View {
             .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textSecondary)
     }
 
-    @ViewBuilder private var repositoryLine: some View {
-        if let repo = project.repository {
-            let source = repo.fromPublishedSnapshot ? "saved snapshot" : "live local scan"
-            let comparison = repo.differentTipCount.map { "\($0) tips differ from cached remotes" } ?? "remote comparison unavailable"
-            Text("\(source) · \(repo.observedAt.formatted(date: .abbreviated, time: .shortened)) · \(repo.branchCount) branches · \(repo.worktreeCount) linked worktrees")
-                .font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-            Text(comparison).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-        } else {
-            Text("Repository comparison unavailable").font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textSecondary)
-        }
-    }
 }
 
 private struct ProjectGardenDetail: View {
@@ -334,16 +356,7 @@ private struct ProjectGardenDetail: View {
                     }
                     detailField("Recorded status", value: project.status ?? "None recorded", source: project.statusSource, date: project.statusDate)
                     detailField("Next step", value: project.nextStep ?? "None recorded", source: project.nextStepSource, date: nil)
-                    if let repo = project.repository {
-                        Text(repo.fromPublishedSnapshot ? "Repository · saved snapshot from \(repo.observedAt.formatted(date: .abbreviated, time: .shortened))" : "Repository · live local scan at \(repo.observedAt.formatted(date: .abbreviated, time: .shortened))")
-                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.textSecondary)
-                        Text("Current branch: \(repo.currentBranch ?? "not recorded")")
-                            .font(.system(size: 12)).foregroundStyle(Theme.textPrimary)
-                        Text("\(repo.branchCount) branches · \(repo.worktreeCount) linked worktrees · \(repo.differentTipCount.map { "\($0) tips differ from cached remotes" } ?? "remote comparison unavailable")")
-                            .font(.system(size: 12)).foregroundStyle(Theme.textPrimary).textSelection(.enabled)
-                    } else {
-                        Text("Repository facts are unavailable for this project.").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
-                    }
+                    RepositoryComparison(repository: project.repository, compact: false)
                     ForEach(Array(project.issues.enumerated()), id: \.offset) { _, issue in
                         Label(issue, systemImage: "info.circle").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
                     }
@@ -374,5 +387,146 @@ private struct ProjectGardenDetail: View {
             Text(value).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
             Text([source, date.map { $0.formatted(date: .abbreviated, time: .shortened) }].compactMap { $0 }.joined(separator: " · ")).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.textSecondary)
         }
+    }
+}
+
+private struct RepositoryComparison: View {
+    let repository: ProjectGarden.Repository?
+    let compact: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 5 : 10) {
+            if let repository {
+                localLane(repository)
+                remoteLane(repository)
+                comparisonSection(repository)
+                Text(repository.fromPublishedSnapshot ? "Saved snapshot · \(repository.observedAt.formatted(date: .abbreviated, time: .shortened))" : "Local scan · \(repository.observedAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.system(size: compact ? 9 : 10, design: .monospaced))
+                    .foregroundStyle(Theme.textSecondary)
+                if repository.differentTipCount != nil {
+                    Text("Remote records may be older")
+                        .font(.system(size: compact ? 9 : 10))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            } else {
+                HStack(spacing: 7) {
+                    Image(systemName: "laptopcomputer.and.arrow.down")
+                    Text("Local and remote details unavailable")
+                }
+                .font(.system(size: compact ? 10 : 12))
+                .foregroundStyle(Theme.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func localLane(_ repository: ProjectGarden.Repository) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: "laptopcomputer").foregroundStyle(Theme.accentColor)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(repository.fromPublishedSnapshot ? "Mac snapshot" : "On this Mac")
+                    .font(.system(size: compact ? 10 : 12, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(localSummary(repository))
+                    .font(.system(size: compact ? 9 : 11))
+                    .foregroundStyle(Theme.textSecondary)
+                    .lineLimit(compact ? 2 : nil)
+            }
+        }
+    }
+
+    private func remoteLane(_ repository: ProjectGarden.Repository) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "cloud").foregroundStyle(Theme.violet)
+            Text(repository.differentTipCount == nil ? "No remote records available" : "Recorded remote")
+                .font(.system(size: compact ? 10 : 12, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+        }
+    }
+
+    private func localSummary(_ repository: ProjectGarden.Repository) -> String {
+        let branchText = "\(max(repository.branchCount, 0)) branches"
+        let worktreeText = "\(max(repository.worktreeCount, 0)) linked worktrees"
+        if let currentBranch = repository.currentBranch, !currentBranch.isEmpty {
+            return "\(currentBranch) · \(branchText) · \(worktreeText)"
+        }
+        return "\(branchText) · \(worktreeText)"
+    }
+
+    @ViewBuilder
+    private func comparisonSection(_ repository: ProjectGarden.Repository) -> some View {
+        let branchCount = max(repository.branchCount, 0)
+        if let rawDifferent = repository.differentTipCount {
+            let different = min(max(rawDifferent, 0), branchCount)
+            let matching = branchCount - different
+            VStack(alignment: .leading, spacing: compact ? 4 : 7) {
+                if repository.branchCount < 0 || rawDifferent < 0 || rawDifferent > branchCount {
+                    Text("Branch tip comparison unavailable")
+                        .font(.system(size: compact ? 9 : 11))
+                        .foregroundStyle(Theme.textSecondary)
+                    neutralTrack
+                } else if branchCount == 0 {
+                    Text("No local branch tips to compare")
+                        .font(.system(size: compact ? 9 : 11))
+                        .foregroundStyle(Theme.textSecondary)
+                    neutralTrack
+                } else {
+                    comparisonBar(matching: matching, different: different, total: branchCount)
+                    VStack(alignment: .leading, spacing: compact ? 3 : 7) {
+                        comparisonLabel("Matching tips", count: matching, caption: "Same commit ID in recorded remotes", color: Theme.emerald)
+                        comparisonLabel("Different tips", count: different, caption: "Different from recorded remotes", color: Theme.violet)
+                    }
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Remote comparison unknown")
+                    .font(.system(size: compact ? 9 : 11))
+                    .foregroundStyle(Theme.textSecondary)
+                neutralTrack
+            }
+        }
+    }
+
+    private var neutralTrack: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .stroke(Theme.textLight, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            .frame(height: compact ? 7 : 10)
+            .accessibilityLabel("Neutral branch tip comparison track")
+            .accessibilityValue("Comparison unavailable")
+    }
+
+    private func comparisonBar(matching: Int, different: Int, total: Int) -> some View {
+        GeometryReader { proxy in
+            HStack(spacing: 0) {
+                Theme.emerald.frame(width: proxy.size.width * CGFloat(matching) / CGFloat(total))
+                Theme.violet.frame(width: proxy.size.width * CGFloat(different) / CGFloat(total))
+            }
+            .clipShape(Capsule())
+        }
+        .frame(height: compact ? 7 : 10)
+        .background(Theme.borderLight, in: Capsule())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Branch tip comparison")
+        .accessibilityValue("\(matching) Matching tips, \(different) Different tips")
+    }
+
+    private func comparisonLabel(_ title: String, count: Int, caption: String, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6).padding(.top, 3)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(title) · \(count)")
+                    .font(.system(size: compact ? 9 : 11, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                if !compact {
+                    Text(caption)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
