@@ -2415,3 +2415,8 @@ The founder requested the standalone Project Garden be placed inside Unli Rice a
 Claude's pre-mortem is in `docs/dialogue/project-garden.md`; Codex answered all five findings and marked it settled. The plan now routes folder management to the actual Automation folder controls, keeps ordinary local branch tips out of attention scoring, pins security-scope pairs inside the worker task, documents display-only separator ambiguity, and bounds status/next-step text. The founder explicitly approved Claude reviewing relevant repository files in this chat. Live vault access was unavailable; no wiki/to-do check or note write is claimed.
 
 Baseline verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build` on 2026-10-19 executed 383 tests, 2 skipped, zero failures. G1 has not yet been built.
+
+
+### 2026-10-19 — Garden G1 checkpoint and planner corrections
+
+The configured build profile started with `model: gpt-reserve` / `reasoning effort: medium` (startup log checked). It added `ProjectGarden.swift` and six focused tests. Independent verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests` on 2026-10-19, six tests, zero failures. The planner did not accept this as complete: inspection found omitted notes-only todo association, source priority/bounds, live-Git-independent snapshot fallback and coverage for several promised boundaries. `docs/PLAN-project-garden.md` G1R now specifies those corrections and tests. This checkpoint is intentionally incomplete and no UI has been built.
