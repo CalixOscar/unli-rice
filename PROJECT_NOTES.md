@@ -2406,3 +2406,12 @@ refusing the sentinel write, leaves its `$TMPDIR` folder behind, but never a `lo
 file. Lessons: a builder's pasted test output is not evidence (one report misnamed a
 case), and a plan that says "everything else is settled" must say so only of what
 it actually spells out.
+
+
+### 2026-10-19 — Project Garden integration planned
+
+The founder requested the standalone Project Garden be placed inside Unli Rice as a quick overview. Codex inspected both repositories and created `docs/intent/INTENT-005-project-garden.md` and `docs/PLAN-project-garden.md` on `codex/project-garden`, based at c7b5d6e. No application source has changed at this checkpoint. The scope is a native read-only overview over existing folder grants, notes and optional snapshots; no server, network access, persistent registry or historical portfolio import.
+
+Claude's pre-mortem is in `docs/dialogue/project-garden.md`; Codex answered all five findings and marked it settled. The plan now routes folder management to the actual Automation folder controls, keeps ordinary local branch tips out of attention scoring, pins security-scope pairs inside the worker task, documents display-only separator ambiguity, and bounds status/next-step text. The founder explicitly approved Claude reviewing relevant repository files in this chat. Live vault access was unavailable; no wiki/to-do check or note write is claimed.
+
+Baseline verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build` on 2026-10-19 executed 383 tests, 2 skipped, zero failures. G1 has not yet been built.
