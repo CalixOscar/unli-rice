@@ -13,6 +13,8 @@ struct HomeView: View {
                 // Block 1 — App Purpose Header
                 purposeHeader
 
+                gardenEntry
+
                 // Block 2 — What your AI knows about you (R5.1, R6.2, R6.4)
                 whatAIKnowsCard
 
@@ -49,6 +51,34 @@ struct HomeView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.textSecondary)
         }
+    }
+
+    private var gardenEntry: some View {
+        Button(action: { store.showGarden() }) {
+            HStack(spacing: 12) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Theme.emerald)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Open Project Garden")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("A quiet overview of project status, notes, and local repository facts.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.accentColor)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.bgField)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.borderLight, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Block 2: What Your AI Knows About You (R5.1, R6.2, R6.4)

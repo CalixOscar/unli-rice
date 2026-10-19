@@ -199,6 +199,23 @@ final class ProjectGardenTests: XCTestCase {
         XCTAssertNotNil(project.statusDate)
     }
 
+    func testNextStepSourceKeepsItsOwnDateWhenStatusComesFromANote() throws {
+        let folder = temporary.appendingPathComponent("Dates")
+        try mkdir(folder)
+        let memory = folder.appendingPathComponent("memory.md")
+        try "**Next step:** Check the layout".write(to: memory, atomically: true, encoding: .utf8)
+        let memoryDate = Date(timeIntervalSince1970: 2_000)
+        try FileManager.default.setAttributes([.modificationDate: memoryDate], ofItemAtPath: memory.path)
+        let registration = note(title: "Project: Dates", body: "An older recorded status")
+        let project = try XCTUnwrap(ProjectGarden.load(roots: [folder], notes: [registration]).projects.first)
+        XCTAssertEqual(project.statusDate, registration.updatedAt)
+        XCTAssertTrue(project.nextStepSource?.contains(memoryDate.formatted(date: .abbreviated, time: .shortened)) == true)
+        let notesOnly = try XCTUnwrap(ProjectGarden.load(roots: [], notes: [
+            note(title: "Project: Notes", body: "A story\n\n**Next step:** Read it")
+        ]).projects.first)
+        XCTAssertTrue(notesOnly.nextStepSource?.contains(registration.updatedAt.formatted(date: .abbreviated, time: .shortened)) == true)
+    }
+
     func testDuplicateFolderNamesKeepSeparateIdentityAndDoNotUseAmbiguousTags() throws {
         let first = temporary.appendingPathComponent("one/Same")
         let second = temporary.appendingPathComponent("two/Same")

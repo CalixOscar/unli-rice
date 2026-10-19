@@ -128,12 +128,18 @@ struct ContentView: View {
                 store.showHome()
             }
 
+            sidebarRow("Garden", active: store.showingGarden) {
+                store.selectNote(nil)
+                store.showGarden()
+            }
+
             sidebarRow(
                 "Notes",
                 active: !store.showingHome && !store.showingNeedsYou && !store.showingMore
                     && !store.showingSetup && !store.showingProfileBuilder && !store.showingProfileManager
                     && !store.showingGraph && !store.showingRetrospective && !store.showingRepos
                     && !store.showingTodo
+                    && !store.showingGarden
                     && !store.showingTrustCenter
                     && !store.showingNotices && !store.showingArchived && !store.showingAutomation
             ) {
@@ -225,6 +231,8 @@ struct ContentView: View {
                 MapPaneView()
             } else if store.showingRetrospective {
                 RetrospectiveView()
+            } else if store.showingGarden {
+                ProjectGardenView()
             } else if store.showingTodo {
                 TodoPaneView()
             } else if store.showingRepos {

@@ -144,7 +144,7 @@ public enum ProjectGarden {
                         projects[index] = Project(id: existing.id, name: existing.name, folderURL: nil,
                                                   status: existing.status, statusSource: existing.statusSource, statusDate: existing.statusDate,
                                                   nextStep: explicitStep.map { clipped($0, limit: 800) } ?? existing.nextStep,
-                                                  nextStepSource: explicitStep.map { _ in sourceCaption(registration!) } ?? existing.nextStepSource,
+                                                  nextStepSource: explicitStep.map { _ in stepSourceCaption(registration!) } ?? existing.nextStepSource,
                                                   notes: sortNotesArray(existing.notes + related), repository: repository, issues: existing.issues)
                     } else {
                         projects.append(makeSnapshotOnly(repo: repo, related: related, repository: repository))
@@ -224,13 +224,13 @@ public enum ProjectGarden {
                 status = source.flatMap { clipped(excerpt(from: latestBlock($0.body), limit: 400), limit: 400) }
                 statusSource = source.map(sourceCaption); statusDate = source?.updatedAt
             }
-            nextStep = clipped(memory.nextStep, limit: 800); nextSource = memory.nextStep == nil ? nil : "memory.md (file updated)"
+            nextStep = clipped(memory.nextStep, limit: 800); nextSource = memory.nextStep == nil ? nil : "memory.md (file updated) · \(memory.modifiedAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "date unavailable")"
         } else {
             let source = registration ?? related.sorted(by: noteOrder).first
             status = source.flatMap { clipped(excerpt(from: latestBlock($0.body), limit: 400), limit: 400) }
             statusSource = source.map(sourceCaption); statusDate = source?.updatedAt
             let noteStep = registration.flatMap { field("**Next step:**", in: latestBlock($0.body)) }
-            nextStep = clipped(noteStep, limit: 800); nextSource = noteStep == nil ? nil : registration.map(sourceCaption)
+            nextStep = clipped(noteStep, limit: 800); nextSource = noteStep == nil ? nil : registration.map(stepSourceCaption)
         }
         let repo: Repository?
         if FileManager.default.fileExists(atPath: folder.appendingPathComponent(".git").path) {
@@ -261,7 +261,7 @@ public enum ProjectGarden {
         return Project(id: "notes:\(name.lowercased())", name: name,
                        status: source.flatMap { clipped(excerpt(from: latestBlock($0.body), limit: 400), limit: 400) },
                        statusSource: source.map(sourceCaption), statusDate: source?.updatedAt,
-                       nextStep: clipped(step, limit: 800), nextStepSource: step == nil ? nil : registration.map(sourceCaption), notes: ordered)
+                       nextStep: clipped(step, limit: 800), nextStepSource: step == nil ? nil : registration.map(stepSourceCaption), notes: ordered)
     }
 
     private static func relatedNotes(_ notes: [Note], for candidate: Candidate, nameGroups: [String: [Candidate]]) -> [Note] {
@@ -329,8 +329,12 @@ public enum ProjectGarden {
                        status: statusNote.flatMap { clipped(excerpt(from: latestBlock($0.body), limit: 400), limit: 400) },
                        statusSource: statusNote.map(sourceCaption), statusDate: statusNote?.updatedAt,
                        nextStep: clipped(step, limit: 800) ?? clipped(repo.nextStep, limit: 800),
-                       nextStepSource: step == nil ? (repo.nextStep == nil ? nil : "saved snapshot · \(repository.observedAt.formatted(date: .abbreviated, time: .shortened))") : registration.map(sourceCaption),
+                       nextStepSource: step == nil ? (repo.nextStep == nil ? nil : "saved snapshot · \(repository.observedAt.formatted(date: .abbreviated, time: .shortened))") : registration.map(stepSourceCaption),
                        notes: related, repository: repository)
+    }
+
+    private static func stepSourceCaption(_ note: Note) -> String {
+        "\(sourceCaption(note)) · \(note.updatedAt.formatted(date: .abbreviated, time: .shortened))"
     }
 
     private static func sourceCaption(_ note: Note) -> String {

@@ -54,6 +54,7 @@ final class AppStore: ObservableObject {
     @Published var archiveSelection: Set<UUID> = []
 
     @Published var showingHome: Bool = false
+    @Published var showingGarden: Bool = false
     @Published var showingNeedsYou: Bool = false
     @Published var showingSetup: Bool = false
     @Published var showingProfileBuilder: Bool = false
@@ -890,6 +891,7 @@ final class AppStore: ObservableObject {
         trustMessage = nil
         retrospectivePeriodID = nil
         showingRetrospective = false
+        showingGarden = false
         showingRepos = false
         showingNotices = false
         showingTrustCenter = false
@@ -1102,6 +1104,7 @@ final class AppStore: ObservableObject {
         showingGraph = false
         showingGetStarted = false
         showingRetrospective = false
+        showingGarden = false
         showingNotices = false
         showingTrustCenter = false
         showingAutomation = false
@@ -1180,6 +1183,20 @@ final class AppStore: ObservableObject {
         closeAllPanes()
         showingHome = true
         statusMessage = "Home — What Unli Rice is doing for you right now."
+    }
+
+    func showGarden() {
+        closeAllPanes()
+        showingGarden = true
+        statusMessage = "Garden — a quiet overview of your projects and their notes."
+    }
+
+    func showGardenFolders() {
+        closeAllPanes()
+        showingMore = true
+        showingAutomation = true
+        moreDestination = .automation
+        statusMessage = "What Runs on Its Own — manage the folders Garden can read."
     }
 
     func showNeedsYou() {
@@ -1357,6 +1374,7 @@ final class AppStore: ObservableObject {
             // opening a note, so closing it returns you to the archived list you
             // were reading rather than to All Notes.
             showingHome = false
+            showingGarden = false
             showingNeedsYou = false
             showingSetup = false
             showingProfileBuilder = false
