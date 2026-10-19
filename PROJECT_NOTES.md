@@ -2420,3 +2420,10 @@ Baseline verification: `swift test --disable-sandbox --scratch-path /tmp/unliric
 ### 2026-10-19 — Garden G1 checkpoint and planner corrections
 
 The configured build profile started with `model: gpt-reserve` / `reasoning effort: medium` (startup log checked). It added `ProjectGarden.swift` and six focused tests. Independent verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests` on 2026-10-19, six tests, zero failures. The planner did not accept this as complete: inspection found omitted notes-only todo association, source priority/bounds, live-Git-independent snapshot fallback and coverage for several promised boundaries. `docs/PLAN-project-garden.md` G1R now specifies those corrections and tests. This checkpoint is intentionally incomplete and no UI has been built.
+
+
+### 2026-10-19 — Garden report accepted after source-ownership review
+
+G1R (gpt-reserve / medium, startup verified) completed the source/fallback corrections and reported ten passing tests. Planner review found further ownership ambiguity and duplicate related-note IDs when joining notes-only and snapshot providers. The planner-owned G1P step now restricts primary status to the matching project registration, prevents explicit provenance being overridden by a notes-only tag, deduplicates note UUIDs, puts snapshot dates into fallback captions, validates detached Git HEAD IDs and reports depth coverage. No persisted format or existing scanner behavior changed.
+
+Independent verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests` on 2026-10-19 executed 22 tests, zero failures. Tests cover live-vs-snapshot precedence/dates, cleared steps, invalid/oversized/symlink memory, ambiguous/nested identities, provenance precedence, archived notes, unknown remotes, invalid HEAD, discovery caps, ignore/symlink/archive exclusions, deterministic IDs and read-only repeated loads. G2 UI remains next.

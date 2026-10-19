@@ -4,7 +4,7 @@
 **Date:** 2026-10-19
 **Planner:** codex
 **Tier:** 2 conservatively: new derived project representation, though no persisted data model or format changes.
-**State:** settled after Claude pre-mortem; ready for G1
+**State:** G1/G1R/G1P accepted; ready for G2
 **Branch:** codex/project-garden
 **Baseline:** c7b5d6e; working tree clean before these planning documents. Existing history from chore/plan-high-build-low is retained.
 
@@ -75,13 +75,13 @@ Builders may add initializers/private helpers. Public field names/types and sema
 
 ## 3. Build steps
 
-- [ ] **G1 — Project report and discovery (`build`)**
+- [x] **G1 — Project report and discovery (`build`)**
   - Files: `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift` only.
   - Implement §2's loader and report without changing existing persisted types or scanner semantics.
   - Tests with temporary folders: direct root and parent/nested discovery; no-Git project; overlap deduplication; same basename without incorrect note or snapshot joins; symlink/dependency/ignore-marker skip; missing/unreadable/oversized memory; multiline Status/Next step; readable blank next step suppressing snapshot fallback; notes-only registration and archived exclusion; latest append block does not resurrect an old step; explicit provenance over tags with component boundaries; todo/review derivation; no remote refs => unknown; live vs historical repository provenance; duplicate snapshot names do not crash; bounded discovery and deterministic ordering.
   - Verify: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests`.
 
-- [ ] **G1R — Complete report edge cases (`build`, depends initial G1)**
+- [x] **G1R — Complete report edge cases (`build`, depends initial G1)**
   - Files: `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift` only. The initial G1 focused suite passes 6/6 independently, but planner inspection found omissions from §2. Complete these existing requirements before accepting G1.
   - Notes-only projects must include related active todo/review notes with the exact project-name tag when there are no ambiguous folder matches; registrations alone are insufficient. Snapshot-only projects also associate active name-tagged notes when that name is unambiguous. A notes-only Project registration and a unique same-name snapshot represent one display card: attach the historical repository facts to it, preserve the registration's next step (including its absence). Do not create a second snapshot card. If folder-name matches are ambiguous, don't use tags or snapshots to choose a folder. Ignore all duplicate snapshot-name records for joining and issue one warning; never select an arbitrary first record as truth.
   - For folder note association, authoritative projectPath wins over sourceFilePath, which wins over tags. If the chosen provenance path matches several discovered folders (e.g. separately granted parent and child), associate only with the longest matching folder path by path components. Explicit provenance that matches no discovered project never falls back to a conflicting tag. Otherwise match registration title or exact project-name tag only for a unique folder name. One-character registration names (`Project:X` or `Project: X`) are valid.
@@ -90,6 +90,11 @@ Builders may add initializers/private helpers. Public field names/types and sema
   - Discovery failures (nonexistent/unreadable roots or enumeration errors) must add report issues; do not silently collapse them to an empty complete report. Skip backup/archive directories explicitly, in addition to existing dependency exclusions. Maintain limits, symlink/ignore-marker boundaries, determinism, and direct-root support. Detect an unreadable/invalid Git HEAD result as unavailable rather than a known zero-branch repository, without changing GitRepoScanner. An unborn repository with readable `ref: refs/heads/main` remains valid. Close FileHandle with defer even if reading throws.
   - Add behavioral tests for these cases, plus all originally requested but missing tests: multi-line status/next step and truncation; missing/unreadable/oversized/symlink memory; direct vs parent/nested no-Git discovery; duplicate basename identities; overlapping parent/child provenance; symlink/dependency/archive and root-ignore boundaries; depth/project/directory caps and reported truncation; empty live remotes vs known differing tips, with no attention caused by Git alone; snapshot-only and live repository dates; latest append clearing an old notes-only step; archived exclusion; deterministic source and sorting. Tests must establish the actual behavior, not assert helper implementation details. Use temporary fixtures; test invalid/unreadable memory with a directory or invalid UTF-8 so the test doesn't depend on process privileges. No real repository or vault writes.
   - Verify: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests`.
+
+- [x] **G1P — Resolve source ownership and verify boundaries (`planner`, depends G1R)**
+  - Planner review of the second diff found an unresolved ownership case: a related note may itself register a different project, and a notes-only tag may conflict with explicit provenance. Resolve primary status/next-step selection to a registration whose name matches this project, and permit name tags for notes-only projects only when the note has no explicit path provenance. Deduplicate related notes by UUID when combining providers so counts and SwiftUI identity remain correct.
+  - Keep snapshot fallback source dates in the caption itself, independently of live Git observation time. Validate detached HEAD as an actual hexadecimal object ID rather than any nonempty text. These decisions preserve the original evidence/unknown contracts.
+  - Files: the same two G1/G1R files. Add missing regression coverage for these ownership decisions and the originally required filesystem/memory/Git limits. Independently run the focused suite before accepting G1 and starting G2. This planner-owned correction resolves the ambiguous source ownership exposed by review; it does not expand the feature.
 
 - [ ] **G2 — Native Garden and navigation (`build`, depends G1)**
   - Files: `Sources/UnliRice/ProjectGardenView.swift`, `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/HomeView.swift` only.
@@ -109,3 +114,7 @@ Builders may add initializers/private helpers. Public field names/types and sema
 Each builder receives the mandatory AGENTS.md Role/Plan/Step/Branch/Files/Changes/Verify handoff. Only one step at a time, clean checkpoint before each step. Builders may not edit documentation, git state or other files. They stop on an architectural choice, missing required file, branch mismatch, unexpected modifications, or the contract's circuit breaker. New Sources files must be called out for xcodegen.
 
 The planner owns unresolved design choices and review. Test output in a builder report is not accepted without independent verification. Current app-group restrictions mean UI QA must use a throwaway log, not the App Store vault. Live MCP note tools are unavailable in this session and reading the app-group vault was denied in discovery; do not claim Wiki: index or project to-dos were checked. No note writes are authorized by this feature implementation.
+
+## Build verification so far
+
+2026-10-19: G1's six tests were independently rerun. G1R's report was reviewed; the planner-owned G1P resolved remaining primary-registration ownership, duplicate note identities across providers, dated next-step fallback, invalid detached HEAD and depth-coverage reporting. The completed focused suite was independently executed: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests`, 22 tests, zero failures. G2 has not started at this checkpoint.

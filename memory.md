@@ -22,11 +22,11 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `codex/project-garden`; initial G1 implementation exists but is not accepted as complete. Its six focused tests independently pass with zero failures (`swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests`, 2026-10-19). Planner review found missing edge cases and defined G1R. Baseline full suite was 383 tests, 2 skipped, zero failures on the same date. No release or version change.
-**Task:** Native Garden quick overview, plan `docs/PLAN-project-garden.md`, Claude pre-mortem settled. Complete the derived report before building its UI. No new persistent schema, server, network request or note mutation.
-**Files touched:** `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift`, `docs/PLAN-project-garden.md`, `memory.md`, `PROJECT_NOTES.md`; earlier intent/dialogue are committed.
-**Next step:** Build G1R with the configured build profile, review and independently verify it, then G2 UI and G3 integration/Claude post-mortem. G1R explicitly covers notes-only task association, source priority/bounds, independent snapshot fallback, ambiguous identities, missing-root issues and original test coverage omissions.
-**Gotchas:** Builder startup verified `model: gpt-reserve`, `reasoning effort: medium`. Its reported 6-test pass was independently rerun; passing those tests did not establish all plan requirements. The user explicitly approved relevant repo content going to Claude for both reviews. Live vault tools/reads remain unavailable. UI QA must use a disposable vault, agent-settings override and isolated app bundle ID. No push or main merge is authorized by this integration task.
+**Status:** On `codex/project-garden`. G1/G1R/G1P accepted: the completed ProjectGarden core suite independently passes 22 tests, zero failures (`swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests`, 2026-10-19). Native UI is not yet implemented. Baseline full suite was 383 tests, 2 skipped, zero failures. No release or version change.
+**Task:** Build the native Garden quick overview per `docs/PLAN-project-garden.md`; Claude pre-mortem is settled. The core is an in-memory report over existing folder grants, notes and optional repository snapshots.
+**Files touched:** `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift`, `docs/PLAN-project-garden.md`, `memory.md`, `PROJECT_NOTES.md`.
+**Next step:** Dispatch G2 to the build profile, review the native UI diff, independently build/test, regenerate Xcode, run isolated UI QA, and obtain Claude's approved post-mortem.
+**Gotchas:** Both builder runs verified gpt-reserve / medium. G1R left broader boundaries under-tested; planner-owned G1P settled the remaining source ownership decisions and added coverage, now 22 tests. Do not double-count a note when joining providers. Snapshot next-step date belongs to its snapshot even alongside live Git. Live vault tools/reads remain unavailable. Use disposable vault/agent settings and an isolated app ID for UI QA. No push/main merge/upload/version bump in scope.
 **Left by:** Codex 2026-10-19
 
 ## Earlier branch follow-ups
