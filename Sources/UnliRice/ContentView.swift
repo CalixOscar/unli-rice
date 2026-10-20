@@ -119,25 +119,28 @@ struct ContentView: View {
             .padding(.top, 20)
             .padding(.bottom, 18)
 
-            sidebarRow(
-                "Home",
-                active: store.pane == .home
-            ) {
+            sidebarHeading("CONTEXT")
+
+            sidebarRow("Home", active: store.pane == .home) {
                 store.selectNote(nil)
                 store.showHome()
             }
 
-            sidebarRow("Garden", active: store.pane == .projects) {
-                store.selectNote(nil)
-                store.showGarden()
-            }
-
-            sidebarRow(
-                "Notes",
-                active: store.pane == .notes
-            ) {
+            sidebarRow("Notes", active: store.pane == .notes) {
                 store.selectNote(nil)
                 store.showAllNotes()
+            }
+
+            sidebarRow("The folder your AI can read", active: store.pane == .aiFolder) {
+                store.selectNote(nil)
+                store.showAIFolder()
+            }
+
+            sidebarHeading("GUARDRAILS")
+
+            sidebarRow("What your AI should always do", active: store.pane == .houseRules) {
+                store.selectNote(nil)
+                store.showHouseRules()
             }
 
             sidebarRow("To do", active: store.pane == .todo) {
@@ -145,51 +148,56 @@ struct ContentView: View {
                 store.showTodo()
             }
 
-            sidebarRow("Repos", active: store.pane == .repos) {
-                store.selectNote(nil)
-                store.showRepos()
-            }
-
             let needsYouBadge = store.pending.count + store.unreadNoticeCount
-            if needsYouBadge > 0 {
-                sidebarRow(
-                    "Needs you",
-                    active: store.selectedNoteID == nil && store.pane == .needsYou,
-                    badge: needsYouBadge
-                ) {
-                    store.selectNote(nil)
-                    store.showNeedsYou()
-                }
-            }
-
-            // These are top-level destinations, not settings buried in More's chip
-            // bar: the map is a way of reading the corpus, and the year-so-far is
-            // the payoff for having kept one.
-            sidebarRow("Your year so far", active: store.pane == .retrospective) {
-                store.selectNote(nil)
-                store.showRetrospective()
-            }
-
-            sidebarRow("Map", active: store.pane == .map) {
-                store.selectNote(nil)
-                store.showGraph()
-            }
-
             sidebarRow(
-                "More",
-                active: store.showingMore
+                "Needs you",
+                active: store.selectedNoteID == nil && (store.pane == .needsYou || store.pane == .notices),
+                badge: needsYouBadge
             ) {
                 store.selectNote(nil)
-                store.showMore()
+                store.showNeedsYou()
+            }
+
+            sidebarHeading("SECURITY")
+
+            sidebarRow("Trust Center", active: store.pane == .trustCenter) {
+                store.selectNote(nil)
+                store.showTrustCenter()
+            }
+
+            sidebarRow("Archived notes", active: store.pane == .archived) {
+                store.selectNote(nil)
+                store.showArchived()
+            }
+
+            sidebarHeading("PROJECTS")
+
+            sidebarRow("Projects", active: store.pane == .projects || store.pane == .repos) {
+                store.selectNote(nil)
+                store.showGarden()
             }
 
             Spacer()
 
-            CapturePromoCard()
+            sidebarRow("Setup", active: store.pane == .setup) {
+                store.selectNote(nil)
+                store.showSetup()
+            }
+            .padding(.bottom, 10)
         }
         .frame(width: 190, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
         .liquidGlass(cornerRadius: 0)
+    }
+
+    private func sidebarHeading(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 2)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func sidebarRow(_ title: String, active: Bool = false, badge: Int? = nil, action: @escaping () -> Void) -> some View {
@@ -211,6 +219,8 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel((badge ?? 0) > 0 ? "\(title), \(badge ?? 0) waiting" : title)
     }
 
     private var mainColumn: some View {

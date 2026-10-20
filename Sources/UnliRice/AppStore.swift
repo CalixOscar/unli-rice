@@ -1203,6 +1203,12 @@ final class AppStore: ObservableObject {
         statusMessage = "House Rules — what your AI should always do."
     }
 
+    func showAIFolder() {
+        pane = .aiFolder
+        moreDestination = .folder
+        statusMessage = "The folder your AI can read — and what it reads first."
+    }
+
     func showProfileManager() {
         pane = .setup
         moreDestination = .setup
