@@ -6,7 +6,7 @@ import SwiftUI
 /// Deliberately does not touch `store`. It used to be written inline in
 /// `ContentView.body`, which observes `store` — so all three blurs were re-rendered on
 /// every `@Published` write, and one sidebar click is up to 19 of them
-/// (`closeAllPanes()` alone writes 17 Bools). `.drawingGroup()` flattens the three
+/// (the old per-pane flag reset wrote 17 Bools). `.drawingGroup()` flattens the three
 /// blurs into one Metal-backed layer so even a genuine redraw is cheap.
 struct BackgroundBlobs: View {
     var body: some View {
@@ -49,8 +49,7 @@ struct ContentView: View {
             BackgroundBlobs()
 
             // Main structure
-            if store.showingFirstRun {
-                
+            if store.pane == .firstRun {
                 FirstRunView()
             } else {
                 VStack(spacing: 0) {
@@ -122,37 +121,31 @@ struct ContentView: View {
 
             sidebarRow(
                 "Home",
-                active: store.showingHome
+                active: store.pane == .home
             ) {
                 store.selectNote(nil)
                 store.showHome()
             }
 
-            sidebarRow("Garden", active: store.showingGarden) {
+            sidebarRow("Garden", active: store.pane == .projects) {
                 store.selectNote(nil)
                 store.showGarden()
             }
 
             sidebarRow(
                 "Notes",
-                active: !store.showingHome && !store.showingNeedsYou && !store.showingMore
-                    && !store.showingSetup && !store.showingProfileBuilder && !store.showingProfileManager
-                    && !store.showingGraph && !store.showingRetrospective && !store.showingRepos
-                    && !store.showingTodo
-                    && !store.showingGarden
-                    && !store.showingTrustCenter
-                    && !store.showingNotices && !store.showingArchived && !store.showingAutomation
+                active: store.pane == .notes
             ) {
                 store.selectNote(nil)
                 store.showAllNotes()
             }
 
-            sidebarRow("To do", active: store.showingTodo) {
+            sidebarRow("To do", active: store.pane == .todo) {
                 store.selectNote(nil)
                 store.showTodo()
             }
 
-            sidebarRow("Repos", active: store.showingRepos) {
+            sidebarRow("Repos", active: store.pane == .repos) {
                 store.selectNote(nil)
                 store.showRepos()
             }
@@ -161,7 +154,7 @@ struct ContentView: View {
             if needsYouBadge > 0 {
                 sidebarRow(
                     "Needs you",
-                    active: store.selectedNoteID == nil && (store.showingNeedsYou || store.showingReviewQueue),
+                    active: store.selectedNoteID == nil && store.pane == .needsYou,
                     badge: needsYouBadge
                 ) {
                     store.selectNote(nil)
@@ -172,22 +165,19 @@ struct ContentView: View {
             // These are top-level destinations, not settings buried in More's chip
             // bar: the map is a way of reading the corpus, and the year-so-far is
             // the payoff for having kept one.
-            sidebarRow("Your year so far", active: store.showingRetrospective) {
+            sidebarRow("Your year so far", active: store.pane == .retrospective) {
                 store.selectNote(nil)
                 store.showRetrospective()
             }
 
-            sidebarRow("Map", active: store.showingGraph) {
+            sidebarRow("Map", active: store.pane == .map) {
                 store.selectNote(nil)
                 store.showGraph()
             }
 
             sidebarRow(
                 "More",
-                active: store.showingMore || store.showingSetup
-                    || store.showingProfileManager
-                    || store.showingTrustCenter || store.showingNotices || store.showingArchived
-                    || store.showingAutomation
+                active: store.showingMore
             ) {
                 store.selectNote(nil)
                 store.showMore()
@@ -225,30 +215,33 @@ struct ContentView: View {
 
     private var mainColumn: some View {
         Group {
-            if store.showingFirstRun {
+            switch store.pane {
+            case .firstRun:
                 FirstRunView()
-            } else if store.showingGraph {
+            case .map:
                 MapPaneView()
-            } else if store.showingRetrospective {
+            case .retrospective:
                 RetrospectiveView()
-            } else if store.showingGarden {
+            case .projects:
                 ProjectGardenView()
-            } else if store.showingTodo {
-                TodoPaneView()
-            } else if store.showingRepos {
+            case .repos:
                 RepoPaneView()
-            } else if store.showingProfileBuilder {
+            case .todo:
+                TodoPaneView()
+            case .profileBuilder:
                 ProfileBuilderView()
-            } else if store.showingMore || store.showingSetup || store.showingProfileManager || store.showingTrustCenter || store.showingNotices || store.showingArchived || store.showingAutomation {
-                MoreView()
-            } else if store.showingNeedsYou || store.showingReviewQueue {
+            case .needsYou:
                 NeedsYouView()
-            } else if store.showingHome {
+            case .home:
                 HomeView()
-            } else if let note = store.selectedNote {
-                NoteDetailView(note: note)
-            } else {
-                noteListColumn
+            case .notes:
+                if let note = store.selectedNote {
+                    NoteDetailView(note: note)
+                } else {
+                    noteListColumn
+                }
+            case .aiFolder, .houseRules, .notices, .trustCenter, .archived, .setup, .whyNotTextFile:
+                MoreView()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

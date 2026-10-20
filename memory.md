@@ -22,13 +22,13 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `claude/four-jobs` (cut from `codex/project-garden` at `06ef490`). `docs/PLAN-four-jobs.md` is at stage 4: Codex's pre-mortem (13 findings, 3 blockers) is answered and the dialogue is settled. Baseline 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-19). No app code changed yet.
-**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects): a headed sidebar, More removed, Garden + Repos as Projects, cut features hidden (not deleted), and the background-work switch always visible in Setup.
-**Files touched:** `docs/intent/INTENT-006-four-jobs.md`, `docs/PLAN-four-jobs.md`, `docs/dialogue/four-jobs.md`, `docs/REVIEW-four-jobs.md` (Codex's brief), `memory.md`.
-**Next step:** The founder gives the go-ahead to build; then Claude hands B1–B5 to its builders in order and runs B6 itself.
+**Status:** On `claude/four-jobs`. Building `docs/PLAN-four-jobs.md` (founder approved 2026-10-20). B1 done: one `Pane` enum replaces the 18 `showing…` flags. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). Sidebar layout unchanged until B2.
+**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects), per the plan's B1–B6.
+**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView}.swift`, `docs/PLAN-four-jobs.md`, `memory.md`. Earlier: intent, dialogue and review brief under `docs/`.
+**Next step:** Claude hands B2 (the headed sidebar) to a Sonnet builder, reviews the diff and reruns the tests.
 
-B1 (the `Pane` enum) goes first; every later step assumes it. B6 must isolate defaults, agent settings, the event log and `profiles.json` before launching the debug build (plan §5 B6).
-**Gotchas:** The "Notes for Unli Rice" inbox imports on every tick even with routines off (`RoutineDriver.swift:162-174`); copy must not say otherwise. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. `scanRoots` is one folder list shared by import, Repos, Garden and To do. Garden's native interaction, minimum-width and light/dark QA is still unverified (Codex, 2026-10-19) and due before release. Branch-drift warning is expected until Garden merges. No push/merge/upload/version bump in scope.
+Then B3, B4, B5 in order; B6 is Claude's manual walk with all persisted state isolated (plan §5 B6).
+**Gotchas:** Until B3, More's chip bar still switches pages while `pane == .setup`; that's expected. `showGardenFolders()` points at `setupTab = .automation` until B3 adds `.folders`. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. The inbox imports even with routines off (`RoutineDriver.swift:162-174`). Garden's native QA is still unverified (Codex, 2026-10-19). Branch-drift warning is expected until Garden merges.
 **Left by:** Claude Code 2026-10-20
 
 ## Earlier branch follow-ups
