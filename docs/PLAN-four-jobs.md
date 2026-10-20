@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-006-four-jobs.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 4 settled, waiting on the founder's go-ahead to build
+**Stage:** 5 building (founder approved 2026-10-20)
 **Pre-mortem:** `docs/dialogue/four-jobs.md` (codex, 2026-10-19), answered there 2026-10-20
 **Branch:** `claude/four-jobs`, cut from `codex/project-garden` at `06ef490` (Garden isn't on
 `main` yet, and this plan rebuilds the navigation Garden plugs into). The hygiene hook
@@ -356,4 +356,8 @@ All 13 of Codex's findings accepted; full answers in `docs/dialogue/four-jobs.md
 
 ## Build notes
 
-_(written during the build)_
+- 2026-10-20, founder: build approved. Pre-mortem 7 resolved as planned (one switch plus a
+  visible agent line). Capture promo sheet losing its door is accepted (§7).
+- The `builder` subagents load only when a session starts in the repo root; this session
+  started elsewhere, so each step goes to a Sonnet/Haiku subagent given `.claude/agents/builder*.md`
+  and the AGENTS.md handoff verbatim.
