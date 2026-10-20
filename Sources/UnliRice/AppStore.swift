@@ -924,7 +924,7 @@ final class AppStore: ObservableObject {
             autonomyLevel: autonomyLevel,
             dataFolderPath: UserDefaults.standard.string(forKey: Self.dataFolderKey),
             scanRootPaths: scanRoots.map(\.path),
-            monthlyReviewEnabled: true,
+            monthlyReviewEnabled: false,
             scanRootBookmarks: scanBookmarks,
             dataFolderBookmark: dataBookmark,
             claudeProjectsBookmark: claudeBookmark,
@@ -1110,7 +1110,7 @@ final class AppStore: ObservableObject {
         pane = .setup
         moreDestination = .setup
         setupTab = .connect
-        statusMessage = "More — Tools, settings, map, retrospectives, and secondary views."
+        statusMessage = "Setup — AI tools, folders, and what runs on its own."
     }
 
     /// Where you go to reconnect or switch the notes folder. Setup, because
@@ -1188,7 +1188,7 @@ final class AppStore: ObservableObject {
         pane = .setup
         moreDestination = .setup
         setupTab = .connect
-        statusMessage = "Setup — AI tool connections, profiles, house rules, and automation."
+        statusMessage = "Setup — AI tools, folders, and what runs on its own."
     }
 
     func showProfileBuilder() {

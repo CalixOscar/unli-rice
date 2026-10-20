@@ -204,7 +204,7 @@ struct CapturePromoSheet: View {
             } else {
                 statusLine(
                     "exclamationmark.circle", Theme.brass,
-                    "No Unli Rice Folder set yet. Set one under More → The folder your AI can read, somewhere inside iCloud Drive."
+                    "No Unli Rice Folder set yet. Set one in Setup › AI Tools, somewhere inside iCloud Drive."
                 )
             }
 
