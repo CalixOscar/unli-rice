@@ -49,8 +49,8 @@ extension AppStore {
             break
         case .reviewQueue:
             showReviewQueue()
-        case .retrospective(let period):
-            showRetrospective(periodID: period)
+        case .retrospective:
+            break // The year-so-far page is hidden (plan four-jobs); the notice is already marked read above.
         case .notesFolder:
             showNotesFolder()
         }

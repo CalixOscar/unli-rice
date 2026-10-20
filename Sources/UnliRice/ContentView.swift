@@ -232,10 +232,8 @@ struct ContentView: View {
                 MapPaneView()
             case .retrospective:
                 RetrospectiveView()
-            case .projects:
-                ProjectGardenView()
-            case .repos:
-                RepoPaneView()
+            case .projects, .repos:
+                ProjectsPane()
             case .todo:
                 TodoPaneView()
             case .profileBuilder:
@@ -395,6 +393,36 @@ struct ContentView: View {
 /// Filters the list as you type. Plain, immediate, no submit — with 190 notes
 /// the fastest route to one of them is typing three letters of it, and a
 /// search that needs a return key first isn't that.
+private struct ProjectsPane: View {
+    @EnvironmentObject var store: AppStore
+
+    private var selection: Binding<Int> {
+        Binding(
+            get: { store.pane == .repos ? 1 : 0 },
+            set: { $0 == 1 ? store.showRepos() : store.showGarden() }
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Projects view", selection: selection) {
+                Text("Overview").tag(0)
+                Text("Branches & worktrees").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+
+            if store.pane == .projects {
+                ProjectGardenView()
+            } else {
+                RepoPaneView()
+            }
+        }
+    }
+}
+
 private struct SearchField: View {
     @EnvironmentObject var store: AppStore
 
