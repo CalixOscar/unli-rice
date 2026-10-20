@@ -36,32 +36,6 @@ struct MoreView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top Destination Selector Bar
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(MoreDestination.allCases) { item in
-                        Button(action: { store.moreDestination = item }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: item.icon)
-                                    .font(.system(size: 11))
-                                Text(item.rawValue)
-                                    .font(.system(size: 12, weight: store.moreDestination == item ? .bold : .regular))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .foregroundStyle(store.moreDestination == item ? Theme.accentColor : Theme.textSecondary)
-                            .selectedControl(cornerRadius: 6, accent: Theme.accentColor, selected: store.moreDestination == item)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-            }
-            .background(Theme.bgField.opacity(0.4))
-
-            Divider().opacity(0.15)
-
             // Content view for selected destination
             Group {
                 switch store.moreDestination {
@@ -102,8 +76,10 @@ struct MoreView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
-            Divider().opacity(0.15)
-            rateFooter
+            if store.moreDestination == .setup {
+                Divider().opacity(0.15)
+                rateFooter
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)

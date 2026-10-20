@@ -22,13 +22,13 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `claude/four-jobs`. Building `docs/PLAN-four-jobs.md` (founder approved 2026-10-20). B1 (Pane enum) and B2 (headed sidebar: CONTEXT / GUARDRAILS / SECURITY / PROJECTS, Setup at the bottom) done. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). Not yet seen in a running build.
+**Status:** On `claude/four-jobs`. Building `docs/PLAN-four-jobs.md` (founder approved 2026-10-20). B1 (Pane enum), B2 (headed sidebar) and B3 (More as a host without its chip bar; Setup tabs AI Tools / Folders / What runs on its own / Separate memories when 2+) done. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). Not yet seen in a running build.
 **Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects), per the plan's B1–B6.
 **Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView}.swift`, `docs/PLAN-four-jobs.md`, `memory.md`. Earlier: intent, dialogue and review brief under `docs/`.
-**Next step:** Claude hands B3 (More as a host, Setup's tabs) to a Sonnet builder, reviews the diff and reruns the tests.
+**Next step:** Claude hands B4 (one background switch, Folders card) to a Sonnet builder, reviews the diff and reruns the tests.
 
-Then B4, B5; B6 is Claude's manual walk with all persisted state isolated (plan §5 B6).
-**Gotchas:** Until B3, More's chip bar still renders inside every More-hosted page. `showGardenFolders()` points at `setupTab = .automation` until B3 adds `.folders`. Planner added `showAIFolder()` (AppStore) so the AI-folder row sets a status message like the others. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. The inbox imports even with routines off (`RoutineDriver.swift:162-174`). Garden's native QA is still unverified (Codex, 2026-10-19). Branch-drift warning is expected until Garden merges.
+Then B5; B6 is Claude's manual walk with all persisted state isolated (plan §5 B6).
+**Gotchas:** Until B4, Setup's Folders and What-runs-on-its-own tabs both render the old `AutomationView()` (Advanced Mode still gates the switches). Planner added `showAIFolder()` and pointed `showGardenFolders()` at `.folders`. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. The inbox imports even with routines off (`RoutineDriver.swift:162-174`). Garden's native QA is still unverified (Codex, 2026-10-19). Branch-drift warning is expected until Garden merges.
 **Left by:** Claude Code 2026-10-20
 
 ## Earlier branch follow-ups

@@ -1173,9 +1173,8 @@ final class AppStore: ObservableObject {
     func showGardenFolders() {
         pane = .setup
         moreDestination = .setup
-        // B3 switches this to `.folders` once that tab exists.
-        setupTab = .automation
-        statusMessage = "What Runs on Its Own — manage the folders Garden can read."
+        setupTab = .folders
+        statusMessage = "Folders — the project folders Projects reads."
     }
 
     func showNeedsYou() {
