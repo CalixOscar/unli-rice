@@ -89,7 +89,7 @@ private struct Card<Content: View>: View {
     }
 }
 
-private struct AutonomyCard: View {
+struct AutonomyCard: View {
     @EnvironmentObject var store: AppStore
 
     private let labels = ["Eco", "Balanced", "Aggressive"]
@@ -139,41 +139,22 @@ private struct AutonomyCard: View {
     }
 }
 
-/// The two switches that decide whether any of this is automatic at all.
-private struct ScheduleCard: View {
-    @EnvironmentObject var store: AppStore
+/// One labelled switch with a status line under it. Shared by the schedule
+/// cards so every switch in Setup reads the same.
+struct AutomationToggleRow: View {
+    let isOn: Binding<Bool>
+    let title: String
+    let detail: String
+    var disabled: Bool = false
 
-    var body: some View {
-        Card(
-            title: "Schedule",
-            subtitle: "Both off by default, and they stay that way until you say otherwise — this app reads your own files, which is not something to start doing because an update shipped.",
-            icon: "calendar.badge.clock"
-        ) {
-            VStack(alignment: .leading, spacing: 14) {
-                toggleRow(
-                    isOn: $store.routinesEnabled,
-                    title: "Run routines on a schedule",
-                    detail: routineStatus
-                )
-
-                Divider().overlay(Theme.borderLight)
-
-                toggleRow(
-                    isOn: Binding(
-                        get: { store.backgroundAgentInstalled },
-                        set: { store.setBackgroundAgent(enabled: $0) }
-                    ),
-                    title: "Keep working with the window closed",
-                    detail: backgroundStatus,
-                    disabled: !store.backgroundAgentBinaryFound && !store.backgroundAgentInstalled
-                )
-            }
-        }
+    init(isOn: Binding<Bool>, title: String, detail: String, disabled: Bool = false) {
+        self.isOn = isOn
+        self.title = title
+        self.detail = detail
+        self.disabled = disabled
     }
 
-    private func toggleRow(
-        isOn: Binding<Bool>, title: String, detail: String, disabled: Bool = false
-    ) -> some View {
+    var body: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -190,6 +171,121 @@ private struct ScheduleCard: View {
                 .toggleStyle(.switch)
                 .tint(Theme.accentColor)
                 .disabled(disabled)
+        }
+    }
+}
+
+/// The one switch that decides whether Unli Rice reads anything on its own.
+/// Always visible in Setup, whatever Advanced Mode says.
+struct BackgroundWorkCard: View {
+    @EnvironmentObject var store: AppStore
+
+    private var subtitle: String {
+        store.routinesEnabled
+            ? "Unli Rice reads your Claude Code sessions and the folders in Setup \u{203A} Folders on a schedule, and adds and tags notes from them. Merges and archives are only ever suggested for your OK."
+            : "Your Claude Code sessions and folders aren't read on their own. Unli Rice still imports what you put in the Notes for Unli Rice folder, keeps the folder your AI can read up to date, and posts messages to Needs you."
+    }
+
+    var body: some View {
+        Card(
+            title: "Work in the background",
+            subtitle: subtitle,
+            icon: "calendar.badge.clock"
+        ) {
+            VStack(alignment: .leading, spacing: 10) {
+                AutomationToggleRow(
+                    isOn: $store.routinesEnabled,
+                    title: "Run routines on a schedule",
+                    detail: routineStatus
+                )
+                if store.backgroundAgentInstalled {
+                    Text("Also set to keep working when the window is closed. Change it in Details.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var routineStatus: String {
+        guard store.routinesEnabled else {
+            return "Off. You can still import by hand with Ingest now, under Details."
+        }
+        let base = "Tue & Fri: ingest 9am, janitor 1pm."
+        return store.autonomyLevel == 0
+            ? base + " Eco waits for plugged-in and idle."
+            : base
+    }
+}
+
+/// The login-item switch: lets scheduled routines run with the window closed.
+struct BackgroundAgentRow: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        Card(
+            title: "Keep working with the window closed",
+            subtitle: "Lets scheduled routines run when Unli Rice isn't open. Off by default.",
+            icon: "moon"
+        ) {
+            AutomationToggleRow(
+                isOn: Binding(
+                    get: { store.backgroundAgentInstalled },
+                    set: { store.setBackgroundAgent(enabled: $0) }
+                ),
+                title: "Keep working with the window closed",
+                detail: backgroundStatus,
+                disabled: !store.backgroundAgentBinaryFound && !store.backgroundAgentInstalled
+            )
+        }
+    }
+
+    private var backgroundStatus: String {
+        // A failure has to win over the description, or the toggle springing
+        // back to off reads as the app ignoring the click.
+        if let failure = store.backgroundAgentFailure {
+            return "Couldn't turn this on: \(failure)"
+        }
+        if store.backgroundAgentInstalled {
+            return "On — checks every 5 minutes whether the window is open or not."
+        }
+        if !store.backgroundAgentBinaryFound {
+            return "Needs the packaged app — run Scripts/make-app.sh, then open Unli Rice.app."
+        }
+        return "Off — routines only run while this window is open."
+    }
+}
+
+/// The two switches that decide whether any of this is automatic at all.
+private struct ScheduleCard: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        Card(
+            title: "Schedule",
+            subtitle: "Both off by default, and they stay that way until you say otherwise — this app reads your own files, which is not something to start doing because an update shipped.",
+            icon: "calendar.badge.clock"
+        ) {
+            VStack(alignment: .leading, spacing: 14) {
+                AutomationToggleRow(
+                    isOn: $store.routinesEnabled,
+                    title: "Run routines on a schedule",
+                    detail: routineStatus
+                )
+
+                Divider().overlay(Theme.borderLight)
+
+                AutomationToggleRow(
+                    isOn: Binding(
+                        get: { store.backgroundAgentInstalled },
+                        set: { store.setBackgroundAgent(enabled: $0) }
+                    ),
+                    title: "Keep working with the window closed",
+                    detail: backgroundStatus,
+                    disabled: !store.backgroundAgentBinaryFound && !store.backgroundAgentInstalled
+                )
+            }
         }
     }
 
@@ -227,7 +323,7 @@ private struct ScheduleCard: View {
 /// "Preview" comes first and is styled as the primary action on purpose. The
 /// janitor's contract is that you can always see what it would do before it does
 /// anything, and a UI where "Run" is the obvious button quietly weakens that.
-private struct JanitorCard: View {
+struct JanitorCard: View {
     @EnvironmentObject var store: AppStore
     @State private var showingModelConfig = false
 
@@ -347,7 +443,7 @@ private struct JanitorCard: View {
 /// own files, so being able to see exactly what would be taken, before anything
 /// is copied, is what makes leaving the routines on a defensible choice rather
 /// than a hopeful one.
-private struct IngestCard: View {
+struct IngestCard: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
@@ -507,13 +603,13 @@ private struct AdvancedModeToggleCard: View {
     }
 }
 
-private struct SimpleScanRootsCard: View {
+struct SimpleScanRootsCard: View {
     @EnvironmentObject var store: AppStore
 
     var body: some View {
         Card(
-            title: "Import Folders",
-            subtitle: "Choose folders containing text files. Markdown and text files in these folders are automatically imported as notes.",
+            title: "Project folders",
+            subtitle: "Projects reads git details from these folders. With background work on, Unli Rice also imports the Markdown and text files in them as notes.",
             icon: "folder.badge.plus"
         ) {
             VStack(alignment: .leading, spacing: 10) {

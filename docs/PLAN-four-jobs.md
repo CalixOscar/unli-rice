@@ -361,3 +361,12 @@ All 13 of Codex's findings accepted; full answers in `docs/dialogue/four-jobs.md
 - The `builder` subagents load only when a session starts in the repo root; this session
   started elsewhere, so each step goes to a Sonnet/Haiku subagent given `.claude/agents/builder*.md`
   and the AGENTS.md handoff verbatim.
+- B2, planner: added `AppStore.showAIFolder()` so the AI-folder row sets a status message
+  like every other row (B2 had it writing `pane` directly).
+- B3, planner: `showGardenFolders()` → `setupTab = .folders`, status "Folders — the project
+  folders Projects reads."
+- B4, builder: `detailsOpen` lives in a private `AutomationTab` in `SetupView.swift`
+  (initialised `.onAppear`); `ScheduleCard` keeps its own status strings. Accepted.
+- B4, planner: the plan said move `routineStatus` unchanged, but its off text ("nothing runs
+  unless you press a button below") contradicts the B4b subtitle. In `BackgroundWorkCard`
+  only, it now reads "Off. You can still import by hand with Ingest now, under Details."

@@ -67,7 +67,11 @@ struct SetupView: View {
                 case .connect:
                     ConnectView()
                 case .folders:
-                    AutomationView()
+                    ScrollView {
+                        SimpleScanRootsCard()
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 24)
+                    }
                 case .profiles:
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
@@ -90,12 +94,42 @@ struct SetupView: View {
                         ProfileManagerView()
                     }
                 case .automation:
-                    AutomationView()
+                    AutomationTab()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+    }
+}
+
+/// Setup › What runs on its own. Owns the Details disclosure so its initial
+/// state can come from the store each time the tab appears.
+private struct AutomationTab: View {
+    @EnvironmentObject var store: AppStore
+    @State private var detailsOpen: Bool = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                BackgroundWorkCard()
+
+                DisclosureGroup("Details", isExpanded: $detailsOpen) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        BackgroundAgentRow()
+                        AutonomyCard()
+                        JanitorCard()
+                        IngestCard()
+                    }
+                    .padding(.top, 12)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+        }
+        .onAppear {
+            detailsOpen = store.backgroundAgentInstalled && !store.routinesEnabled
+        }
     }
 }
