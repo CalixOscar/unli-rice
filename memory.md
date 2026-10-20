@@ -22,12 +22,12 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `claude/four-jobs`. `docs/PLAN-four-jobs.md` is built: B1–B5 plus walk fixes. 406 tests, 2 skipped, 0 failures, and the Xcode Mac target builds (verified: Claude, 2026-10-20). The isolated click-through (B6) passed. Unverified items are listed in the plan's §6 Record. Not pushed or merged.
-**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects), per the plan's B1–B6.
-**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp,HouseRulesPresetGalleryView}.swift`, `README.md`, `docs/PLAN-four-jobs.md`, `docs/dialogue/four-jobs.md`, `memory.md`.
-**Next step:** Codex writes the post-mortem of four-jobs in `docs/dialogue/four-jobs.md`; Claude dispatches it through the bridge when the founder says go.
+**Status:** On `claude/four-jobs`. `docs/PLAN-four-jobs.md` is built and closed: Codex's post-mortem had no blockers, and its two copy fixes are applied. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). The Xcode Mac target built before the post-mortem's copy-only fixes. The isolated click-through passed, with the unverified checks listed in the plan's §6 Record. Not pushed or merged.
+**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects). Done; awaiting the founder's merge decision.
+**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp,HouseRulesPresetGalleryView}.swift`, `README.md`, `docs/PLAN-four-jobs.md`, `docs/dialogue/four-jobs.md`, `PROJECT_NOTES.md`, `memory.md`.
+**Next step:** The founder decides when to merge: Garden (`codex/project-garden`) must reach main first, then this branch.
 
-After that, Claude answers it and moves lessons to PROJECT_NOTES.md. New App Store screenshots are needed before any submission, and Garden must merge to main first (this branch is cut from `codex/project-garden`).
+Before any App Store submission: new screenshots of the new sidebar, and the 6-Month Post-Mortem. Deferred: a way to select archived notes so "Restore Selected" works (filed as a to-do).
 **Gotchas:** Computer use needs a bundled app on a regular Space: wrap the debug binary in a scratch `.app` with its own bundle ID (plan Build notes). The debug build tries to save `profiles.json` into the App Store app's group container; macOS refuses it, so never run the two-profile test there. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. Garden's native QA (Codex, 2026-10-19) is partly covered now: Projects opened and switched segments in the walk. Branch-drift warning is expected until Garden merges.
 **Left by:** Claude Code 2026-10-20
 
@@ -53,8 +53,8 @@ so the `dist/` app shows "The House Rules state file is unavailable" and cannot 
 real vault, and the `unlirice` MCP reads the App Store copy's data, not the build under
 test. To test UI that writes, run the unsigned debug binary against a throwaway vault:
 `UNLIRICE_DATA_PATH=<scratch>/events.jsonl /tmp/unlirice-spm-build/debug/UnliRiceApp`.
-The House Rules gallery is More → "What your AI should always do". The editable draft
-is More → Setup & Tools → House Rules → Edit; the gallery preview is read-only.
+The House Rules gallery is the sidebar row "What your AI should always do". The editable
+draft is Setup › AI Tools → House Rules → Edit (`ConnectView.swift`); the gallery preview is read-only.
 Built-in presets cannot be edited, so edits live in `draftText`, never in
 `customPresets`. The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`

@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-006-four-jobs.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 5 built; waiting on Codex's post-mortem
+**Stage:** 6 post-mortem answered (2026-10-20)
 **Pre-mortem:** `docs/dialogue/four-jobs.md` (codex, 2026-10-19), answered there 2026-10-20
 **Branch:** `claude/four-jobs`, cut from `codex/project-garden` at `06ef490` (Garden isn't on
 `main` yet, and this plan rebuilds the navigation Garden plugs into). The hygiene hook
@@ -31,7 +31,8 @@ Setup.
   No `$store.showing…` bindings exist (Codex, pre-mortem 5). A missed flag has already
   caused a shadowing bug (`AppStore.swift:1113-1117`).
 - **Archive:** `showArchived()` sets `showingMore`, so today `.archived` renders
-  `MoreView.archivedNotesSection` (restore one, restore selected). The note-list archive
+  `MoreView.archivedNotesSection`: restore one. Its "Restore Selected" button needs a
+  selection that nothing in this renderer can make (post-mortem 1); it was already unreachable. The note-list archive
   mode (selection toolbar, "Move to Trash") is unreachable today and stays so.
 - **More** (`MoreView.swift`): a chip bar (`:38-62`) over 9 destinations (`:6-14`), plus the
   **"Rate Unli Rice" row** (`:116-143`) the studio guardrails require. `moreDestination`
@@ -80,7 +81,7 @@ Setup.
 | Hidden features | Enum cases and views stay compiled; no sidebar row points at them | Delete: the founder chose hide. Bringing one back means adding one `sidebarRow` line. |
 | Sidebar shape | Four small headings (CONTEXT, GUARDRAILS, SECURITY, PROJECTS), rows under them, Setup at the bottom | Page names only: the headings are what tell a first-time user what the app is for. |
 | More hub | Removed. `MoreView` becomes a host that renders one destination | A slimmer More: that's the junk drawer this plan exists to empty. |
-| Archive | Keep today's renderer (`MoreView` restore list) | The note-list archive mode: it would re-open "Move to Trash", a door that isn't reachable today. |
+| Archive | Keep today's renderer (`MoreView` restore list; restore one) | The note-list archive mode: it would re-open "Move to Trash", a door that isn't reachable today. |
 | Projects | One row; a segmented control switches `pane` between `.projects` (Garden) and `.repos` (Repos); each child is created on entry | Keep both alive: needs extra refresh reasoning for Repos' uncancelled scan. Filters reset on switch, as they do today. |
 | Needs you + Notifications | One always-visible row (badge when > 0), active for `.needsYou` and `.notices`; the page has "All messages" | Inline notice history: Needs you is for what's waiting. |
 | The one switch | `routinesEnabled`, always visible. If the agent is installed, a visible line says so; Details opens by itself when the agent is on and routines are off | Two switches: the founder chose one. Agent hidden in Details: contradicts "nothing runs invisibly". |
@@ -297,8 +298,9 @@ Ticked by whoever verifies the build (Claude or the founder), never by the build
 - [x] `swift build --scratch-path /tmp/unlirice-spm-build` and `swift test --scratch-path /tmp/unlirice-spm-build`
       green: 406 executed, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20, after every step)
 - [x] The Xcode Mac target builds (verified: BUILD SUCCEEDED, Claude, 2026-10-20) (`xcodebuild -scheme UnliRice -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`)
-- [x] `git diff --name-only f0c0b47..HEAD` within: `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp}.swift`,
-      `README.md`, `docs/PLAN-four-jobs.md`, `memory.md`, `PROJECT_NOTES.md`
+- [x] `git diff --name-only f0c0b47..HEAD` within: `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp,HouseRulesPresetGalleryView}.swift`,
+      `README.md`, `docs/PLAN-four-jobs.md`, `docs/dialogue/four-jobs.md`, `docs/REVIEW-*four-jobs.md`, `memory.md`, `PROJECT_NOTES.md`
+      (the gallery file is the Build notes exception; post-mortem 5)
 - [x] Nothing under `Sources/UnliRiceCore`, `Sources/UnliRiceCapture`, `Sources/unlirice-mcp` or `Tests/` changed
 - [x] B6's backups restored: the `UnliRiceApp` defaults domain matches its pre-test export
       (same SHA-1). `profiles.json` was never written: macOS refused the debug build's save
@@ -320,7 +322,9 @@ Ticked by whoever verifies the build (Claude or the founder), never by the build
   Unverified: two-profile switching (code read only: writes the App Store app's registry);
   the installed login-item line (a debug build can't install the agent); Profile Builder
   finish (code read only: `showGetStarted()` → Setup › AI Tools); the corpus-fallback banner
-  (no fallback state reproduced); spoken VoiceOver output; widths above the 960pt minimum.
+  (no fallback state reproduced); spoken VoiceOver output and keyboard focus order; widths
+  above the 960pt minimum; Restore Selected (unreachable, §7); switching Projects segments
+  during an in-flight scan (no folders were added, so no scan ran); opening a review notice.
 - Ready to release: no. New screenshots are needed, and the 6-Month Post-Mortem applies.
 
 ## 7. Known limits, accepted
@@ -336,12 +340,15 @@ Ticked by whoever verifies the build (Claude or the founder), never by the build
 - The Capture promo sheet has no door once the card goes (founder's cut). Its copy is still
   corrected for when it returns.
 - The note-list archive mode and its "Move to Trash" stay unreachable, as they are today.
+- Bulk restore of archived notes is unreachable: "Restore Selected" exists but nothing can
+  select. Pre-existing; restore-one works.
 - Hidden views still compile and ship. No automated navigation tests: B6 is a manual walk.
 - The sidebar-lag hypothesis in memory.md isn't claimed fixed by B1.
 
 ## 8. Rides along or deferred
 
 - Per-project branch graph inside each Garden card.
+- A way to select archived notes so "Restore Selected" works (filed as a to-do).
 - Deleting the hidden views, once the founder decides nobody misses them.
 - App Store screenshots for the new sidebar, before the next submission.
 
@@ -356,6 +363,10 @@ All 13 of Codex's findings accepted; full answers in `docs/dialogue/four-jobs.md
 - 8–10: card extraction, Projects lifetime and the notices journey specified.
 - 11: B6 isolates defaults, agent settings, event log and `profiles.json`.
 - 12–13: nits taken; baseline re-run matches.
+
+Post-mortem (Codex, 2026-10-20): no blockers. Fixed: autonomy and on-state copy (2, 3).
+Records corrected: bulk restore is a limit, not a capability (1); the unverified list (4);
+the diff allowlist (5); the All messages placement (6); memory.md House Rules path (7, in part).
 
 ## Handoff
 
@@ -403,3 +414,8 @@ All 13 of Codex's findings accepted; full answers in `docs/dialogue/four-jobs.md
   app — run Scripts/make-app.sh" in debug builds only. The App Store build finds the agent.
   The QA defaults domain was deleted afterwards. The `UnliRiceApp` domain still matches its
   backup (same SHA-1).
+- B5, planner: "All messages" sits at the trailing end of the Needs you header row, not under
+  it. My builder handoff asked for that placement, so this is a planner divergence, accepted
+  (post-mortem 6).
+- Post-mortem fixes, planner (2026-10-20): `AutomationView.swift:105` autonomy subtitle and
+  `:185` on-state text corrected. 406 tests, 2 skipped, 0 failures.

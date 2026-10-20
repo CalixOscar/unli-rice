@@ -102,7 +102,7 @@ struct AutonomyCard: View {
     var body: some View {
         Card(
             title: "Agent autonomy",
-            subtitle: "This changes how hard the helper looks. It never changes what it's allowed to do — which is only ever to suggest.",
+            subtitle: "This changes how hard the helper looks, not what it's allowed to do. It may tag notes on its own; merges and splits are only ever suggested.",
             icon: "slider.horizontal.3"
         ) {
             VStack(alignment: .leading, spacing: 10) {
@@ -182,7 +182,7 @@ struct BackgroundWorkCard: View {
 
     private var subtitle: String {
         store.routinesEnabled
-            ? "Unli Rice reads your Claude Code sessions and the folders in Setup \u{203A} Folders on a schedule, and adds and tags notes from them. Merges and archives are only ever suggested for your OK."
+            ? "Unli Rice imports new Claude Code sessions each time it checks in, and reads the folders in Setup \u{203A} Folders on a schedule. Both add and tag notes; merges and archives are only ever suggested for your OK."
             : "Your Claude Code sessions and folders aren't read on their own. Unli Rice still imports what you put in the Notes for Unli Rice folder, keeps the folder your AI can read up to date, and posts messages to Needs you."
     }
 
