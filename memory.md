@@ -22,13 +22,13 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `claude/four-jobs`. Building `docs/PLAN-four-jobs.md` (founder approved 2026-10-20). B1–B4 done: Pane enum, headed sidebar, More as a host, Setup tabs, and one background switch visible outside Advanced Mode with the agent shown when installed. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). Not yet seen in a running build.
+**Status:** On `claude/four-jobs`. B1–B5 of `docs/PLAN-four-jobs.md` are built and committed. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). The Xcode Mac target builds (verified 2026-10-20). An isolated launch showed Home and the 10-row sidebar. The click-through walk (B6) is unverified.
 **Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects), per the plan's B1–B6.
-**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView}.swift`, `docs/PLAN-four-jobs.md`, `memory.md`. Earlier: intent, dialogue and review brief under `docs/`.
-**Next step:** Claude hands B5's build items (Projects segments, Needs you → All messages) to Sonnet and its build-light items (copy, export filter, monthly review off) to Haiku, reviews and tests.
+**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp}.swift`, `README.md`, `docs/PLAN-four-jobs.md`, `memory.md`.
+**Next step:** Claude finishes B6's click-through walk once the founder is on a regular desktop Space (not a full-screen app); then Codex writes the post-mortem.
 
-Then B6: Claude's manual walk with all persisted state isolated (plan §5 B6).
-**Gotchas:** Planner deviations are logged in the plan's Build notes (showAIFolder, Folders status, BackgroundWorkCard off text). Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. The inbox imports even with routines off (`RoutineDriver.swift:162-174`). Garden's native QA is still unverified (Codex, 2026-10-19). Branch-drift warning is expected until Garden merges.
+Relaunch: wrap `/tmp/unlirice-spm-build/debug/UnliRiceApp` in the scratch QA bundle (`com.calmdownoscar.unlirice.fourjobs-qa`) with `UNLIRICE_DATA_PATH` and `UNLIRICE_AGENT_SETTINGS` pointing at scratch; see the plan's Build notes. Still open from the plan: the row-title truncation call (the two long rows wrap to two lines rather than truncate).
+**Gotchas:** Computer use can't drive the bare debug binary (no bundle ID) or a window on another Space while the founder is in a full-screen app. The debug build tries to save `profiles.json` into the App Store app's group container; macOS refuses it, so never run the two-profile test against it. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. Garden's native QA is still unverified (Codex, 2026-10-19). Branch-drift warning is expected until Garden merges.
 **Left by:** Claude Code 2026-10-20
 
 ## Earlier branch follow-ups

@@ -294,13 +294,15 @@ Projects to see where each repo stands. 5. Close the app.
 Ticked by whoever verifies the build (Claude or the founder), never by the builder.
 
 **Mechanical**
-- [ ] `swift build --scratch-path /tmp/unlirice-spm-build` and `swift test --scratch-path /tmp/unlirice-spm-build`
-      green: 406 executed, 2 skipped, 0 failures (verified: <tool> YYYY-MM-DD)
-- [ ] The Xcode Mac target builds (`xcodebuild -scheme UnliRice -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`)
-- [ ] `git diff --name-only` within: `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp}.swift`,
+- [x] `swift build --scratch-path /tmp/unlirice-spm-build` and `swift test --scratch-path /tmp/unlirice-spm-build`
+      green: 406 executed, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20, after every step)
+- [x] The Xcode Mac target builds (verified: BUILD SUCCEEDED, Claude, 2026-10-20) (`xcodebuild -scheme UnliRice -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`)
+- [x] `git diff --name-only f0c0b47..HEAD` within: `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp}.swift`,
       `README.md`, `docs/PLAN-four-jobs.md`, `memory.md`, `PROJECT_NOTES.md`
-- [ ] Nothing under `Sources/UnliRiceCore`, `Sources/UnliRiceCapture`, `Sources/unlirice-mcp` or `Tests/` changed
-- [ ] B6's backups restored: `defaults` domain and `profiles.json` match their pre-test copies
+- [x] Nothing under `Sources/UnliRiceCore`, `Sources/UnliRiceCapture`, `Sources/unlirice-mcp` or `Tests/` changed
+- [x] B6's backups restored: the `UnliRiceApp` defaults domain matches its pre-test export
+      (same SHA-1). `profiles.json` was never written: macOS refused the debug build's save
+      to the App Store app's group container (Operation not permitted).
 
 **Editorial — in a running build, not a mock or a preview**
 - [ ] With the styling ignored, the sidebar alone says what the app is for.
@@ -370,3 +372,16 @@ All 13 of Codex's findings accepted; full answers in `docs/dialogue/four-jobs.md
 - B4, planner: the plan said move `routineStatus` unchanged, but its off text ("nothing runs
   unless you press a button below") contradicts the B4b subtitle. In `BackgroundWorkCard`
   only, it now reads "Off. You can still import by hand with Ingest now, under Details."
+- B6, planner (2026-10-20): built a scratch vault with the CLI (`UNLIRICE_DATA_PATH`):
+  a project note, two archived notes, and one flagged note. Agent settings went to
+  `UNLIRICE_AGENT_SETTINGS` in scratch, and the running build wrote `monthlyReviewEnabled: false`
+  there. The bare debug binary has no bundle ID, so computer use can't drive it. It was wrapped
+  in a scratch `.app` (`com.calmdownoscar.unlirice.fourjobs-qa`, a fresh defaults domain). The
+  launch showed Home with exactly 10 sidebar rows in the planned order (read from the
+  accessibility tree). "The folder your AI can read" and "What your AI should always do"
+  wrap to two lines rather than truncate.
+- B6, blocked: the founder's screen was on a full-screen Space, so the QA window couldn't be
+  brought over or clicked. The click-through walk is **unverified** until it runs on a
+  regular desktop Space.
+- Two-profile walk skipped on purpose: `profiles.json` resolves to the App Store app's group
+  container. Verified by reading the code instead (`SetupView.visibleTabs` / `effectiveTab`).
