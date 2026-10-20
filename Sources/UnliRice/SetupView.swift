@@ -32,7 +32,7 @@ struct SetupView: View {
                         Text("Setup")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
-                        Text("Configure how AI tools connect, your personal profiles, and automation rules.")
+                        Text("Connect your AI tools, choose project folders, and decide what runs on its own.")
                             .font(.system(size: 12))
                             .foregroundStyle(Theme.textSecondary)
                     }

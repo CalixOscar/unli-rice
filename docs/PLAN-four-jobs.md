@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-006-four-jobs.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 5 building (founder approved 2026-10-20)
+**Stage:** 5 built; waiting on Codex's post-mortem
 **Pre-mortem:** `docs/dialogue/four-jobs.md` (codex, 2026-10-19), answered there 2026-10-20
 **Branch:** `claude/four-jobs`, cut from `codex/project-garden` at `06ef490` (Garden isn't on
 `main` yet, and this plan rebuilds the navigation Garden plugs into). The hygiene hook
@@ -305,14 +305,22 @@ Ticked by whoever verifies the build (Claude or the founder), never by the build
       to the App Store app's group container (Operation not permitted).
 
 **Editorial — in a running build, not a mock or a preview**
-- [ ] With the styling ignored, the sidebar alone says what the app is for.
-- [ ] Walked B6's list. Every item seen, or marked "(unverified)" with why.
-- [ ] No reachable page leads only to a page without a door, except the accepted §7 items.
-- [ ] One-layer-deeper items checked by hand.
+- [x] With the styling ignored, the sidebar alone says what the app is for (CONTEXT / GUARDRAILS / SECURITY / PROJECTS, seen 2026-10-20).
+- [x] Walked B6's list. Every item seen, or marked "(unverified)" with why (Build notes, 2026-10-20).
+- [x] No reachable page leads only to a page without a door, except the accepted §7 items.
+- [x] One-layer-deeper items checked: header traits in code, and the Needs you accessibility title contains "waiting". The spoken VoiceOver output and the focus order were not heard (unverified).
 
 **Record**
-- Built: …
-- Verified: … Unverified: …
+- Built: B1–B5 plus two walk fixes (House Rules gallery width; Setup and Folders copy).
+- Verified: 406 tests, 2 skipped, 0 failures; Xcode Mac target builds. The isolated QA walk
+  covered every sidebar row, the Projects segments, Manage folders → Setup › Folders, Setup
+  resetting to AI Tools, both background switch states (Advanced Mode on and off), the
+  Details disclosure, All messages, old year-so-far and notes-folder notices, restoring an
+  archived note, Profile Builder cancel, note → Home → Notes, and the rate row on Setup only.
+  Unverified: two-profile switching (code read only: writes the App Store app's registry);
+  the installed login-item line (a debug build can't install the agent); Profile Builder
+  finish (code read only: `showGetStarted()` → Setup › AI Tools); the corpus-fallback banner
+  (no fallback state reproduced); spoken VoiceOver output; widths above the 960pt minimum.
 - Ready to release: no. New screenshots are needed, and the 6-Month Post-Mortem applies.
 
 ## 7. Known limits, accepted
@@ -385,3 +393,13 @@ All 13 of Codex's findings accepted; full answers in `docs/dialogue/four-jobs.md
   regular desktop Space.
 - Two-profile walk skipped on purpose: `profiles.json` resolves to the App Store app's group
   container. Verified by reading the code instead (`SetupView.visibleTabs` / `effectiveTab`).
+- B6 walk, 2026-10-20, on a regular Space with the QA bundle: results are under §6 Record.
+  Planner fixes from the walk: (1) `HouseRulesPresetGalleryView` `minWidth` 760 → 730.
+  At the 960pt minimum window it overflowed by 30pt and pushed the sidebar 15pt left. That
+  predates this plan, but the page is now a sidebar row. This file is outside §6's diff list,
+  accepted. (2) Setup's subtitle and the Folders empty text still described profiles,
+  automation and "importing documents"; both reworded.
+  Pre-existing, left alone: "Keep working with the window closed" shows "Needs the packaged
+  app — run Scripts/make-app.sh" in debug builds only. The App Store build finds the agent.
+  The QA defaults domain was deleted afterwards. The `UnliRiceApp` domain still matches its
+  backup (same SHA-1).

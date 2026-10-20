@@ -625,7 +625,7 @@ struct SimpleScanRootsCard: View {
                 }
 
                 if store.scanRoots.isEmpty {
-                    Text("No folders added yet. Click '+ Add Folder' to begin importing documents.")
+                    Text("No folders added yet. Click '+ Add Folder' to add a project folder.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Theme.textSecondary.opacity(0.8))
                         .padding(.vertical, 4)

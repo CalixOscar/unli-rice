@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-four-jobs.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** settled
+**State:** built
 
 ## codex — pre-mortem — 2026-10-19
 

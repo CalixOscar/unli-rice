@@ -22,13 +22,13 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `claude/four-jobs`. B1–B5 of `docs/PLAN-four-jobs.md` are built and committed. 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-20). The Xcode Mac target builds (verified 2026-10-20). An isolated launch showed Home and the 10-row sidebar. The click-through walk (B6) is unverified.
+**Status:** On `claude/four-jobs`. `docs/PLAN-four-jobs.md` is built: B1–B5 plus walk fixes. 406 tests, 2 skipped, 0 failures, and the Xcode Mac target builds (verified: Claude, 2026-10-20). The isolated click-through (B6) passed. Unverified items are listed in the plan's §6 Record. Not pushed or merged.
 **Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects), per the plan's B1–B6.
-**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp}.swift`, `README.md`, `docs/PLAN-four-jobs.md`, `memory.md`.
-**Next step:** Claude finishes B6's click-through walk once the founder is on a regular desktop Space (not a full-screen app); then Codex writes the post-mortem.
+**Files touched:** `Sources/UnliRice/{AppStore,AppStore+Notices,AppStore+Retrospective,ContentView,MoreView,SetupView,AutomationView,NeedsYouView,ProjectGardenView,RepoPaneView,FirstRunView,CapturePromoView,HomeView,UnliRiceApp,HouseRulesPresetGalleryView}.swift`, `README.md`, `docs/PLAN-four-jobs.md`, `docs/dialogue/four-jobs.md`, `memory.md`.
+**Next step:** Codex writes the post-mortem of four-jobs in `docs/dialogue/four-jobs.md`; Claude dispatches it through the bridge when the founder says go.
 
-Relaunch: wrap `/tmp/unlirice-spm-build/debug/UnliRiceApp` in the scratch QA bundle (`com.calmdownoscar.unlirice.fourjobs-qa`) with `UNLIRICE_DATA_PATH` and `UNLIRICE_AGENT_SETTINGS` pointing at scratch; see the plan's Build notes. Still open from the plan: the row-title truncation call (the two long rows wrap to two lines rather than truncate).
-**Gotchas:** Computer use can't drive the bare debug binary (no bundle ID) or a window on another Space while the founder is in a full-screen app. The debug build tries to save `profiles.json` into the App Store app's group container; macOS refuses it, so never run the two-profile test against it. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. Garden's native QA is still unverified (Codex, 2026-10-19). Branch-drift warning is expected until Garden merges.
+After that, Claude answers it and moves lessons to PROJECT_NOTES.md. New App Store screenshots are needed before any submission, and Garden must merge to main first (this branch is cut from `codex/project-garden`).
+**Gotchas:** Computer use needs a bundled app on a regular Space: wrap the debug binary in a scratch `.app` with its own bundle ID (plan Build notes). The debug build tries to save `profiles.json` into the App Store app's group container; macOS refuses it, so never run the two-profile test there. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. Garden's native QA (Codex, 2026-10-19) is partly covered now: Projects opened and switched segments in the walk. Branch-drift warning is expected until Garden merges.
 **Left by:** Claude Code 2026-10-20
 
 ## Earlier branch follow-ups
