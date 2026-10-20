@@ -22,14 +22,14 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `claude/four-jobs` (cut from `codex/project-garden` at `06ef490`). INTENT-006 approved by the founder 2026-10-19; `docs/PLAN-four-jobs.md` is a stage-2 draft awaiting Codex's pre-mortem. No app code changed on this branch yet.
-**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects): a headed sidebar, More removed, Garden + Repos merged as Projects, cut features hidden (not deleted), and the background-work switch always visible in Setup.
-**Files touched:** `docs/intent/INTENT-006-four-jobs.md`, `docs/PLAN-four-jobs.md`, `memory.md`. Codex's pre-mortem will add `docs/dialogue/four-jobs.md`; its brief is `docs/REVIEW-four-jobs.md`.
-**Next step:** Claude reads Codex's pre-mortem, answers it in the dialogue and revises the plan; then the founder approves the build.
+**Status:** On `claude/four-jobs` (cut from `codex/project-garden` at `06ef490`). `docs/PLAN-four-jobs.md` is at stage 4: Codex's pre-mortem (13 findings, 3 blockers) is answered and the dialogue is settled. Baseline 406 tests, 2 skipped, 0 failures (verified: swift test, Claude, 2026-10-19). No app code changed yet.
+**Task:** Simplify the Mac app around four jobs (context, guardrails, security, projects): a headed sidebar, More removed, Garden + Repos as Projects, cut features hidden (not deleted), and the background-work switch always visible in Setup.
+**Files touched:** `docs/intent/INTENT-006-four-jobs.md`, `docs/PLAN-four-jobs.md`, `docs/dialogue/four-jobs.md`, `docs/REVIEW-four-jobs.md` (Codex's brief), `memory.md`.
+**Next step:** The founder gives the go-ahead to build; then Claude hands B1–B5 to its builders in order and runs B6 itself.
 
-Check the bridge run's result JSON first: its diff must be only the dialogue file. B0 (baseline build/test counts) runs at the start of the build, not before.
-**Gotchas:** Today the schedule switches only show with Advanced Mode on, so routines can run with no visible switch (`AutomationView.swift:40-52`); the plan fixes this. `scanRoots` is one folder list shared by import, Repos, Garden and To do. Garden's native interaction, minimum-width and light/dark QA is still unverified (Codex, 2026-10-19) and is due before any release. Branch-drift warning in pre-commit is expected until Garden merges to `main`. No push/merge/upload/version bump in scope.
-**Left by:** Claude Code 2026-10-19
+B1 (the `Pane` enum) goes first; every later step assumes it. B6 must isolate defaults, agent settings, the event log and `profiles.json` before launching the debug build (plan §5 B6).
+**Gotchas:** The "Notes for Unli Rice" inbox imports on every tick even with routines off (`RoutineDriver.swift:162-174`); copy must not say otherwise. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. `scanRoots` is one folder list shared by import, Repos, Garden and To do. Garden's native interaction, minimum-width and light/dark QA is still unverified (Codex, 2026-10-19) and due before release. Branch-drift warning is expected until Garden merges. No push/merge/upload/version bump in scope.
+**Left by:** Claude Code 2026-10-20
 
 ## Earlier branch follow-ups
 
