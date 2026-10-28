@@ -244,14 +244,15 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       | folder added, import off | "\(name) added. Projects reads its git details; its files aren't imported as notes. To import them, turn on Import files from your folders in Setup › Extras." |
 
 #### A4. Copy that now says the wrong thing (`build-light`)
-- [ ] `build-light` `AutomationView.swift:185` (routines on) becomes: "Unli Rice imports new Claude
+- [x] `build-light` `AutomationView.swift:185` (routines on) becomes: "Unli Rice imports new Claude
       Code sessions each time it checks in. If Import files from your folders is on (Setup ›
       Extras), it also reads the folders in Setup › Folders. Both add and tag notes; merges and
       archives are only ever suggested for your OK."
-- [ ] `build-light` `AutomationView.swift:612` becomes: "Projects reads git details from these
+- [x] `build-light` `AutomationView.swift:612` becomes: "Projects reads git details from these
       folders. With Import files from your folders on (Setup › Extras), Unli Rice also imports the
       Markdown and text files in them as notes."
       — files: `AutomationView.swift` — verify: `swift build` green
+      _(done by the planner, smaller than a handoff; swift build green, 2026-10-29)_
 
 #### A5. Verify (`planner`)
 - [ ] `planner` Review each builder diff against this plan. `xcodegen generate` (after A2's new

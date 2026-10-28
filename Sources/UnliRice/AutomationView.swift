@@ -248,7 +248,7 @@ struct BackgroundWorkCard: View {
 
     private var subtitle: String {
         store.routinesEnabled
-            ? "Unli Rice imports new Claude Code sessions each time it checks in, and reads the folders in Setup \u{203A} Folders on a schedule. Both add and tag notes; merges and archives are only ever suggested for your OK."
+            ? "Unli Rice imports new Claude Code sessions each time it checks in. If Import files from your folders is on (Setup \u{203A} Extras), it also reads the folders in Setup \u{203A} Folders. Both add and tag notes; merges and archives are only ever suggested for your OK."
             : "Your Claude Code sessions and folders aren't read on their own. Unli Rice still imports what you put in the Notes for Unli Rice folder, keeps the folder your AI can read up to date, and posts messages to Needs you."
     }
 
@@ -679,7 +679,7 @@ struct SimpleScanRootsCard: View {
     var body: some View {
         Card(
             title: "Project folders",
-            subtitle: "Projects reads git details from these folders. With background work on, Unli Rice also imports the Markdown and text files in them as notes.",
+            subtitle: "Projects reads git details from these folders. With Import files from your folders on (Setup \u{203A} Extras), Unli Rice also imports the Markdown and text files in them as notes.",
             icon: "folder.badge.plus"
         ) {
             VStack(alignment: .leading, spacing: 10) {
