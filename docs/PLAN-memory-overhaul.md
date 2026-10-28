@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-007-memory-overhaul.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 6 Phase A post-mortem answered (2026-10-29); unverified items in Build notes; Phases B and C reopened (2026-10-29)
+**Stage:** 7 Phase A merged into local `main` (2026-10-29); one unverified item in Build notes; Phases B and C reopened (2026-10-29)
 **Pre-mortem:** `docs/dialogue/memory-overhaul.md` (codex, 2026-10-29: 21 findings, all accepted)
 **Branch:** `claude/memory-overhaul`, cut from `main` after A0 merges `feature/todo-widget`.
 **Verified against:** `0ba0c1a` on `main`
@@ -457,4 +457,7 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
     top. The rows now sit in `ViewThatFits`: the old layout when it fits, a scrolling list above a
     pinned Setup when it doesn't. Seen fixed in the same state. 471 tests, 2 skipped, 0 failures;
     Mac build succeeded.
+- **Merged, 2026-10-29:** the founder chose to merge without the folder-pick check ("Merge without
+  it"). `claude/memory-overhaul` merged into local `main` (`cf3faa3`), not pushed. The folder-pick
+  check stays open: code review and A1 test (e) cover it, a running app does not.
 
