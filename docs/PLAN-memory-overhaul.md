@@ -164,7 +164,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       — verify: `swift build` and `swift test` green, new tests included
 
 #### A2. Extras state in the app (`build`)
-- [ ] `build` `AppStore.swift`:
+- [x] `build` `AppStore.swift`:
       add `@Published var enabledExtras: Set<Extra> = []`, `static let enabledExtrasKey = "unliRice.enabledExtras"`,
       and `@Published var bulkImportEnabled = false` / `@Published var duplicateDetectionEnabled = false`,
       each with `didSet { syncAgentSettings() }` (they live in `AgentSettings`, not `UserDefaults`).
@@ -174,7 +174,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       `loadExtras()`. (Property observers don't fire for assignments in the class's own `init`.)
       The computed `agentSettings` (`:929-947`) passes `bulkImportEnabled: bulkImportEnabled,
       duplicateDetectionEnabled: duplicateDetectionEnabled`.
-- [ ] `build` New file `Sources/UnliRice/Extras.swift`:
+- [x] `build` New file `Sources/UnliRice/Extras.swift`:
       `enum Extra: String, CaseIterable, Identifiable { case projects, todo, map, yearSoFar, profiles, extraExports, capturePromo }`
       with `id`, `title`, `detail` from A3's copy table. An `AppStore` extension with
       `func isOn(_:) -> Bool`, `func setExtra(_:on:)` (updates the set, writes raw values to
@@ -182,7 +182,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       `[.projects, .todo]` when `FileManager` reports the event log at `dataURL` exists with size > 0
       or `UserDefaults.standard.stringArray(forKey: Self.scanRootsKey)` is non-empty, else `[]`;
       write it at once. If present, read it, ignoring unknown raw values (an empty array stays empty).
-- [ ] `build` App callers: `AppStore+Ingest.swift:24` passes `includeLocalFiles: bulkImportEnabled`.
+- [x] `build` App callers: `AppStore+Ingest.swift:24` passes `includeLocalFiles: bulkImportEnabled`.
       `AppStore+Janitor.swift:37-39` and `:57-59`: when `!duplicateDetectionEnabled`, use
       `TokenOverlapSimilarity()` and skip `similarityProvider()`; pass
       `JanitorConfig(autonomy: autonomy, detectsDuplicates: duplicateDetectionEnabled)`.
@@ -191,6 +191,8 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       the `LocalFileImporter` discovery and alert.
       — files: `AppStore.swift`, `Extras.swift` (new: run `xcodegen generate`), `AppStore+Ingest.swift`,
       `AppStore+Janitor.swift` — verify: `swift build` green
+      _(built 2026-10-29; 471 tests, Mac build green, verified by Claude. Builder addition kept:
+      `janitorSimilarity()` also resets `similarityEngine` to token overlap when duplicates are off.)_
 
 #### A3. Sidebar, doors and Setup › Extras (`build`)
 - [ ] `build` Sidebar (`ContentView.swift:122-185`):

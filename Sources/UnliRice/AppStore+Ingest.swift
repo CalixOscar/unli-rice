@@ -21,7 +21,7 @@ extension AppStore {
     /// Assembling it here as well would mean the scheduled run could quietly
     /// differ from the button.
     var importers: [ResourceImporter] {
-        Pipelines.standard(scanRoots: scanRoots, claudeProjectsDirectory: claudeProjectsURL)
+        Pipelines.standard(scanRoots: scanRoots, claudeProjectsDirectory: claudeProjectsURL, includeLocalFiles: bulkImportEnabled)
     }
 
     private var rawStore: RawStore {
@@ -128,6 +128,14 @@ extension AppStore {
         }
 
         scanRoots = change.roots
+
+        // Off means off: the folder is remembered (Projects reads its git
+        // details), but nothing in it is read as notes and no import is offered.
+        guard bulkImportEnabled else {
+            statusMessage = "\(folder.lastPathComponent) added. Projects reads its git details; its files aren't imported as notes. To import them, turn on Import files from your folders in Setup › Extras."
+            return
+        }
+
         let baseStatus = change.removed.isEmpty
             ? "Indexing \(folder.lastPathComponent)."
             : """
