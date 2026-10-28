@@ -111,7 +111,7 @@ struct ContentView: View {
                 Text("UNLI RICE")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Guardrails, grounding, evals")
+                Text("Guardrails and grounding")
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.textSecondary)
             }
