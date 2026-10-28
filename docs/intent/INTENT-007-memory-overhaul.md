@@ -2,9 +2,9 @@
 
 **Date:** 2026-10-29
 **Author:** founder, via Claude
-**Status:** draft. The founder confirms or edits the job and switch tables, then a plan follows.
+**Status:** approved 2026-10-29 — founder confirmed the tables and the drafted defaults for open questions 2–7
 **Intent read:** not run
-**Plan:** docs/PLAN-memory-overhaul.md _(not written yet)_
+**Plan:** docs/PLAN-memory-overhaul.md (stage 2 draft, 2026-10-29)
 
 ## The problem
 
