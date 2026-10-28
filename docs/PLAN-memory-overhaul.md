@@ -389,4 +389,7 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
 
 ## Build notes
 
-_(during the build)_
+- **A3, 2026-10-29:** the builder stopped because `Card` is `private` in each file that has one
+  (`AutomationView.swift:63`, `ConnectView.swift:446`, `RetrospectiveView.swift:388`). Planner
+  decision: `ExtrasView` lives in `AutomationView.swift`, beside `Card` and `AutomationToggleRow`,
+  as four-jobs did for Setup's other cards. `Extras.swift` keeps the model only.
