@@ -2573,3 +2573,24 @@ Done taps for Capture's next sync; it hides titles while the app lock is on.
 **Released:** Mac 1.3 (8) and Capture 1.3 (8) uploaded for review (Capture 1.3 (7) lacked the export-compliance key and is superseded), founder-requested
 ("ready for app store"). 1.2 was already approved, closing its train; build numbers 6 and 7
 were already used on the Mac. Submission itself is the founder's.
+
+## Three jobs and Extras: the memory overhaul, Phase A (2026-10-29)
+
+**Decision (founder, 2026-10-29):** Unli Rice is about guardrails, grounding and evals
+(`docs/intent/INTENT-007-memory-overhaul.md`). Each AI tool now keeps its own memory, so the app
+stops trying to be the one place they write to. Codex's pre-mortem narrowed the promise: inspect
+the local memory files you choose, and check observable actions in supported session logs.
+
+**Built (Phase A, `claude/memory-overhaul`):** the sidebar reads GROUNDING and GUARDRAILS.
+Projects, To do, Map, Your year so far, Separate memories, PDF/ZIP export and the iPhone Capture
+card each have a switch in Setup › Extras (`unliRice.enabledExtras`). Folder import and duplicate
+detection are switches in `AgentSettings`. Existing installs keep Projects, To do and today's
+background behaviour; new installs start with everything off. A switch controls the door; it
+never deletes code or data.
+
+**Lessons.** The app rebuilds `AgentSettings` from scratch and saves it on every launch, so a new
+settings field needs a one-time read of the file in `init` or it silently resets. "Off" has to be
+checked at every caller, including the folder picker and the embedding warm-up, not only the
+scheduled pipeline. Core tests can't see the app target: app-boundary behaviour needs an isolated
+QA bundle walk, and two such checks are still open (plan Build notes). Phases B (memory files)
+and C (evals) were reopened by the pre-mortem and must be redrafted before any build.
