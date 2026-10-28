@@ -46,7 +46,7 @@ designed.
   own, Separate memories. Separate memories shows only when there's more than one profile (`:18-20`).
 - **Profile Builder entry:** Home's "Start Profile" button (`HomeView.swift:157-159`) and Setup
   (`SetupView.swift:79`).
-- **Export menu:** `UnliRiceApp.swift:65` filters `.zip` and `.pdf` out of `ExportFormat.allCases`.
+- **Export menu:** `UnliRiceApp.swift:79` filters `.zip` and `.pdf` out of `ExportFormat.allCases`.
 - **Preferences:** UI preferences live in `UserDefaults`. Settings the background agent needs live in
   `AgentSettings` (`Sources/UnliRiceCore/Agent/AgentSettings.swift`, Codable, saved by
   `AppStore.syncAgentSettings()` at `AppStore.swift:1004`). The pattern for a background switch is
@@ -130,11 +130,12 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
 ### Phase A — the three jobs and Extras (build-ready)
 
 #### A0. Merge and baseline (`planner`)
-- [ ] `planner` Merge `feature/todo-widget` into `main`. Keep both sides in `PROJECT_NOTES.md`;
-      rewrite `memory.md`'s seven fields for the merged state. `xcodegen generate`, then
-      `swift build`, `swift test`, Xcode `UnliRice` and `UnliRiceCapture` builds, all with
-      `--scratch-path /tmp/unlirice-spm-build` / `CODE_SIGNING_ALLOWED=NO`. Record counts here.
-- [ ] `planner` Cut `claude/memory-overhaul` from that `main`.
+- [x] `planner` Merged `feature/todo-widget` into `main` (`b35b0c9`). Notes conflicts kept both
+      sides. Three merge fixes: the widget handoff link and To do's Open button called the removed
+      `closeAllPanes()`; Engineering Guardrails gained the plain to-do paragraph and lost its
+      `memory.md` example, per the widget branch's preset test. 465 tests, 2 skipped, 0 failures;
+      `UnliRice` and `UnliRiceCapture` BUILD SUCCEEDED (verified: swift test + xcodebuild, Claude, 2026-10-29).
+- [x] `planner` Cut `claude/memory-overhaul` from `b35b0c9`.
 
 #### A1. Background extras in core (`build`)
 - [ ] `build` `AgentSettings`: add `public var bulkImportEnabled: Bool` and
@@ -167,11 +168,11 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       add `@Published var enabledExtras: Set<Extra> = []`, `static let enabledExtrasKey = "unliRice.enabledExtras"`,
       and `@Published var bulkImportEnabled = false` / `@Published var duplicateDetectionEnabled = false`,
       each with `didSet { syncAgentSettings() }` (they live in `AgentSettings`, not `UserDefaults`).
-      In `init`, **immediately after `noticeStore = driver.noticeStore` (`AppStore.swift:615`) and
-      before `reload()` and the launch `syncAgentSettings()` (`:665`)**: read
+      In `init`, **immediately after `noticeStore = driver.noticeStore` (`AppStore.swift:627`, the one
+      inside `init`; not the one at `:865`) and before `reload()` and the launch `syncAgentSettings()` (`:677`)**: read
       `let persisted = AgentSettings.load()` once; assign both published values from it; then call
       `loadExtras()`. (Property observers don't fire for assignments in the class's own `init`.)
-      The computed `agentSettings` (`:916-934`) passes `bulkImportEnabled: bulkImportEnabled,
+      The computed `agentSettings` (`:929-947`) passes `bulkImportEnabled: bulkImportEnabled,
       duplicateDetectionEnabled: duplicateDetectionEnabled`.
 - [ ] `build` New file `Sources/UnliRice/Extras.swift`:
       `enum Extra: String, CaseIterable, Identifiable { case projects, todo, map, yearSoFar, profiles, extraExports, capturePromo }`
@@ -207,7 +208,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       `ProjectGardenView.swift:94`'s "To do" button only when todo is on.
       `HomeView.swift:157-159`'s "Start Profile" only when profiles is on.
       `SetupView.visibleTabs` shows Separate memories when profiles is on *or* there's more than one profile.
-      `UnliRiceApp.swift:65` filters `.zip`/`.pdf` out only when extraExports is off.
+      `UnliRiceApp.swift:79` filters `.zip`/`.pdf` out only when extraExports is off.
       `AppStore+Notices.swift:52`: `.retrospective` calls `showRetrospective()` (replaces the `break`).
 - [ ] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` after `.automation`,
       and `case .extras: ExtrasView()` to the tab switch (`SetupView.swift:66-98`). `ExtrasView` in
