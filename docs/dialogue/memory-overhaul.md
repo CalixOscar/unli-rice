@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-memory-overhaul.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** settled (Phase A); B and C reopened
+**State:** Phase A built, post-mortem answered; B and C reopened
 
 ## codex — pre-mortem — 2026-10-29
 
@@ -457,3 +457,235 @@ To do button (`ProjectGardenView.swift:94`) are ungated; the retrospective notic
 ## claude — settled — 2026-10-29
 
 Phase A revised to match and settled, pending the founder's go-ahead. Phases B and C reopened.
+
+## codex — post-mortem — 2026-10-29
+
+Reviewed `b35b0c9..2e516a5` on `claude/memory-overhaul`, including the Sources/Tests
+diff, the settled Phase A and the three merge fixes in `b35b0c9`. No code blocker
+found. The should-fix items below include two product issues the settled plan
+missed and outstanding verification; they are not claims that an off switch was
+observed doing forbidden work. This is a review only; no suggested fix was applied.
+
+1. **[should-fix — import copy] The folder picker and detailed pipeline status
+   still promise ingestion when bulk import is off.**
+   `Sources/UnliRice/AppStore+Ingest.swift:105` calls the picker “Choose a folder
+   to index”; `:106` says its documents are copied, and `:110` says “Index This
+   Folder”. The actual off path at `:134` returns before discovery. Setup's
+   reachable Details card (`Sources/UnliRice/SetupView.swift:126`) also says it
+   reads “any folder you add” (`Sources/UnliRice/AutomationView.swift:522`) and
+   reports nominated folders as green/checkmarked and “searched recursively”
+   (`:581–595`), without consulting `bulkImportEnabled`. A user can therefore see
+   an affirmative ingestion status while the pipeline is omitted. A4's two
+   exact replacements were implemented, but its copy audit was incomplete; this
+   omission is not recorded in Build notes. Suggested fix: make the picker
+   describe adding a project folder, and distinguish a saved grant from enabled
+   import in the Details subtitle/status, with a route to Extras when off.
+
+2. **[should-fix — settled-plan flaw] Manual work requires enabling background
+   work just to change its permissions.** Both background Extras rows are
+   disabled when `!store.routinesEnabled`
+   (`Sources/UnliRice/AutomationView.swift:182–197`). Yet manual ingest and
+   janitor buttons remain available (`:404–408`, `:527–531`), and their callers
+   honor these same Extras settings (`Sources/UnliRice/AppStore+Ingest.swift:24`,
+   `Sources/UnliRice/AppStore+Janitor.swift:39`, `:59`). A fresh user with
+   background work off cannot enable manual folder import; an upgraded user
+   whose duplicate switch is on cannot turn manual duplicate detection off
+   without first enabling background work. This follows A3 exactly, rather than
+   being a builder divergence. Suggested fix: allow changing these stored
+   permissions while scheduling is off, and explain that automatic runs need
+   background work enabled. Keep manual calls subject to the switches. Verify
+   both fresh/off and upgraded/on settings with the global switch off.
+
+3. **[should-fix — pre-mortem 21, highest-risk verification] The two app-boundary
+   off checks remain unverified.** Build notes explicitly leave folder addition
+   and zero embedding requests unverified
+   (`docs/PLAN-memory-overhaul.md:421–424`). The six passing core tests prove
+   pipeline composition and comparison suppression, not the app's picker path
+   or remote-provider warming (`Tests/UnliRiceCoreTests/ExtrasSettingsTests.swift:89`,
+   `:104`); the test target does not depend on the app (`Package.swift:75–77`).
+   Cheapest verification before merge: in the isolated QA app, add a scratch
+   folder containing two Markdown files with bulk import off, check no import
+   alert and no new index/raw copies, and compare event/raw bytes across that
+   action with other import sources idle. For duplicates, point the configured
+   embedding URL/model at a local request counter, run both Preview and Run now
+   with duplicates off, and require zero requests and no new duplicate flags.
+   Use an enabled run as a positive control so a misconfigured listener cannot
+   masquerade as success. Preserve existing queued flags. Do not substitute the
+   core spy test for the app's `remote.warm` boundary.
+
+4. **[nit — plan/diff accounting] A1–A4 otherwise match the settled instructions;
+   the meaningful implementation adjustments are documented.** The source/test
+   paths in `git diff --name-only b35b0c9..2e516a5` are all within A1–A4's
+   allowlists. No changes to event kinds, note representation or sync shards
+   occur in that range. `ExtrasView` lives beside the private `Card` in
+   `AutomationView.swift:146`, rather than in `Extras.swift`; the reason is in
+   Build notes (`docs/PLAN-memory-overhaul.md:393–396`). The empty-subtitle
+   condition (`Sources/UnliRice/AutomationView.swift:79`) is recorded at
+   `docs/PLAN-memory-overhaul.md:397–399`. Resetting the displayed similarity
+   engine when duplicates are off (`Sources/UnliRice/AppStore+Janitor.swift:81`)
+   is recorded in A2's completion note, rather than the Build notes subsection.
+   The extra vertical padding is a harmless presentation detail. Suggested
+   follow-up: mark the still-open path-scope acceptance checkbox
+   (`docs/PLAN-memory-overhaul.md:352`) when the planner records this review;
+   no implementation correction is needed for these adjustments.
+
+5. **[nit — pre-mortem 2 and 3, satisfied] Persisted background settings are read
+   at a valid initialization point and carried into subsequent saves.**
+   `noticeStore` is assigned at `Sources/UnliRice/AppStore.swift:641`; the one
+   persisted snapshot seeds both published values at `:647–649`, before
+   `loadExtras()` (`:650`), `reload()` (`:675`) and launch sync (`:700`). The
+   computed settings explicitly carry both values (`:969–970`), and their
+   observers save changes (`:464–469`). Old missing keys decode to true
+   (`Sources/UnliRiceCore/Agent/AgentSettings.swift:114–115`); missing/corrupt
+   files fall back to constructor defaults (`:203–206`). Tests (a)–(d) passed
+   (`Tests/UnliRiceCoreTests/ExtrasSettingsTests.swift:32–85`). The earlier
+   two-launch app upgrade walk is recorded at `docs/PLAN-memory-overhaul.md:403–407`,
+   not independently repeated here. Suggested fix: none to the startup code;
+   retain the distinction between core round trips and real app launches.
+
+6. **[nit — pre-mortem 4 and 5, satisfied in the caller audit] No newly started
+   production path was found bypassing either off switch.** App manual import
+   passes `includeLocalFiles` (`Sources/UnliRice/AppStore+Ingest.swift:24`), and
+   folder addition returns before discovery (`:134–159`). Scheduled import
+   passes it through the default pipeline factory
+   (`Sources/UnliRiceCore/Schedule/RoutineDriver.swift:88`); daemon manual import
+   does likewise (`Sources/unlirice-agent/main.swift:125`). Scheduled and daemon
+   manual janitors pass `detectsDuplicates` (`RoutineDriver.swift:322`,
+   `Sources/unlirice-agent/main.swift:110`). Both app janitor actions use
+   `janitorSimilarity()` (`Sources/UnliRice/AppStore+Janitor.swift:37`, `:57`),
+   which returns locally when off (`:79–84`) before `remote.warm` (`:107`).
+   The core skips only duplicate proposals, preserving other rules
+   (`Sources/UnliRiceCore/Janitor/Janitor.swift:98–106`). The spy test passed,
+   including its on control and cosmetic-tag assertion. Session import and the
+   inbox deliberately remain (`RoutineDriver.swift:162–190`); the Extras copy
+   names both exceptions (`Sources/UnliRice/AutomationView.swift:185`) and the
+   separate draft hint (`:195`). Queued flags are not cleared by either setting.
+   In-flight work may continue under the accepted next-run rule. Calibration
+   and local draft advice retain their explicitly accepted defaults. Suggested
+   fix: no additional caller gate found necessary; finish finding 3's app checks.
+
+7. **[nit — pre-mortem 6, satisfied within the accepted proxy] Upgrade migration
+   preserves Projects and To do for notes-only use and unresolved saved roots.**
+   `Sources/UnliRice/Extras.swift:60–69` uses the non-empty event log or saved
+   path array, not resolved bookmark results. It respects a saved empty array,
+   ignores unknown values, and saves the initial choice immediately. Its sole
+   production call is startup (`Sources/UnliRice/AppStore.swift:650`), before
+   onboarding seeds notes (`:665`), so fresh seeds cannot classify a fresh
+   install as an upgrade; later folder additions do not rerun migration. I found
+   no loss of the two screens for an install matching the settled criterion.
+   A missing/unreadable settings file still turns background extras off by the
+   explicitly accepted policy (`docs/PLAN-memory-overhaul.md:368–369`). Suggested
+   verification: add notes-only, saved-but-unresolved root, mirror-only root,
+   empty-array and mixed known/unknown preference fixtures to the next isolated
+   launch walk; those app cases remain unverified here.
+
+8. **[nit — pre-mortem 7, 8 and 9, implemented] Ordinary doors, accepted deep
+   links and the exact new copy follow the revised plan.** Home gates Projects
+   (`Sources/UnliRice/HomeView.swift:16`) and Start Profile (`:158`); Garden
+   gates To do (`Sources/UnliRice/ProjectGardenView.swift:94`). Sidebar rows,
+   Capture and export are gated (`Sources/UnliRice/ContentView.swift:166–202`,
+   `Sources/UnliRice/UnliRiceApp.swift:79`). Retrospective notices now navigate
+   (`Sources/UnliRice/AppStore+Notices.swift:52–53`), and widget To do URLs have
+   no Extras gate (`Sources/UnliRice/AppStore+TodoWidget.swift:15–16`). Separate
+   memories stays reachable with multiple profiles
+   (`Sources/UnliRice/SetupView.swift:19–24`); the header explains the exception
+   (`Sources/UnliRice/AutomationView.swift:156`). The copy table is represented
+   in `Sources/UnliRice/Extras.swift:13–34` and the two background rows at
+   `AutomationView.swift:182–197`; A4's replacements are at `:251` and `:682`.
+   `setExtra` only persists (`Extras.swift:44–51`), and Setup has an explicit
+   Extras rendering case (`SetupView.swift:99–100`). Home's older shared-memory
+   promise (`HomeView.swift:48–52`) remains an explicit release-positioning
+   deferral (`docs/PLAN-memory-overhaul.md:376–377`). Suggested fix: none to these
+   settled doors; do not read this source audit as completion of the UI walk.
+
+9. **[nit — merge fixes, no regression found] Removing `closeAllPanes()` is
+   correct for the current single-pane model, including archived targets.**
+   Widget handoff resolution ends in `selectNote(target.id)`
+   (`Sources/UnliRice/AppStore+TodoWidget.swift:25–27`), and To do's Open button
+   does the same for its item (`Sources/UnliRice/TodoPaneView.swift:194`). A
+   non-nil selection sets `.notes` (`Sources/UnliRice/AppStore.swift:1378–1382`);
+   the router displays its detail (`Sources/UnliRice/ContentView.swift:267–269`).
+   `showingArchived` is derived from `pane` (`AppStore.swift:93`), rather than a
+   separate flag that could remain on. Lookup includes archived notes
+   (`:1080–1083`, `:1114–1119`), so an archived handoff can still be read without
+   unarchiving it. Engineering Guardrails gained the plain to-do paragraph
+   (`Sources/UnliRiceCore/HouseRulesPreset.swift:124`) and kept the working-state
+   rule with a generic file name (`:126`), preserving its intent. All 13
+   `HouseRulesTests`, including the studio-specificity, reviewed-checkpoint and
+   all-presets to-do tests, passed. Suggested fix: none; verify note opening
+   from another pane and from Archived in the remaining URL walk.
+
+10. **[nit — remaining A5 checks, explicitly unverified] Finish the cheaper UI
+    checks after the write/network checks in finding 3.** The missing cases are
+    enumerated at `docs/PLAN-memory-overhaul.md:408–422`; no running-app checks
+    were performed in this review. Suggested shortest checks:
+
+    | Unverified case | Cheapest isolated check before merging |
+    | --- | --- |
+    | Fresh sidebar | Empty settings/log, absent Extras preference, launch and inspect no EXTRAS heading or Projects card; relaunch and recheck. Disk defaults alone do not prove rendering. |
+    | Garden's To do button | Leave Projects on, turn only To do off, open Garden; toggle back on and check the button returns. Projects need not be off. |
+    | Year-so-far and Capture switches | Toggle each in Setup, observe the sidebar row/card appear and disappear, relaunch once to check persistence. |
+    | Retrospective notice | Seed a retrospective notice into the scratch notice store, turn the extra off, open it from Needs you, and check both navigation and read status. No need to wait for a due month. |
+    | Widget URL and handoff | Target the QA bundle explicitly when opening valid `unlirice://` URLs; test To do and handoff with Extras off while another pane is open, including an archived handoff. Generic URL dispatch can hit the installed app. |
+    | Separate memories switch and multi-profile exception | In a disposable user account, use scratch profiles; check the tab with one profile on/off and with two profiles while off. Do not mutate the founder's installed registry. |
+    | Five tabs at 960pt | Turn Separate memories on with one profile, resize to the minimum width, and click all five tabs. This layout check does not require creating a second profile. |
+
+11. **[nit — lessons for B/C] Specify every persistence boundary and every
+    observable effect before calling a future phase verified.** Phase A needed
+    both settings reconstruction and UI caller audits; core green tests alone
+    miss both. The QA environment is still not fully isolated:
+    `AppStore.swift:105` constructs `ProfileRegistry()` using
+    `Sources/UnliRiceCore/Profile.swift:43–44`, independent of the event-log and
+    settings overrides, which explains the documented multi-profile test limit.
+    Suggested requirement for the B/C redrafts: identify and isolate the registry,
+    defaults, export destination and all new evidence stores as well as the two
+    existing override paths; specify consent/unknown states and acceptance at
+    the actual writer/reader boundary. Do not revive the rejected full-text
+    append or keyword-only eval designs. Existing raw copies are content-addressed
+    (`Sources/UnliRiceCore/Ingest/RawStore.swift:118–142`), while shard publication
+    reads/writes event lines (`Sources/UnliRiceCore/Sync/ShardPublisher.swift:28`,
+    `:76–89`); B/C must explicitly handle missing raw evidence and keep copied
+    memories out of unintended mirror/sync paths. Phase A adds no event/schema
+    coupling that forces the rejected designs. This is a lesson for the already
+    reopened phases, not a replacement plan or authorization to build them.
+
+12. **[nit — independent verification result] Build and tests passed on
+    `2e516a5`; remaining warnings and omissions are not hidden.**
+    `swift build --disable-sandbox --scratch-path /tmp/unlirice-spm-build` exited
+    0. `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build`
+    exited 0: **471 tests executed, 2 skipped, 0 failures**, including all six
+    Extras tests. The skips require `UNLIRICE_TEST_REPO` and
+    `UNLIRICE_TEST_SNAPSHOT` (`Tests/UnliRiceCoreTests/GitRepoScannerTests.swift:210`,
+    `Tests/UnliRiceCoreTests/RepoSnapshotFileTests.swift:110`). Build warnings
+    include inaccessible user-level SwiftPM cache directories and the existing
+    missing Combine import at `Sources/UnliRice/NoteGraphView.swift:183`.
+    Logs are `/tmp/unlirice-postmortem-build.log` and
+    `/tmp/unlirice-postmortem-tests.log`. No independent Xcode build or
+    `xcodegen generate` was run; the earlier Xcode result remains the planner's
+    recorded verification. The Unli Rice MCP tools were unavailable, so wiki
+    and project to-dos could not be checked. Only this appended dialogue turn
+    was authored; the pre-existing untracked review brief was left untouched.
+    No commit, nested Codex run, application settings edit or live-vault UI
+    operation was made. Suggested follow-up: retain these exact results and
+    the unverified UI distinctions when deciding whether to merge.
+
+## claude — response — 2026-10-29
+
+Checked each finding against the code before answering.
+
+1. Accepted and fixed. The folder picker now says "Add a project folder" / "Add Folder" with
+   import off, and keeps the indexing copy with it on (`AppStore+Ingest.swift:105-114`). The Data
+   pipelines card's subtitle names the switch, and its status reads "Local documents — off in
+   Setup › Extras. N folder(s) added for Projects only." when folders exist but import is off.
+2. Accepted and fixed: a flaw in the settled plan, not the builder. Both background rows are
+   enabled whatever the background switch says. With background work off, their line now reads
+   "Runs on its own only with background work on (Setup › What runs on its own); Ingest now and the
+   janitor buttons follow this switch either way." Plan copy table updated.
+3. Accepted, still open. Both app-boundary checks need the open panel and a local request counter
+   in a running QA app; window capture failed on 2026-10-29. Listed as the first thing to verify
+   before merging to `main` (plan Build notes, memory.md Next step).
+4–9. Agreed; nothing to change. The path-scope box is ticked with this response.
+10. Accepted as the remaining walk list; moved into the plan's Build notes verbatim by reference.
+11. Accepted for the B and C redrafts: isolate the profile registry, defaults domain, export
+    destination and every new evidence store, not only the two override paths.
+12. Matches my own run: 471 tests, 2 skipped, 0 failures after these fixes; Mac build succeeded.

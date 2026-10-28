@@ -51,6 +51,16 @@ public struct AgentSettings: Codable, Equatable, Sendable {
     public var exportFolderPath: String?
     public var exportFolderBookmark: Data?
 
+    /// Extras switch: whether the agent may import files from the nominated
+    /// scan folders. The init default is `false` so a missing or unreadable
+    /// settings file means less background work, never more; decoding an
+    /// existing file that lacks the key gives `true` (today's behaviour).
+    public var bulkImportEnabled: Bool
+
+    /// Extras switch: whether the janitor looks for duplicate notes. Same
+    /// default rules as `bulkImportEnabled`.
+    public var duplicateDetectionEnabled: Bool
+
     public init(
         routinesEnabled: Bool = false,
         autonomyLevel: Int = 1,
@@ -61,7 +71,9 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         dataFolderBookmark: Data? = nil,
         claudeProjectsBookmark: Data? = nil,
         exportFolderPath: String? = nil,
-        exportFolderBookmark: Data? = nil
+        exportFolderBookmark: Data? = nil,
+        bulkImportEnabled: Bool = false,
+        duplicateDetectionEnabled: Bool = false
     ) {
         self.routinesEnabled = routinesEnabled
         self.autonomyLevel = autonomyLevel
@@ -73,12 +85,15 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         self.claudeProjectsBookmark = claudeProjectsBookmark
         self.exportFolderPath = exportFolderPath
         self.exportFolderBookmark = exportFolderBookmark
+        self.bulkImportEnabled = bulkImportEnabled
+        self.duplicateDetectionEnabled = duplicateDetectionEnabled
     }
 
     private enum CodingKeys: String, CodingKey {
         case routinesEnabled, autonomyLevel, dataFolderPath, scanRootPaths
         case monthlyReviewEnabled, scanRootBookmarks, dataFolderBookmark
         case claudeProjectsBookmark, exportFolderPath, exportFolderBookmark
+        case bulkImportEnabled, duplicateDetectionEnabled
     }
 
     /// Bookmark fields were added after the background settings format shipped.
@@ -96,6 +111,8 @@ public struct AgentSettings: Codable, Equatable, Sendable {
         claudeProjectsBookmark = try container.decodeIfPresent(Data.self, forKey: .claudeProjectsBookmark)
         exportFolderPath = try container.decodeIfPresent(String.self, forKey: .exportFolderPath)
         exportFolderBookmark = try container.decodeIfPresent(Data.self, forKey: .exportFolderBookmark)
+        bulkImportEnabled = try container.decodeIfPresent(Bool.self, forKey: .bulkImportEnabled) ?? true
+        duplicateDetectionEnabled = try container.decodeIfPresent(Bool.self, forKey: .duplicateDetectionEnabled) ?? true
     }
 
     private static var bookmarkResolutionOptions: URL.BookmarkResolutionOptions {

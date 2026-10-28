@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-007-memory-overhaul.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 3 Phase A settled, awaiting the founder's go-ahead; Phases B and C reopened (2026-10-29)
+**Stage:** 6 Phase A post-mortem answered (2026-10-29); unverified items in Build notes; Phases B and C reopened (2026-10-29)
 **Pre-mortem:** `docs/dialogue/memory-overhaul.md` (codex, 2026-10-29: 21 findings, all accepted)
 **Branch:** `claude/memory-overhaul`, cut from `main` after A0 merges `feature/todo-widget`.
 **Verified against:** `0ba0c1a` on `main`
@@ -46,7 +46,7 @@ designed.
   own, Separate memories. Separate memories shows only when there's more than one profile (`:18-20`).
 - **Profile Builder entry:** Home's "Start Profile" button (`HomeView.swift:157-159`) and Setup
   (`SetupView.swift:79`).
-- **Export menu:** `UnliRiceApp.swift:65` filters `.zip` and `.pdf` out of `ExportFormat.allCases`.
+- **Export menu:** `UnliRiceApp.swift:79` filters `.zip` and `.pdf` out of `ExportFormat.allCases`.
 - **Preferences:** UI preferences live in `UserDefaults`. Settings the background agent needs live in
   `AgentSettings` (`Sources/UnliRiceCore/Agent/AgentSettings.swift`, Codable, saved by
   `AppStore.syncAgentSettings()` at `AppStore.swift:1004`). The pattern for a background switch is
@@ -130,14 +130,15 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
 ### Phase A — the three jobs and Extras (build-ready)
 
 #### A0. Merge and baseline (`planner`)
-- [ ] `planner` Merge `feature/todo-widget` into `main`. Keep both sides in `PROJECT_NOTES.md`;
-      rewrite `memory.md`'s seven fields for the merged state. `xcodegen generate`, then
-      `swift build`, `swift test`, Xcode `UnliRice` and `UnliRiceCapture` builds, all with
-      `--scratch-path /tmp/unlirice-spm-build` / `CODE_SIGNING_ALLOWED=NO`. Record counts here.
-- [ ] `planner` Cut `claude/memory-overhaul` from that `main`.
+- [x] `planner` Merged `feature/todo-widget` into `main` (`b35b0c9`). Notes conflicts kept both
+      sides. Three merge fixes: the widget handoff link and To do's Open button called the removed
+      `closeAllPanes()`; Engineering Guardrails gained the plain to-do paragraph and lost its
+      `memory.md` example, per the widget branch's preset test. 465 tests, 2 skipped, 0 failures;
+      `UnliRice` and `UnliRiceCapture` BUILD SUCCEEDED (verified: swift test + xcodebuild, Claude, 2026-10-29).
+- [x] `planner` Cut `claude/memory-overhaul` from `b35b0c9`.
 
 #### A1. Background extras in core (`build`)
-- [ ] `build` `AgentSettings`: add `public var bulkImportEnabled: Bool` and
+- [x] `build` _(built 2026-10-29; 471 tests, 2 skipped, 0 failures, verified by Claude)_ `AgentSettings`: add `public var bulkImportEnabled: Bool` and
       `public var duplicateDetectionEnabled: Bool`, with `CodingKeys` entries and init parameters
       (default `false`). `init(from:)` uses `decodeIfPresent(...) ?? true` for both.
       `Pipelines.standard` gains `includeLocalFiles: Bool = true` and skips `LocalFileImporter`
@@ -163,17 +164,17 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       — verify: `swift build` and `swift test` green, new tests included
 
 #### A2. Extras state in the app (`build`)
-- [ ] `build` `AppStore.swift`:
+- [x] `build` `AppStore.swift`:
       add `@Published var enabledExtras: Set<Extra> = []`, `static let enabledExtrasKey = "unliRice.enabledExtras"`,
       and `@Published var bulkImportEnabled = false` / `@Published var duplicateDetectionEnabled = false`,
       each with `didSet { syncAgentSettings() }` (they live in `AgentSettings`, not `UserDefaults`).
-      In `init`, **immediately after `noticeStore = driver.noticeStore` (`AppStore.swift:615`) and
-      before `reload()` and the launch `syncAgentSettings()` (`:665`)**: read
+      In `init`, **immediately after `noticeStore = driver.noticeStore` (`AppStore.swift:627`, the one
+      inside `init`; not the one at `:865`) and before `reload()` and the launch `syncAgentSettings()` (`:677`)**: read
       `let persisted = AgentSettings.load()` once; assign both published values from it; then call
       `loadExtras()`. (Property observers don't fire for assignments in the class's own `init`.)
-      The computed `agentSettings` (`:916-934`) passes `bulkImportEnabled: bulkImportEnabled,
+      The computed `agentSettings` (`:929-947`) passes `bulkImportEnabled: bulkImportEnabled,
       duplicateDetectionEnabled: duplicateDetectionEnabled`.
-- [ ] `build` New file `Sources/UnliRice/Extras.swift`:
+- [x] `build` New file `Sources/UnliRice/Extras.swift`:
       `enum Extra: String, CaseIterable, Identifiable { case projects, todo, map, yearSoFar, profiles, extraExports, capturePromo }`
       with `id`, `title`, `detail` from A3's copy table. An `AppStore` extension with
       `func isOn(_:) -> Bool`, `func setExtra(_:on:)` (updates the set, writes raw values to
@@ -181,7 +182,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       `[.projects, .todo]` when `FileManager` reports the event log at `dataURL` exists with size > 0
       or `UserDefaults.standard.stringArray(forKey: Self.scanRootsKey)` is non-empty, else `[]`;
       write it at once. If present, read it, ignoring unknown raw values (an empty array stays empty).
-- [ ] `build` App callers: `AppStore+Ingest.swift:24` passes `includeLocalFiles: bulkImportEnabled`.
+- [x] `build` App callers: `AppStore+Ingest.swift:24` passes `includeLocalFiles: bulkImportEnabled`.
       `AppStore+Janitor.swift:37-39` and `:57-59`: when `!duplicateDetectionEnabled`, use
       `TokenOverlapSimilarity()` and skip `similarityProvider()`; pass
       `JanitorConfig(autonomy: autonomy, detectsDuplicates: duplicateDetectionEnabled)`.
@@ -190,9 +191,11 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       the `LocalFileImporter` discovery and alert.
       — files: `AppStore.swift`, `Extras.swift` (new: run `xcodegen generate`), `AppStore+Ingest.swift`,
       `AppStore+Janitor.swift` — verify: `swift build` green
+      _(built 2026-10-29; 471 tests, Mac build green, verified by Claude. Builder addition kept:
+      `janitorSimilarity()` also resets `similarityEngine` to token overlap when duplicates are off.)_
 
 #### A3. Sidebar, doors and Setup › Extras (`build`)
-- [ ] `build` Sidebar (`ContentView.swift:122-185`):
+- [x] `build` Sidebar (`ContentView.swift:122-185`):
       GROUNDING: Home, Notes, The folder your AI can read (unchanged actions).
       GUARDRAILS: What your AI should always do, Needs you (with its badge), Trust Center, Archived
       notes. Remove the SECURITY and PROJECTS headings and the To do and Projects rows.
@@ -202,14 +205,14 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       (`showRetrospective()`, active on `.retrospective`). Each row calls `store.selectNote(nil)`
       first. Then `Spacer()`; then, if capturePromo is on, `CapturePromoCard()`; then Setup as today.
       Sidebar subtitle (`:115`): "AI Notes & Memory" → "Guardrails, grounding, evals".
-- [ ] `build` Doors:
+- [x] `build` Doors:
       `HomeView.swift:16` renders `gardenEntry` only when projects is on.
       `ProjectGardenView.swift:94`'s "To do" button only when todo is on.
       `HomeView.swift:157-159`'s "Start Profile" only when profiles is on.
       `SetupView.visibleTabs` shows Separate memories when profiles is on *or* there's more than one profile.
-      `UnliRiceApp.swift:65` filters `.zip`/`.pdf` out only when extraExports is off.
+      `UnliRiceApp.swift:79` filters `.zip`/`.pdf` out only when extraExports is off.
       `AppStore+Notices.swift:52`: `.retrospective` calls `showRetrospective()` (replaces the `break`).
-- [ ] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` after `.automation`,
+- [x] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` after `.automation`,
       and `case .extras: ExtrasView()` to the tab switch (`SetupView.swift:66-98`). `ExtrasView` in
       `Extras.swift`: `ScrollView { VStack(alignment: .leading, spacing: 16) { … } }` with 24pt
       horizontal padding. First `Card` (icon `square.grid.2x2`, title "Extras", subtitle = header
@@ -218,7 +221,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       "Extras that run in the background", no subtitle) holds the two background rows, bound to
       `bulkImportEnabled` and `duplicateDetectionEnabled`, using `AutomationToggleRow`'s `disabled`
       argument when `!store.routinesEnabled`.
-- [ ] `build` `AutomationView.swift`, JanitorCard: under `embeddingServerRow` (`:354`), a 12pt
+- [x] `build` `AutomationView.swift`, JanitorCard: under `embeddingServerRow` (`:354`), a 12pt
       `Theme.textSecondary` line: "Used only to spot duplicate notes, when that's on in Setup › Extras."
       — files: `ContentView.swift`, `HomeView.swift`, `ProjectGardenView.swift`, `SetupView.swift`,
       `UnliRiceApp.swift`, `AppStore+Notices.swift`, `AutomationView.swift`, `Extras.swift`
@@ -237,23 +240,24 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       | capturePromo | **iPhone Capture** — "Shows the card for the free iPhone app in the sidebar." |
       | bulkImport | **Import files from your folders** — "Reads the Markdown and text files in Setup › Folders and adds them as notes. Claude Code sessions and the Notes for Unli Rice folder are imported either way." |
       | duplicates | **Spot duplicate notes** — "Suggests merging notes that look alike, when the janitor runs. Nothing merges without your OK. The hint while you write a note is separate." |
-      | background off | Both background rows append: " Needs background work on (Setup › What runs on its own)." |
+      | background off | Both background rows append: " Runs on its own only with background work on (Setup › What runs on its own); Ingest now and the janitor buttons follow this switch either way." The rows stay enabled (post-mortem 2). |
       | folder added, import off | "\(name) added. Projects reads its git details; its files aren't imported as notes. To import them, turn on Import files from your folders in Setup › Extras." |
 
 #### A4. Copy that now says the wrong thing (`build-light`)
-- [ ] `build-light` `AutomationView.swift:185` (routines on) becomes: "Unli Rice imports new Claude
+- [x] `build-light` `AutomationView.swift:185` (routines on) becomes: "Unli Rice imports new Claude
       Code sessions each time it checks in. If Import files from your folders is on (Setup ›
       Extras), it also reads the folders in Setup › Folders. Both add and tag notes; merges and
       archives are only ever suggested for your OK."
-- [ ] `build-light` `AutomationView.swift:612` becomes: "Projects reads git details from these
+- [x] `build-light` `AutomationView.swift:612` becomes: "Projects reads git details from these
       folders. With Import files from your folders on (Setup › Extras), Unli Rice also imports the
       Markdown and text files in them as notes."
       — files: `AutomationView.swift` — verify: `swift build` green
+      _(done by the planner, smaller than a handoff; swift build green, 2026-10-29)_
 
 #### A5. Verify (`planner`)
-- [ ] `planner` Review each builder diff against this plan. `xcodegen generate` (after A2's new
-      file), `swift test`, Xcode Mac build.
-- [ ] `planner` Isolated running-app checks (debug binary in a scratch `.app`; memory.md Gotchas).
+- [x] `planner` Review each builder diff against this plan. `xcodegen generate` (after A2's new
+      file), `swift test`, Xcode Mac build. _(471 tests, 2 skipped, 0 failures; BUILD SUCCEEDED, 2026-10-29)_
+- [x] `planner` Isolated running-app checks _(partly: see Build notes; unverified items listed there)_ (debug binary in a scratch `.app`; memory.md Gotchas).
       Export the debug defaults domain first and restore it after (four-jobs B6). Set both
       `UNLIRICE_DATA_PATH` and `UNLIRICE_AGENT_SETTINGS` to scratch paths. Never toggle the login item.
       1. Fresh: no event log, no settings file, no `enabledExtras`. Sidebar shows two jobs, no
@@ -344,17 +348,17 @@ trimming the MCP tool list once recorded transcripts show which tools agents cal
 ## 6. Acceptance — against reality, not a builder's report
 
 **Mechanical (Phase A)**
-- [ ] `swift build` / `swift test` green; count recorded. Xcode Mac build succeeds.
-- [ ] `git diff --name-only` for Phase A within the files named in A1–A4, plus this plan,
+- [x] `swift build` / `swift test` green: 471 tests, 2 skipped, 0 failures. Xcode Mac build succeeds (Claude, 2026-10-29).
+- [x] `git diff --name-only` for Phase A within the files named in A1–A4, plus this plan,
       `docs/dialogue/memory-overhaul.md`, `memory.md`, `PROJECT_NOTES.md`.
-- [ ] A1's tests (a)–(f) present and passing.
-- [ ] A5's seven running-app checks done, or each marked "(unverified)" with why.
-- [ ] No change to `Event.swift`, the note format or sync shards.
+- [x] A1's tests (a)–(f) present and passing (`ExtrasSettingsTests`, 6 tests).
+- [x] A5's seven running-app checks done, or each marked "(unverified)" with why (Build notes).
+- [x] No change to `Event.swift`, the note format or sync shards (checked: `git diff b35b0c9 --stat`).
 
 **Editorial — in a running build**
-- [ ] With the styling ignored, a fresh sidebar says the app is about grounding and guardrails.
-- [ ] Every extra comes back with its switch and goes away without one.
-- [ ] Existing-user defaults seen, not assumed (A5 checks 1 and 2, including the JSON on disk).
+- [x] With the styling ignored, the sidebar says the app is about grounding and guardrails (seen: upgrade profile, 2026-10-29).
+- [x] Every extra comes back with its switch and goes away without one (all seven seen, 2026-10-29 walk).
+- [x] Existing-user defaults seen, not assumed (A5 checks 1 and 2, including the JSON on disk).
 
 ## 7. Known limits, accepted
 
@@ -386,4 +390,71 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
 
 ## Build notes
 
-_(during the build)_
+- **A3, 2026-10-29:** the builder stopped because `Card` is `private` in each file that has one
+  (`AutomationView.swift:63`, `ConnectView.swift:446`, `RetrospectiveView.swift:388`). Planner
+  decision: `ExtrasView` lives in `AutomationView.swift`, beside `Card` and `AutomationToggleRow`,
+  as four-jobs did for Setup's other cards. `Extras.swift` keeps the model only.
+- **A3 review fixes (planner):** the first sidebar heading renamed CONTEXT → GROUNDING (the builder
+  left it, unsure); `Card` in `AutomationView.swift` skips an empty subtitle, so the background card
+  has no blank line. 471 tests, Mac build green (Claude, 2026-10-29).
+- **A5 walk, 2026-10-29 (planner).** Two scratch `.app` bundles wrapping the debug binary, each with
+  its own bundle ID (fresh defaults domain) and `LSEnvironment` pointing `UNLIRICE_DATA_PATH` and
+  `UNLIRICE_AGENT_SETTINGS` at scratch. Both domains deleted afterwards; no login item touched.
+  - Check 2, **verified on disk**: upgrade profile (one-note event log, old settings JSON without the
+    keys, no `enabledExtras`). After launch: `enabledExtras = [projects, todo]`; the settings file
+    gained `bulkImportEnabled: true`, `duplicateDetectionEnabled: true`. After quit and relaunch:
+    unchanged. (`routinesEnabled` became `false` because it lives in the empty QA defaults domain:
+    existing behaviour, not this plan.)
+  - Check 1, **verified on disk only**: fresh profile wrote `enabledExtras = []` and both background
+    keys `false`. Its window could not be captured (macOS delivered no picture), so the no-EXTRAS
+    sidebar was not seen (unverified).
+  - Check 3, **partly verified**: sidebar read GROUNDING / GUARDRAILS / EXTRAS with To do and Map
+    after turning Map on and Projects off; `enabledExtras` followed each click. File › Export Notes
+    listed Markdown and OKF with PDF/ZIP off, and added Zip and PDF with it on; both survived a
+    relaunch. Setup showed four tabs (Separate memories hidden: off, one profile) within the 960pt
+    window. The background card showed both switches on, disabled, with the "Needs background work
+    on" sentence, and no blank subtitle line. Unverified: Your year so far, Separate memories and
+    iPhone Capture switches; the multi-profile exception (`profiles.json` is the App Store app's).
+  - Check 6, **partly verified**: Home lost the Projects card with Projects off. Unverified: Garden's
+    To do button (Garden unreachable with Projects off in that run), the year-so-far notice (no
+    notice was due) and the widget URL (it opens the installed App Store app, not a QA bundle).
+  - Checks 4 and 5, **unverified in the running app**: adding a folder needs the open panel, and
+    the duplicates check needs a local embedding listener; window capture failed before either.
+    Covered by code review (`addScanRoot` returns before `LocalFileImporter`; `janitorSimilarity()`
+    skips `similarityProvider()`) and, for the core, by A1 tests (e) and (f).
+- **Post-mortem fixes, planner (2026-10-29):** (1) the folder picker and the Data pipelines card
+  follow the import switch; (2) the background Extras rows stay enabled with background work off,
+  because the manual Ingest and janitor buttons obey them too (a flaw in the settled plan). 471
+  tests, 2 skipped, 0 failures; Mac build succeeded. Still to verify in a running QA app before
+  merging, riskiest first: folder addition with import off (no alert, event log and `raw/`
+  unchanged); duplicates off with a local embedding request counter and an "on" control; then
+  post-mortem 10's table (fresh sidebar, Garden's To do button, year-so-far and Capture switches,
+  a seeded retrospective notice, QA-targeted widget URLs, five tabs at 960pt).
+- **Second walk, 2026-10-29 (planner), QA bundle `overhaul-qa-walk`:** scratch vault with two
+  near-duplicate notes, a seeded retrospective notice, an embedding address pointing at a local
+  request counter, and its own `unlirice://` handler. Domain deleted afterwards; no login item.
+  - **Duplicates off, verified:** Janitor Preview sent **0** requests and reported nothing to do.
+    Positive control: duplicates on (switched with background work still off, so post-mortem fix 2
+    is verified too) sent **1** `POST /v1/embeddings`, and the engine label changed to the model.
+  - **Folder add with import off, partly verified:** the picker opened as "Add a project folder"
+    with the new message and an "Add Folder" button (post-mortem fix 1). The picker runs in a
+    separate macOS process that the QA grant can't drive, so a folder was **not** chosen: the
+    no-alert, no-import return after choosing remains **unverified in a running app** (code review
+    and A1 test (e) only). Needs a person to pick `qa/importme` once.
+  - **Doors, verified:** Garden's To do button shows with To do on and disappears with it off; Your
+    year so far, Separate memories (fifth tab, fits at 960pt) and iPhone Capture each appear and
+    disappear with their switch; the all-off sidebar reads GROUNDING / GUARDRAILS / Setup only.
+  - **Notice, verified after a fix:** opening the notice from All messages with Your year so far off
+    showed the page and marked it read. It ignored the notice's period: A3 told the builder to call
+    `showRetrospective()`, dropping the `period` the pre-four-jobs code passed. Restored
+    `showRetrospective(periodID: period)`; a `2026` notice then opened 2026. (A month with no notes
+    still falls back to the newest month: existing behaviour.) Needs you rows only offer Dismiss;
+    opening is in All messages (existing four-jobs behaviour).
+  - **Widget links, verified:** `unlirice://todo` opened To do with To do off; a note link sent
+    while Archived was open brought the note forward in Notes (the `closeAllPanes()` merge fix).
+  - **Sidebar overflow, found and fixed:** with Projects, Your year so far and the Capture card on,
+    the sidebar outgrew the 628pt window and pushed the whole window's content up, clipping the
+    top. The rows now sit in `ViewThatFits`: the old layout when it fits, a scrolling list above a
+    pinned Setup when it doesn't. Seen fixed in the same state. 471 tests, 2 skipped, 0 failures;
+    Mac build succeeded.
+

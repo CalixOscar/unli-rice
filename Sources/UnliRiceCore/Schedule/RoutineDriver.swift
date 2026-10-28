@@ -16,7 +16,7 @@ public enum Pipelines {
     /// nominated, rather than included and returning nothing: there is no
     /// default root by design, and a pipeline listed as active while scanning
     /// nowhere is a lie the UI would be telling.
-    public static func standard(scanRoots: [URL], claudeProjectsDirectory: URL? = nil) -> [ResourceImporter] {
+    public static func standard(scanRoots: [URL], claudeProjectsDirectory: URL? = nil, includeLocalFiles: Bool = true) -> [ResourceImporter] {
         var pipelines: [ResourceImporter] = []
 
         let claudeDir = claudeProjectsDirectory ?? (isSandboxed() ? nil : ClaudeSessionImporter.defaultProjectsDirectory())
@@ -24,7 +24,7 @@ public enum Pipelines {
             pipelines.append(ClaudeSessionImporter(projectsDirectory: claudeDir))
         }
 
-        if !scanRoots.isEmpty {
+        if includeLocalFiles && !scanRoots.isEmpty {
             pipelines.append(LocalFileImporter(
                 roots: scanRoots,
                 maximumDepth: 20,
@@ -85,7 +85,7 @@ public final class RoutineDriver {
     public init(
         service: NoteService,
         eventLogURL: URL,
-        pipelines: @escaping (AgentSettings) -> [ResourceImporter] = { Pipelines.standard(scanRoots: $0.scanRoots, claudeProjectsDirectory: $0.claudeProjectsURL) },
+        pipelines: @escaping (AgentSettings) -> [ResourceImporter] = { Pipelines.standard(scanRoots: $0.scanRoots, claudeProjectsDirectory: $0.claudeProjectsURL, includeLocalFiles: $0.bulkImportEnabled) },
         claudeProjects: @escaping (AgentSettings) -> URL? = { RoutineDriver.claudeProjectsDirectory(for: $0) }
     ) {
         self.service = service
@@ -319,7 +319,7 @@ public final class RoutineDriver {
 
         case .systemImprovement:
             let runner = JanitorRunner(service: service, similarity: similarity)
-            let report = try runner.run(config: JanitorConfig(autonomy: settings.autonomy))
+            let report = try runner.run(config: JanitorConfig(autonomy: settings.autonomy, detectsDuplicates: settings.duplicateDetectionEnabled))
             return RunResult(
                 summary: report.summary,
                 changedSomething: report.applied.count + report.queued.count > 0

@@ -21,7 +21,7 @@ extension AppStore {
     /// Assembling it here as well would mean the scheduled run could quietly
     /// differ from the button.
     var importers: [ResourceImporter] {
-        Pipelines.standard(scanRoots: scanRoots, claudeProjectsDirectory: claudeProjectsURL)
+        Pipelines.standard(scanRoots: scanRoots, claudeProjectsDirectory: claudeProjectsURL, includeLocalFiles: bulkImportEnabled)
     }
 
     private var rawStore: RawStore {
@@ -102,12 +102,18 @@ extension AppStore {
     /// default: the user sees exactly which folder they granted, one at a time.
     func chooseScanRoot() {
         let panel = NSOpenPanel()
-        panel.title = "Choose a folder to index"
-        panel.message = "Markdown and text documents in this folder are copied into your raw store and indexed. Source code is skipped."
+        if bulkImportEnabled {
+            panel.title = "Choose a folder to index"
+            panel.message = "Markdown and text documents in this folder are copied into your raw store and indexed. Source code is skipped."
+            panel.prompt = "Index This Folder"
+        } else {
+            panel.title = "Add a project folder"
+            panel.message = "Projects reads git details from this folder. Its files aren't imported as notes unless Import files from your folders is on in Setup \u{203A} Extras."
+            panel.prompt = "Add Folder"
+        }
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
-        panel.prompt = "Index This Folder"
         guard panel.runModal() == .OK, let folder = panel.url else { return }
         addScanRoot(folder)
     }
@@ -128,6 +134,14 @@ extension AppStore {
         }
 
         scanRoots = change.roots
+
+        // Off means off: the folder is remembered (Projects reads its git
+        // details), but nothing in it is read as notes and no import is offered.
+        guard bulkImportEnabled else {
+            statusMessage = "\(folder.lastPathComponent) added. Projects reads its git details; its files aren't imported as notes. To import them, turn on Import files from your folders in Setup › Extras."
+            return
+        }
+
         let baseStatus = change.removed.isEmpty
             ? "Indexing \(folder.lastPathComponent)."
             : """

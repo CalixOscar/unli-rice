@@ -455,6 +455,20 @@ final class AppStore: ObservableObject {
         }
     }
 
+    /// The UI extras that are switched on. Persisted as raw values under
+    /// `enabledExtrasKey`; see `Extras.swift`.
+    @Published var enabledExtras: Set<Extra> = []
+    static let enabledExtrasKey = "unliRice.enabledExtras"
+
+    /// Background extras. These live in `AgentSettings`, not `UserDefaults`,
+    /// because the background agent has to read them.
+    @Published var bulkImportEnabled = false {
+        didSet { syncAgentSettings() }
+    }
+    @Published var duplicateDetectionEnabled = false {
+        didSet { syncAgentSettings() }
+    }
+
     /// Whether the launchd job is installed — i.e. whether any of this happens
     /// with the window closed. Read from disk rather than remembered, since the
     /// user can remove the plist by hand and a toggle claiming otherwise would
@@ -625,6 +639,15 @@ final class AppStore: ObservableObject {
         // instances would both be correct (every mutation is under an flock) but
         // only one of them would be the one the routines post through.
         noticeStore = driver.noticeStore
+
+        // Read once, before anything saves over the file: a file that lacks
+        // these keys decodes as "on", a missing one as "off". Property
+        // observers don't fire for assignments in `init`, so nothing is
+        // written back here.
+        let persisted = AgentSettings.load()
+        bulkImportEnabled = persisted.bulkImportEnabled
+        duplicateDetectionEnabled = persisted.duplicateDetectionEnabled
+        loadExtras()
 
         if let exportBookmark = UserDefaults.standard.data(forKey: "unliRice.exportFolderBookmark") {
             var isStale = false
@@ -942,7 +965,9 @@ final class AppStore: ObservableObject {
             dataFolderBookmark: dataBookmark,
             claudeProjectsBookmark: claudeBookmark,
             exportFolderPath: exportFolderURL?.path,
-            exportFolderBookmark: exportBookmark
+            exportFolderBookmark: exportBookmark,
+            bulkImportEnabled: bulkImportEnabled,
+            duplicateDetectionEnabled: duplicateDetectionEnabled
         )
     }
 

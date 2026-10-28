@@ -34,9 +34,9 @@ extension AppStore {
         defer { janitorBusy = false }
 
         do {
-            let provider = await similarityProvider()
+            let provider = await janitorSimilarity()
             let runner = JanitorRunner(service: service, similarity: provider)
-            janitorPreview = try runner.preview(config: JanitorConfig(autonomy: autonomy))
+            janitorPreview = try runner.preview(config: JanitorConfig(autonomy: autonomy, detectsDuplicates: duplicateDetectionEnabled))
             janitorSummary = janitorPreview.isEmpty
                 ? "Janitor found nothing to do at this level."
                 : "\(janitorPreview.count) thing\(janitorPreview.count == 1 ? "" : "s") the janitor would act on. Nothing has been changed."
@@ -54,9 +54,9 @@ extension AppStore {
         defer { janitorBusy = false }
 
         do {
-            let provider = await similarityProvider()
+            let provider = await janitorSimilarity()
             let runner = JanitorRunner(service: service, similarity: provider)
-            let report = try runner.run(config: JanitorConfig(autonomy: autonomy))
+            let report = try runner.run(config: JanitorConfig(autonomy: autonomy, detectsDuplicates: duplicateDetectionEnabled))
             janitorPreview = []
             janitorSummary = report.summary
             // The queue filling up is worth a line in the notification centre
@@ -73,6 +73,16 @@ extension AppStore {
     }
 
     // MARK: - The engine
+
+    /// With duplicate detection off the janitor never looks for duplicates, so
+    /// the embedding server is not contacted at all.
+    private func janitorSimilarity() async -> SimilarityProvider {
+        guard duplicateDetectionEnabled else {
+            similarityEngine = .tokenOverlap
+            return TokenOverlapSimilarity()
+        }
+        return await similarityProvider()
+    }
 
     /// Token overlap unless the user has pointed the app at their own local
     /// embedding server.

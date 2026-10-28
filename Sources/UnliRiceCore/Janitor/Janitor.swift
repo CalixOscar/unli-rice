@@ -16,8 +16,13 @@ public enum JanitorAutonomy: Int, Sendable, CaseIterable {
 public struct JanitorConfig: Sendable {
     public let autonomy: JanitorAutonomy
 
-    public init(autonomy: JanitorAutonomy) {
+    /// When false, `Janitor.scan` skips duplicate detection entirely, so the
+    /// similarity provider is never called.
+    public let detectsDuplicates: Bool
+
+    public init(autonomy: JanitorAutonomy, detectsDuplicates: Bool = true) {
         self.autonomy = autonomy
+        self.detectsDuplicates = detectsDuplicates
     }
 
     /// Eco is cosmetic-only — it never queues merge/split proposals, matching
@@ -93,7 +98,9 @@ public enum Janitor {
         var proposals = cosmeticTagProposals(live, config: config)
 
         if config.runsStructuralRules {
-            proposals += duplicateProposals(live, config: config, similarity: similarity)
+            if config.detectsDuplicates {
+                proposals += duplicateProposals(live, config: config, similarity: similarity)
+            }
             proposals += mistypedLinkProposals(live)
             if config.detectsOrphans {
                 proposals += orphanProposals(live)

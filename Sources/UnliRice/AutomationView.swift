@@ -76,9 +76,11 @@ private struct Card<Content: View>: View {
                     Text(title.uppercased())
                         .font(.system(size: 10.5, weight: .bold, design: .monospaced))
                         .foregroundStyle(Theme.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    }
                 }
             }
             content()
@@ -139,6 +141,68 @@ struct AutonomyCard: View {
     }
 }
 
+/// Setup › Extras. One switch per optional feature; a switch only adds or
+/// removes the feature's buttons, it never deletes anything.
+struct ExtrasView: View {
+    @EnvironmentObject var store: AppStore
+
+    private static let backgroundOff = " Runs on its own only with background work on (Setup \u{203A} What runs on its own); Ingest now and the janitor buttons follow this switch either way."
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Card(
+                    title: "Extras",
+                    subtitle: "Things Unli Rice can do beyond its three jobs. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one.",
+                    icon: "square.grid.2x2"
+                ) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(Array(Extra.allCases.enumerated()), id: \.element.id) { index, extra in
+                            if index > 0 {
+                                Divider().overlay(Theme.borderLight)
+                            }
+                            AutomationToggleRow(
+                                isOn: Binding(
+                                    get: { store.isOn(extra) },
+                                    set: { store.setExtra(extra, on: $0) }
+                                ),
+                                title: extra.title,
+                                detail: extra.detail
+                            )
+                        }
+                    }
+                }
+
+                Card(
+                    title: "Extras that run in the background",
+                    subtitle: "",
+                    icon: "moon"
+                ) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        AutomationToggleRow(
+                            isOn: $store.bulkImportEnabled,
+                            title: "Import files from your folders",
+                            detail: "Reads the Markdown and text files in Setup \u{203A} Folders and adds them as notes. Claude Code sessions and the Notes for Unli Rice folder are imported either way."
+                                + (store.routinesEnabled ? "" : Self.backgroundOff)
+                        )
+
+                        Divider().overlay(Theme.borderLight)
+
+                        AutomationToggleRow(
+                            isOn: $store.duplicateDetectionEnabled,
+                            title: "Spot duplicate notes",
+                            detail: "Suggests merging notes that look alike, when the janitor runs. Nothing merges without your OK. The hint while you write a note is separate."
+                                + (store.routinesEnabled ? "" : Self.backgroundOff)
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+        }
+    }
+}
+
 /// One labelled switch with a status line under it. Shared by the schedule
 /// cards so every switch in Setup reads the same.
 struct AutomationToggleRow: View {
@@ -182,7 +246,7 @@ struct BackgroundWorkCard: View {
 
     private var subtitle: String {
         store.routinesEnabled
-            ? "Unli Rice imports new Claude Code sessions each time it checks in, and reads the folders in Setup \u{203A} Folders on a schedule. Both add and tag notes; merges and archives are only ever suggested for your OK."
+            ? "Unli Rice imports new Claude Code sessions each time it checks in. If Import files from your folders is on (Setup \u{203A} Extras), it also reads the folders in Setup \u{203A} Folders. Both add and tag notes; merges and archives are only ever suggested for your OK."
             : "Your Claude Code sessions and folders aren't read on their own. Unli Rice still imports what you put in the Notes for Unli Rice folder, keeps the folder your AI can read up to date, and posts messages to Needs you."
     }
 
@@ -353,6 +417,10 @@ struct JanitorCard: View {
 
                 embeddingServerRow
 
+                Text("Used only to spot duplicate notes, when that's on in Setup \u{203A} Extras.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
+
                 if let summary = store.janitorSummary {
                     Text(summary)
                         .font(.system(size: 11.5))
@@ -449,7 +517,7 @@ struct IngestCard: View {
     var body: some View {
         Card(
             title: "Data pipelines",
-            subtitle: "What fills the store, as opposed to what tidies it. Reads your Claude Code sessions and any folder you add.",
+            subtitle: "What fills the store, as opposed to what tidies it. Reads your Claude Code sessions, and the folders you add when Import files from your folders is on (Setup \u{203A} Extras).",
             icon: "doc.on.doc.fill"
         ) {
             VStack(alignment: .leading, spacing: 10) {
@@ -511,6 +579,14 @@ struct IngestCard: View {
                     if store.scanRoots.isEmpty {
                         Label(
                             "Local documents — off. No folders added, so nothing on disk is read.",
+                            systemImage: "exclamationmark.circle"
+                        )
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Theme.brass)
+                        .fixedSize(horizontal: false, vertical: true)
+                    } else if !store.bulkImportEnabled {
+                        Label(
+                            "Local documents — off in Setup \u{203A} Extras. \(store.scanRoots.count) folder\(store.scanRoots.count == 1 ? "" : "s") added for Projects only.",
                             systemImage: "exclamationmark.circle"
                         )
                         .font(.system(size: 10.5, design: .monospaced))
@@ -609,7 +685,7 @@ struct SimpleScanRootsCard: View {
     var body: some View {
         Card(
             title: "Project folders",
-            subtitle: "Projects reads git details from these folders. With background work on, Unli Rice also imports the Markdown and text files in them as notes.",
+            subtitle: "Projects reads git details from these folders. With Import files from your folders on (Setup \u{203A} Extras), Unli Rice also imports the Markdown and text files in them as notes.",
             icon: "folder.badge.plus"
         ) {
             VStack(alignment: .leading, spacing: 10) {

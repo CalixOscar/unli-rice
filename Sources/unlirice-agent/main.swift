@@ -107,7 +107,7 @@ case "--ingest", "--janitor", "--preview-ingest":
         switch CommandLine.arguments.dropFirst().first {
         case "--janitor":
             let runner = JanitorRunner(service: manualService)
-            let report = try runner.run(config: JanitorConfig(autonomy: manualSettings.autonomy))
+            let report = try runner.run(config: JanitorConfig(autonomy: manualSettings.autonomy, detectsDuplicates: manualSettings.duplicateDetectionEnabled))
             log("janitor (\(manualSettings.autonomy)): \(report.summary)")
 
         default:
@@ -122,7 +122,7 @@ case "--ingest", "--janitor", "--preview-ingest":
                 if let (url, started) = activeClaude, started { url.stopAccessingSecurityScopedResource() }
             }
 
-            for importer in Pipelines.standard(scanRoots: manualSettings.scanRoots, claudeProjectsDirectory: manualSettings.claudeProjectsURL) {
+            for importer in Pipelines.standard(scanRoots: manualSettings.scanRoots, claudeProjectsDirectory: manualSettings.claudeProjectsURL, includeLocalFiles: manualSettings.bulkImportEnabled) {
                 if previewOnly {
                     let found = try runner.preview(importer: importer)
                     log("\(importer.identifier): would take \(found.count)")
