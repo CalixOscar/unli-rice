@@ -43,6 +43,11 @@ struct NeedsYouView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .solidControl(cornerRadius: 6)
+
+                Button("All messages") { store.showNotices() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.accentColor)
             }
 
             // Quick triggers: Preview & Run Tidying

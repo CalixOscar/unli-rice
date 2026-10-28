@@ -130,8 +130,7 @@ struct RepoPaneView: View {
     private var emptyGrant: some View {
         infoCard(
             title: "No folders granted yet",
-            body: "This pane reads the same folders Unli Rice already scans for notes. "
-                + "Add one under More → Setup and it will appear here.")
+            body: "This pane reads the folders in Setup › Folders. Add one there and it will appear here.")
     }
 
     private var noRepos: some View {

@@ -39,9 +39,8 @@ extension AppStore {
 
     func showRetrospective(periodID: String? = nil) {
         selectNote(nil)
-        closeAllPanes()
+        pane = .retrospective
         if let periodID { retrospectivePeriodID = periodID }
-        showingRetrospective = true
         statusMessage = currentRetrospectivePeriod.map {
             "Looking back on \($0.displayName())."
         } ?? "Nothing to look back on yet — this fills in as you use it."

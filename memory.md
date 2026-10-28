@@ -22,13 +22,13 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On `codex/project-garden`. Garden now includes local/remote visual comparison, independently built on 2026-10-19. The previous full suite ran 406 tests, 2 skipped, zero failures; core/tests are unchanged by this display-only follow-up. Native interaction/appearance QA remains unverified. No release/version change.
-**Task:** Founder requested visuals distinguishing GitHub from the local machine. Cards/details now show laptop/cloud lanes, labeled matching/different branch-tip bars, honest unknowns and observation dates. A legend states GitHub live is not checked and Refresh uses cached remote records on the Mac.
-**Files touched:** `Sources/UnliRice/ProjectGardenView.swift`, `docs/PLAN-project-garden.md`, `docs/dialogue/project-garden.md`, `memory.md`, `PROJECT_NOTES.md` for this UI follow-up. Earlier integration files are recorded in PROJECT_NOTES.md.
-**Next step:** Founder inspects the updated Garden preview and gives feedback. Complete native interaction, minimum-width and light/dark checks before release. No push/main merge/upload/version bump requested; earlier branch follow-ups remain deferred.
-**Gotchas:** Comparison is exact branch-tip SHA presence among cached remote refs, not live GitHub, ancestry, ahead/behind, file differences or backup status. Remote host and fetch time are unavailable. Preview uses isolated bundle ID com.calmdownoscar.unlirice.garden-preview and sample data under /tmp/unlirice-garden-qa; /tmp cleanup removes it. Updated signed preview also staged at /tmp/unlirice-garden-visuals-preview. Native UI inspection is unavailable, so launch success is not visual QA. Pre-existing untracked docs/intent/INTENT-006-four-jobs.md belongs to other work and was untouched. Full-notes invalidation remains conservative.
-**To-dos:** none this checkpoint (added at merge into main).
-**Left by:** Codex 2026-10-19
+**Status:** On local `main`. Garden (`codex/project-garden`) and four-jobs (`claude/four-jobs`) are merged into it, which also brought in `chore/plan-high-build-low`. 406 tests, 2 skipped, 0 failures, and the `UnliRice` Mac scheme builds (verified: swift test + xcodebuild on the merged tree, Claude, 2026-10-29). Local `main` is ahead of `origin/main` and is not pushed.
+**Task:** Merge Garden and four-jobs into `main`. Done. Next up is the founder's requested overhaul audit (what Unli Rice still needs given built-in AI memory and agents).
+**Files touched:** Merge resolutions only: `PROJECT_NOTES.md` (both sides kept), `memory.md`, `Sources/UnliRice/AppStore.swift` (four-jobs' `Pane` code, `main`'s corrected To do comment).
+**Next step:** The overhaul audit. Separately, `feature/todo-widget` (25 commits, including the 1.3 release uploaded on both platforms) is not in `main`; the founder decides whether to merge it. Before any further App Store submission: new screenshots of the new sidebar, and the 6-Month Post-Mortem. Deferred: a way to select archived notes so "Restore Selected" works.
+**Gotchas:** Computer use needs a bundled app on a regular Space: wrap the debug binary in a scratch `.app` with its own bundle ID (plan Build notes). The debug build tries to save `profiles.json` into the App Store app's group container; macOS refuses it, so never run the two-profile test there. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. Garden's native QA (Codex, 2026-10-19) is partly covered now: Projects opened and switched segments in the walk. `Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents (`02-setup-tools.png` is All Notes, `03-map.png` is the Repos graph); check before citing one.
+**To-dos:** none this checkpoint (this session's `unlirice` MCP reported 0 notes, so it is not the real store).
+**Left by:** Claude Code 2026-10-29
 
 ## Earlier branch follow-ups
 
@@ -52,8 +52,8 @@ so the `dist/` app shows "The House Rules state file is unavailable" and cannot 
 real vault, and the `unlirice` MCP reads the App Store copy's data, not the build under
 test. To test UI that writes, run the unsigned debug binary against a throwaway vault:
 `UNLIRICE_DATA_PATH=<scratch>/events.jsonl /tmp/unlirice-spm-build/debug/UnliRiceApp`.
-The House Rules gallery is More → "What your AI should always do". The editable draft
-is More → Setup & Tools → House Rules → Edit; the gallery preview is read-only.
+The House Rules gallery is the sidebar row "What your AI should always do". The editable
+draft is Setup › AI Tools → House Rules → Edit (`ConnectView.swift`); the gallery preview is read-only.
 Built-in presets cannot be edited, so edits live in `draftText`, never in
 `customPresets`. The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`

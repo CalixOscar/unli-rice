@@ -47,7 +47,7 @@ struct HouseRulesPresetGalleryView: View {
                     .frame(minWidth: 460, maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(minWidth: 760, minHeight: 520)
+        .frame(minWidth: 730, minHeight: 520)
         .background(Theme.bgMain)
         .confirmationDialog(
             "Delete this custom template?",

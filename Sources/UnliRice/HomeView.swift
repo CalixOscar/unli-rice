@@ -60,7 +60,7 @@ struct HomeView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Theme.emerald)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Open Project Garden")
+                    Text("Open Projects")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                     Text("A quiet overview of project status, notes, and local repository facts.")

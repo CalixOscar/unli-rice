@@ -5,16 +5,22 @@ import SwiftUI
 /// Merges Connectors, Profile & Vaults, House Rules, Mirror Export, and Automation.
 struct SetupView: View {
     @EnvironmentObject var store: AppStore
-    @State private var selectedTab: Tab = .connect
 
     enum Tab: String, CaseIterable, Identifiable {
         case connect = "AI Tools"
+        case folders = "Folders"
+        case automation = "What runs on its own"
         case profiles = "Separate memories"
-        case houseRules = "What your AI should always do"
-        case mirrorExport = "The folder your AI can read"
-        case automation = "What Runs on Its Own"
 
         var id: String { rawValue }
+    }
+
+    private var visibleTabs: [Tab] {
+        Tab.allCases.filter { $0 != .profiles || store.profileRegistry.profiles.count > 1 }
+    }
+
+    private var effectiveTab: Tab {
+        visibleTabs.contains(store.setupTab) ? store.setupTab : .connect
     }
 
     var body: some View {
@@ -26,7 +32,7 @@ struct SetupView: View {
                         Text("Setup")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
-                        Text("Configure how AI tools connect, your personal profiles, and automation rules.")
+                        Text("Connect your AI tools, choose project folders, and decide what runs on its own.")
                             .font(.system(size: 12))
                             .foregroundStyle(Theme.textSecondary)
                     }
@@ -35,14 +41,14 @@ struct SetupView: View {
 
                 // Tab Selector
                 HStack(spacing: 6) {
-                    ForEach(Tab.allCases) { tab in
-                        Button(action: { selectedTab = tab }) {
+                    ForEach(visibleTabs) { tab in
+                        Button(action: { store.setupTab = tab }) {
                             Text(tab.rawValue)
-                                .font(.system(size: 11.5, weight: selectedTab == tab ? .bold : .regular))
+                                .font(.system(size: 11.5, weight: effectiveTab == tab ? .bold : .regular))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .foregroundStyle(selectedTab == tab ? Theme.accentColor : Theme.textSecondary)
-                                .selectedControl(cornerRadius: 6, accent: Theme.accentColor, selected: selectedTab == tab)
+                                .foregroundStyle(effectiveTab == tab ? Theme.accentColor : Theme.textSecondary)
+                                .selectedControl(cornerRadius: 6, accent: Theme.accentColor, selected: effectiveTab == tab)
                         }
                         .buttonStyle(.plain)
                     }
@@ -57,9 +63,15 @@ struct SetupView: View {
 
             // Selected Tab Content
             Group {
-                switch selectedTab {
+                switch effectiveTab {
                 case .connect:
                     ConnectView()
+                case .folders:
+                    ScrollView {
+                        SimpleScanRootsCard()
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 24)
+                    }
                 case .profiles:
                     VStack(alignment: .leading, spacing: 0) {
                         HStack {
@@ -81,28 +93,43 @@ struct SetupView: View {
 
                         ProfileManagerView()
                     }
-                case .houseRules:
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("House Rules are standing instructions read by every connected assistant at session start.")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Theme.textSecondary)
-
-                            HouseRulesPresetGalleryView {
-                                store.reload()
-                            }
-                        }
-                        .padding(20)
-                    }
-                case .mirrorExport:
-                    MirrorExportView()
                 case .automation:
-                    AutomationView()
+                    AutomationTab()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+    }
+}
+
+/// Setup › What runs on its own. Owns the Details disclosure so its initial
+/// state can come from the store each time the tab appears.
+private struct AutomationTab: View {
+    @EnvironmentObject var store: AppStore
+    @State private var detailsOpen: Bool = false
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                BackgroundWorkCard()
+
+                DisclosureGroup("Details", isExpanded: $detailsOpen) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        BackgroundAgentRow()
+                        AutonomyCard()
+                        JanitorCard()
+                        IngestCard()
+                    }
+                    .padding(.top, 12)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
+        }
+        .onAppear {
+            detailsOpen = store.backgroundAgentInstalled && !store.routinesEnabled
+        }
     }
 }

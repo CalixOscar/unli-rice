@@ -28,8 +28,8 @@ extension AppStore {
 
     func showNotices() {
         selectNote(nil)
-        closeAllPanes()
-        showingNotices = true
+        pane = .notices
+        moreDestination = .notifications
         statusMessage = notices.isEmpty
             ? "Nothing to report — the app has been quiet."
             : "\(notices.count) recent thing\(notices.count == 1 ? "" : "s"), \(unreadNoticeCount) unread."
@@ -49,8 +49,8 @@ extension AppStore {
             break
         case .reviewQueue:
             showReviewQueue()
-        case .retrospective(let period):
-            showRetrospective(periodID: period)
+        case .retrospective:
+            break // The year-so-far page is hidden (plan four-jobs); the notice is already marked read above.
         case .notesFolder:
             showNotesFolder()
         }

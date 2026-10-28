@@ -53,15 +53,42 @@ final class AppStore: ObservableObject {
     /// active note list.
     @Published var archiveSelection: Set<UUID> = []
 
-    @Published var showingHome: Bool = false
-    @Published var showingGarden: Bool = false
-    @Published var showingNeedsYou: Bool = false
-    @Published var showingSetup: Bool = false
-    @Published var showingProfileBuilder: Bool = false
-    @Published var showingProfileManager: Bool = false
-    @Published var showingFirstRun: Bool = false
-    @Published var showingMore: Bool = false
+    /// Which destination the main column shows. One value instead of a flag per
+    /// destination: a writer sets `pane` and nothing else needs turning off, so a
+    /// destination can no longer be left on underneath another one. The old
+    /// `showing…` names below are get-only readers kept for the views that still ask.
+    enum Pane: Equatable {
+        case home, notes, aiFolder, houseRules, todo, needsYou, notices, trustCenter
+        case archived, projects, repos, setup, firstRun, profileBuilder, map
+        case retrospective, whyNotTextFile
+    }
+
+    @Published var pane: Pane = .notes
+    /// Which tab Setup shows. Every entry into Setup sets it explicitly.
+    @Published var setupTab: SetupView.Tab = .connect
     @Published var moreDestination: MoreDestination = .setup
+
+    var showingHome: Bool { pane == .home }
+    var showingGarden: Bool { pane == .projects }
+    var showingRepos: Bool { pane == .repos }
+    var showingTodo: Bool { pane == .todo }
+    var showingGraph: Bool { pane == .map }
+    var showingRetrospective: Bool { pane == .retrospective }
+    var showingNeedsYou: Bool { pane == .needsYou }
+    var showingReviewQueue: Bool { pane == .needsYou }
+    var showingNotices: Bool { pane == .notices }
+    var showingTrustCenter: Bool { pane == .trustCenter }
+    var showingArchived: Bool { pane == .archived }
+    var showingFirstRun: Bool { pane == .firstRun }
+    var showingProfileBuilder: Bool { pane == .profileBuilder }
+    var showingMore: Bool {
+        pane == .setup || pane == .aiFolder || pane == .houseRules || pane == .trustCenter
+            || pane == .archived || pane == .notices || pane == .whyNotTextFile
+    }
+    var showingSetup: Bool { pane == .setup }
+    var showingGetStarted: Bool { pane == .setup }
+    var showingProfileManager: Bool { pane == .setup && setupTab == .profiles }
+    var showingAutomation: Bool { pane == .setup && setupTab == .automation }
 
     @Published public private(set) var profileRegistry = ProfileRegistry()
 
@@ -78,23 +105,15 @@ final class AppStore: ObservableObject {
         connectionActivities.first?.clientName
     }
 
-    @Published var showingArchived: Bool = false
-    @Published var showingReviewQueue: Bool = false
-    @Published var showingGraph: Bool = false
-    @Published var showingGetStarted: Bool = false
-    @Published var showingRetrospective: Bool = false
-    /// Repos — a read-only view of the git repositories inside the folders the user
-    /// already granted as `scanRoots`. It scans refs directly and never runs git; the
-    /// App Sandbox forbids `Process` outright. See `GitRepoScanner`.
-    @Published var showingRepos: Bool = false
-    /// Derived from repos and notes; repo items are not ticked off, while flagged notes are archived when done.
-    @Published var showingTodo: Bool = false
-    @Published var showingNotices: Bool = false
+    // Repos is a read-only view of the git repositories inside the folders the user
+    // already granted as `scanRoots`. It scans refs directly and never runs git; the
+    // App Sandbox forbids `Process` outright. See `GitRepoScanner`. To do is derived
+    // from repos and notes; repo items are not ticked off, while flagged notes are
+    // archived when done.
 
     /// Operational trust and recovery: connection evidence, verified snapshots,
     /// and in-app trash restore. Unlike notes, everything here is derived from
     /// sidecars or recovery files beside the active corpus.
-    @Published var showingTrustCenter: Bool = false
     @Published var connectionActivities: [MCPConnectionActivity] = []
     @Published var vaultSnapshots: [VaultSnapshot] = []
     @Published var trashedNotes: [TrashService.TrashedNote] = []
@@ -289,10 +308,6 @@ final class AppStore: ObservableObject {
 
         return .cold
     }
-
-    /// The settings/triggers pane. Was a permanently-visible right-hand column
-    /// until it became a destination like every other pane — see `AutomationView`.
-    @Published var showingAutomation: Bool = false
 
     // MARK: - Notification centre (see AppStore+Notices.swift)
 
@@ -628,9 +643,9 @@ final class AppStore: ObservableObject {
         // State 1 & State 2: FirstRun is for someone who genuinely has no notes — not
         // for someone whose notes could not be read. See `corpusLoaded`.
         if corpusLoaded && !hasUserAuthoredNotes {
-            showingFirstRun = true
+            pane = .firstRun
         } else {
-            showingHome = true
+            pane = .home
         }
 
         // After the corpus is loaded and the opening pane is decided, so the note count
@@ -890,11 +905,12 @@ final class AppStore: ObservableObject {
         trustChecks = []
         trustMessage = nil
         retrospectivePeriodID = nil
-        showingRetrospective = false
-        showingGarden = false
-        showingRepos = false
-        showingNotices = false
-        showingTrustCenter = false
+        switch pane {
+        case .retrospective, .projects, .repos, .notices, .trustCenter:
+            pane = .notes
+        default:
+            break
+        }
     }
 
     /// Everything the background agent needs, as the GUI currently has it.
@@ -909,7 +925,7 @@ final class AppStore: ObservableObject {
             autonomyLevel: autonomyLevel,
             dataFolderPath: UserDefaults.standard.string(forKey: Self.dataFolderKey),
             scanRootPaths: scanRoots.map(\.path),
-            monthlyReviewEnabled: true,
+            monthlyReviewEnabled: false,
             scanRootBookmarks: scanBookmarks,
             dataFolderBookmark: dataBookmark,
             claudeProjectsBookmark: claudeBookmark,
@@ -1086,58 +1102,24 @@ final class AppStore: ObservableObject {
         showLast(Int.max)
     }
 
-    /// Turns every main-column pane off, so a `show…` method only has to turn
-    /// its own on.
-    ///
-    /// Each of these methods used to list the others by hand, which worked
-    /// exactly until a new pane was added — the review screen and the
-    /// notification centre would each have needed a line in six places, and the
-    /// one that got missed would show through underneath another view.
-    func closeAllPanes() {
-        showingHome = false
-        showingNeedsYou = false
-        showingSetup = false
-        showingProfileBuilder = false
-        showingProfileManager = false
-        showingArchived = false
-        showingReviewQueue = false
-        showingGraph = false
-        showingGetStarted = false
-        showingRetrospective = false
-        showingGarden = false
-        showingNotices = false
-        showingTrustCenter = false
-        showingAutomation = false
-        showingFirstRun = false
-        showingMore = false
-        showingTodo = false
-        // Repos was missing here, and the routing chain checks it BEFORE More,
-        // Needs You and Notes — so once opened it shadowed all three and they
-        // silently stopped rendering. A pane added to the chain must be added here
-        // in the same change.
-        showingRepos = false
-    }
-
     func showFirstRun() {
-        closeAllPanes()
-        showingFirstRun = true
+        pane = .firstRun
         statusMessage = "First Run — Connect your AI tool to start."
     }
 
     func showMore() {
-        closeAllPanes()
-        showingMore = true
+        pane = .setup
         moreDestination = .setup
-        statusMessage = "More — Tools, settings, map, retrospectives, and secondary views."
+        setupTab = .connect
+        statusMessage = "Setup — AI tools, folders, and what runs on its own."
     }
 
     /// Where you go to reconnect or switch the notes folder. Setup, because
     /// that is where `ConnectView` — and the only folder picker — lives.
     func showNotesFolder() {
-        closeAllPanes()
-        showingMore = true
-        showingSetup = true
+        pane = .setup
         moreDestination = .setup
+        setupTab = .connect
         statusMessage = corpusFallbackMessage ?? "Setup — where your notes are stored."
     }
 
@@ -1180,59 +1162,57 @@ final class AppStore: ObservableObject {
     }
 
     func showHome() {
-        closeAllPanes()
-        showingHome = true
+        pane = .home
         statusMessage = "Home — What Unli Rice is doing for you right now."
     }
 
     func showGarden() {
-        closeAllPanes()
-        showingGarden = true
+        pane = .projects
         statusMessage = "Garden — a quiet overview of your projects and their notes."
     }
 
     func showGardenFolders() {
-        closeAllPanes()
-        showingMore = true
-        showingAutomation = true
-        moreDestination = .automation
-        statusMessage = "What Runs on Its Own — manage the folders Garden can read."
+        pane = .setup
+        moreDestination = .setup
+        setupTab = .folders
+        statusMessage = "Folders — the project folders Projects reads."
     }
 
     func showNeedsYou() {
-        closeAllPanes()
-        showingNeedsYou = true
+        pane = .needsYou
         statusMessage = pending.isEmpty && unreadNoticeCount == 0
             ? "Nothing is waiting on you right now."
             : "\(pending.count + unreadNoticeCount) item(s) waiting for your OK."
     }
 
     func showSetup() {
-        closeAllPanes()
-        showingMore = true
-        showingSetup = true
+        pane = .setup
         moreDestination = .setup
-        statusMessage = "Setup — AI tool connections, profiles, house rules, and automation."
+        setupTab = .connect
+        statusMessage = "Setup — AI tools, folders, and what runs on its own."
     }
 
     func showProfileBuilder() {
-        closeAllPanes()
-        showingProfileBuilder = true
+        pane = .profileBuilder
         statusMessage = "Profile Builder — create your personalized AI context document set."
     }
 
     func showHouseRules() {
-        closeAllPanes()
-        showingMore = true
+        pane = .houseRules
         moreDestination = .houseRules
         statusMessage = "House Rules — what your AI should always do."
     }
 
+    func showAIFolder() {
+        pane = .aiFolder
+        moreDestination = .folder
+        statusMessage = "The folder your AI can read — and what it reads first."
+    }
+
     func showProfileManager() {
-        closeAllPanes()
-        showingMore = true
-        showingProfileManager = true
-        moreDestination = .profiles
+        pane = .setup
+        moreDestination = .setup
+        setupTab = .profiles
         statusMessage = "Profiles — manage multi-vault profiles and master profile guardrails."
     }
 
@@ -1270,7 +1250,7 @@ final class AppStore: ObservableObject {
     }
 
     func showLatest() {
-        closeAllPanes()
+        pane = .notes
         visibleCount = 1
         statusMessage = "Showing: the single most recently updated note."
     }
@@ -1281,7 +1261,7 @@ final class AppStore: ObservableObject {
     /// everything and then clicking All Notes reports "last
     /// 9223372036854775807 updated notes".
     func showLast(_ n: Int) {
-        closeAllPanes()
+        pane = .notes
         visibleCount = n
         let total = notes.count
         statusMessage = n >= total
@@ -1294,9 +1274,7 @@ final class AppStore: ObservableObject {
     }
 
     func showArchived() {
-        closeAllPanes()
-        showingMore = true
-        showingArchived = true
+        pane = .archived
         moreDestination = .archived
         archiveSelection = []
         // No cap: the list scrolls now, and a hidden 51st archived note is one
@@ -1312,33 +1290,28 @@ final class AppStore: ObservableObject {
     /// needs room for full titles and an actual "Keep this one" button per
     /// note; 260pt of sidebar was cramping both into truncated text.
     func showReviewQueue() {
-        closeAllPanes()
-        showingReviewQueue = true
+        pane = .needsYou
         statusMessage = pending.isEmpty
             ? "Nothing is waiting on you right now."
             : "\(pending.count) item\(pending.count == 1 ? "" : "s") waiting for your OK."
     }
 
     func showAutomation() {
-        closeAllPanes()
-        showingMore = true
-        showingAutomation = true
-        moreDestination = .automation
+        pane = .setup
+        moreDestination = .setup
+        setupTab = .automation
         statusMessage = "Automation — what runs on its own, and what only runs when you ask."
     }
 
     func showTrustCenter() {
-        closeAllPanes()
-        showingMore = true
-        showingTrustCenter = true
+        pane = .trustCenter
         moreDestination = .trustCenter
         refreshTrustCenter()
         statusMessage = "Trust Center — connection evidence, recovery points, and note history."
     }
 
     func showGraph() {
-        closeAllPanes()
-        showingGraph = true
+        pane = .map
         statusMessage = "Brain map — how your notes link together into one brain."
     }
 
@@ -1346,8 +1319,7 @@ final class AppStore: ObservableObject {
     /// chips buried in More's scrolling selector bar — a look-back over a year
     /// of notes isn't a settings pane, and neither is the map.
     func showRetrospective() {
-        closeAllPanes()
-        showingRetrospective = true
+        pane = .retrospective
         statusMessage = "Your year so far — what these notes add up to."
     }
 
@@ -1356,36 +1328,19 @@ final class AppStore: ObservableObject {
     /// repository at least as much as to their notes, and the sandbox forbids the
     /// subprocess any of those would need anyway.
     func showTodo() {
-        closeAllPanes()
-        showingTodo = true
+        pane = .todo
         statusMessage = "To do — what is outstanding, derived from your repos and notes."
     }
 
     func showRepos() {
-        closeAllPanes()
-        showingRepos = true
+        pane = .repos
         statusMessage = "Repos — branches and worktrees in your scan folders. Read-only."
     }
 
     func selectNote(_ id: UUID?) {
         selectedNoteID = id
         if id != nil {
-            // Not `closeAllPanes()`: `showingArchived` deliberately survives
-            // opening a note, so closing it returns you to the archived list you
-            // were reading rather than to All Notes.
-            showingHome = false
-            showingGarden = false
-            showingNeedsYou = false
-            showingSetup = false
-            showingProfileBuilder = false
-            showingProfileManager = false
-            showingReviewQueue = false
-            showingGraph = false
-            showingGetStarted = false
-            showingRetrospective = false
-            showingNotices = false
-            showingTrustCenter = false
-            showingAutomation = false
+            pane = .notes
         }
     }
 
@@ -1393,9 +1348,9 @@ final class AppStore: ObservableObject {
     /// sidebar forever, not just on an empty corpus: it's also how someone
     /// connects a second AI tool later, which has nothing to do with being new.
     func showGetStarted() {
-        closeAllPanes()
-        showingMore = true
+        pane = .setup
         moreDestination = .setup
+        setupTab = .connect
         statusMessage = "Get Started — connect an AI assistant to these notes."
     }
 

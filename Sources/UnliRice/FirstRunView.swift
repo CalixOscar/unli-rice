@@ -54,7 +54,7 @@ struct FirstRunView: View {
             .buttonStyle(.plain)
             .font(.system(size: 12))
             .foregroundStyle(Theme.accentColor)
-            Text("You can connect later from More → Setup.")
+            Text("You can connect later from Setup.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary)
             Spacer()
