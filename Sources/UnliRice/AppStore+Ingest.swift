@@ -102,12 +102,18 @@ extension AppStore {
     /// default: the user sees exactly which folder they granted, one at a time.
     func chooseScanRoot() {
         let panel = NSOpenPanel()
-        panel.title = "Choose a folder to index"
-        panel.message = "Markdown and text documents in this folder are copied into your raw store and indexed. Source code is skipped."
+        if bulkImportEnabled {
+            panel.title = "Choose a folder to index"
+            panel.message = "Markdown and text documents in this folder are copied into your raw store and indexed. Source code is skipped."
+            panel.prompt = "Index This Folder"
+        } else {
+            panel.title = "Add a project folder"
+            panel.message = "Projects reads git details from this folder. Its files aren't imported as notes unless Import files from your folders is on in Setup \u{203A} Extras."
+            panel.prompt = "Add Folder"
+        }
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = false
-        panel.prompt = "Index This Folder"
         guard panel.runModal() == .OK, let folder = panel.url else { return }
         addScanRoot(folder)
     }

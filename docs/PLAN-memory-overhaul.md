@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-007-memory-overhaul.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 5 Phase A built and verified (with unverified items in Build notes), awaiting post-mortem; Phases B and C reopened (2026-10-29)
+**Stage:** 6 Phase A post-mortem answered (2026-10-29); unverified items in Build notes; Phases B and C reopened (2026-10-29)
 **Pre-mortem:** `docs/dialogue/memory-overhaul.md` (codex, 2026-10-29: 21 findings, all accepted)
 **Branch:** `claude/memory-overhaul`, cut from `main` after A0 merges `feature/todo-widget`.
 **Verified against:** `0ba0c1a` on `main`
@@ -240,7 +240,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       | capturePromo | **iPhone Capture** — "Shows the card for the free iPhone app in the sidebar." |
       | bulkImport | **Import files from your folders** — "Reads the Markdown and text files in Setup › Folders and adds them as notes. Claude Code sessions and the Notes for Unli Rice folder are imported either way." |
       | duplicates | **Spot duplicate notes** — "Suggests merging notes that look alike, when the janitor runs. Nothing merges without your OK. The hint while you write a note is separate." |
-      | background off | Both background rows append: " Needs background work on (Setup › What runs on its own)." |
+      | background off | Both background rows append: " Runs on its own only with background work on (Setup › What runs on its own); Ingest now and the janitor buttons follow this switch either way." The rows stay enabled (post-mortem 2). |
       | folder added, import off | "\(name) added. Projects reads its git details; its files aren't imported as notes. To import them, turn on Import files from your folders in Setup › Extras." |
 
 #### A4. Copy that now says the wrong thing (`build-light`)
@@ -349,7 +349,7 @@ trimming the MCP tool list once recorded transcripts show which tools agents cal
 
 **Mechanical (Phase A)**
 - [x] `swift build` / `swift test` green: 471 tests, 2 skipped, 0 failures. Xcode Mac build succeeds (Claude, 2026-10-29).
-- [ ] `git diff --name-only` for Phase A within the files named in A1–A4, plus this plan,
+- [x] `git diff --name-only` for Phase A within the files named in A1–A4, plus this plan,
       `docs/dialogue/memory-overhaul.md`, `memory.md`, `PROJECT_NOTES.md`.
 - [x] A1's tests (a)–(f) present and passing (`ExtrasSettingsTests`, 6 tests).
 - [x] A5's seven running-app checks done, or each marked "(unverified)" with why (Build notes).
@@ -422,4 +422,12 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
     the duplicates check needs a local embedding listener; window capture failed before either.
     Covered by code review (`addScanRoot` returns before `LocalFileImporter`; `janitorSimilarity()`
     skips `similarityProvider()`) and, for the core, by A1 tests (e) and (f).
+- **Post-mortem fixes, planner (2026-10-29):** (1) the folder picker and the Data pipelines card
+  follow the import switch; (2) the background Extras rows stay enabled with background work off,
+  because the manual Ingest and janitor buttons obey them too (a flaw in the settled plan). 471
+  tests, 2 skipped, 0 failures; Mac build succeeded. Still to verify in a running QA app before
+  merging, riskiest first: folder addition with import off (no alert, event log and `raw/`
+  unchanged); duplicates off with a local embedding request counter and an "on" control; then
+  post-mortem 10's table (fresh sidebar, Garden's To do button, year-so-far and Capture switches,
+  a seeded retrospective notice, QA-targeted widget URLs, five tabs at 960pt).
 
