@@ -150,7 +150,7 @@ struct BranchGraphView: View {
                         .font(.system(size: 10, design: .monospaced)).foregroundStyle(.orange)
                 }
             } else {
-                caption("history unknown — run check-repos.sh --publish")
+                caption("history not available — only where each branch ends is known")
             }
             Spacer(minLength: 0)
         }

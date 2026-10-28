@@ -22,7 +22,7 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On local `main` (not pushed). Garden and four-jobs merged 2026-10-29: 406 tests, 2 skipped, 0 failures; Mac scheme builds (verified: swift test + xcodebuild on the merged tree, Claude, 2026-10-29). INTENT-007 (guardrails, grounding, evals) approved; `docs/PLAN-memory-overhaul.md` pre-mortemed by Codex (21 findings, all accepted). Phase A is settled; Phases B and C are reopened.
+**Status:** On local `main` (not pushed). Garden, four-jobs and todo-widget (the 1.3 release) merged 2026-10-29: 406 tests, 2 skipped, 0 failures; Mac scheme builds (verified: swift test + xcodebuild on the merged tree, Claude, 2026-10-29). INTENT-007 (guardrails, grounding, evals) approved; `docs/PLAN-memory-overhaul.md` pre-mortemed by Codex (21 findings, all accepted). Phase A is settled; Phases B and C are reopened.
 **Task:** The memory overhaul (INTENT-007). Waiting on the founder's go-ahead to build Phase A.
 **Files touched:** `docs/intent/INTENT-007-memory-overhaul.md`, `docs/PLAN-memory-overhaul.md`, `docs/REVIEW-memory-overhaul.md`, `docs/dialogue/memory-overhaul.md`, `memory.md`. Merge resolutions: `PROJECT_NOTES.md`, `Sources/UnliRice/AppStore.swift`.
 **Next step:** On the founder's go-ahead: plan A0 (merge `feature/todo-widget` into `main`, baseline), cut `claude/memory-overhaul`, build A1–A4 with the builders, verify per A5. Before Phase B is redrafted: the founder checks real note/event counts in the installed app and names one task the memory view should save time on (plan §8). Before any App Store submission: new sidebar screenshots and the 6-Month Post-Mortem.
@@ -114,6 +114,18 @@ The `builder` subagents load only when Claude Code starts in the repo root.
 - The app is shipped on the Mac App Store, so anything on this branch is a submission
   candidate and the pre-launch gate (`_AI Context/07_Prelaunch_Post_Mortem.md`) applies
   before it goes out.
+- **The public guide and the app's own copy are now expected to agree.** The guide at
+  `calmdownoscar.com/unlirice/user_guide.html` was audited against the code, so a string
+  changed in the app without changing the guide re-opens the divergence that
+  `docs/PLAN-copy-that-overstates.md` exists to close. Changing either means checking the
+  other.
+- **The Mirror folder is bidirectional, in one narrow way.** Exported files are
+  regenerated copies and edits to them are lost, but `Notes for Unli Rice/` is a drop box
+  that `RoutineDriver` ingests on every tick (`RoutineDriver.swift:164`). "The folder is
+  read-only" is wrong; "a tool can add a note but not edit one" is right.
+- **The widget build (B1–B6) had no swarm and no Codex review of the code**, by founder
+  instruction on 2026-09-25 ("just build it"). The plan itself was pre-mortemed; the
+  implementation was checked only by its author's tests and builds.
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/IOS_CAPTURE_RELEASE.md` §1.6 ("Decide iPad, deliberately") is **resolved**:
   keep `TARGETED_DEVICE_FAMILY: "1,2"`. The doc itself still poses it as an open

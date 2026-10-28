@@ -56,14 +56,21 @@ targets:
         buildPhase: resources
     dependencies:
       - target: UnliRiceCoreiOS
+      - target: UnliRiceCaptureWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture
+        # The App Group is shared with the iPhone To Do widget (PhoneTodoWidget).
+        CODE_SIGN_ENTITLEMENTS: UnliRiceCapture.entitlements
         PRODUCT_NAME: UnliRiceCapture
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "6"
+        MARKETING_VERSION: "1.3"
+        CURRENT_PROJECT_VERSION: "8"
         INFOPLIST_KEY_CFBundleDisplayName: "Unli Rice Capture"
+        # Standard system encryption only (HTTPS, Data Protection), as the Mac app
+        # declares; without it every build waits on a manual compliance answer.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         DEVELOPMENT_TEAM: 22SNGN5JYD
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Unli Rice Capture uses your microphone to dictate notes."
@@ -80,6 +87,33 @@ targets:
         # GENERATE_INFOPLIST_FILE does not add one on its own.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         # SpeechAnalyzer/SpeechTranscriber require 26; see Package.swift.
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+
+  UnliRiceCaptureWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - Sources/UnliRiceCaptureWidget
+      - Sources/UnliRiceWidgetShared
+    dependencies:
+      - target: UnliRiceCoreiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.capture.widget
+        PRODUCT_NAME: UnliRiceCaptureWidget
+        PRODUCT_MODULE_NAME: UnliRiceCaptureWidget
+        CODE_SIGN_ENTITLEMENTS: UnliRiceCaptureWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 22SNGN5JYD
+        GENERATE_INFOPLIST_FILE: YES
+        # NSExtension has no INFOPLIST_KEY_* mapping; see UnliRiceWidget-Info.plist.
+        INFOPLIST_FILE: UnliRiceCaptureWidget-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
+        # Must match the Capture app's versions, or upload is refused.
+        MARKETING_VERSION: "1.3"
+        CURRENT_PROJECT_VERSION: "8"
+        TARGETED_DEVICE_FAMILY: "1,2"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
 
   UnliRiceHost:
@@ -152,6 +186,35 @@ targets:
         OTHER_CODE_SIGN_FLAGS: "$(inherited) -i $(PRODUCT_BUNDLE_IDENTIFIER)"
         SKIP_INSTALL: YES
 
+  UnliRiceWidget:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - Sources/UnliRiceWidget
+      - Sources/UnliRiceWidgetShared
+    dependencies:
+      - target: UnliRiceCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.widget
+        PRODUCT_NAME: UnliRiceWidget
+        PRODUCT_MODULE_NAME: UnliRiceWidget
+        CODE_SIGN_ENTITLEMENTS: UnliRiceWidget.entitlements
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 22SNGN5JYD
+        ENABLE_APP_SANDBOX: YES
+        GENERATE_INFOPLIST_FILE: YES
+        # NSExtension has no INFOPLIST_KEY_* mapping: the key that used to be here was
+        # silently ignored, the built .appex carried no NSExtension at all, and macOS
+        # never registered a widget. It lives in this file instead (2026-09-25).
+        INFOPLIST_FILE: UnliRiceWidget-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
+        # An embedded extension's versions must match its app's, or upload is refused.
+        MARKETING_VERSION: "1.3"
+        CURRENT_PROJECT_VERSION: "8"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+
   UnliRice:
     type: application
     platform: macOS
@@ -164,6 +227,8 @@ targets:
     dependencies:
       - target: UnliRiceCore
       - target: UnliRiceHost
+      - target: UnliRiceWidget
+        embed: true
       - target: unlirice-mcp
         link: false
         embed: false
@@ -184,13 +249,17 @@ targets:
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.2"
-        CURRENT_PROJECT_VERSION: "6"
+        MARKETING_VERSION: "1.3"
+        CURRENT_PROJECT_VERSION: "8"
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 calmdownoscar. All rights reserved.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         GENERATE_INFOPLIST_FILE: YES
+        # CFBundleURLTypes (the `unlirice://` scheme the to-do widget links through)
+        # has no INFOPLIST_KEY_* mapping, so it lives in this file; the generated keys
+        # above merge into it, as UnliRiceCapture-Info.plist does for Capture.
+        INFOPLIST_FILE: UnliRice-Info.plist
     postCompileScripts:
       - name: Embed sandboxed helpers
         basedOnDependencyAnalysis: false

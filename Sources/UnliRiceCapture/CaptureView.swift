@@ -8,6 +8,7 @@ public struct CaptureView: View {
     @StateObject private var store: CaptureStore
     @StateObject private var player = CapturePlayer()
     @StateObject private var lock = AppLock.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
     @State private var showFolderChoice = false
     @State private var showFolderPicker = false
@@ -129,6 +130,11 @@ public struct CaptureView: View {
             // The row that was playing is no longer on screen; audio that keeps
             // going from an invisible row has no stop button.
             player.stop()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Coming back to the app is when the To Do widget catches up: queued Done
+            // taps are filed and the list it shows is rewritten from fresh notes.
+            if phase == .active { store.sync() }
         }
         .sheet(isPresented: $showSettings) {
             settingsSheet

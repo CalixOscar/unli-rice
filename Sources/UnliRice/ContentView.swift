@@ -1076,6 +1076,9 @@ private struct NoteDetailView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
+                if let item = store.todoItemNote(for: note) {
+                    NoteTodoPromptMenu(itemNote: item)
+                }
                 if note.archived {
                     Button("Unarchive") { store.unarchive(note) }
                         .buttonStyle(.plain)

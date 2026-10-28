@@ -362,3 +362,30 @@ Parts A, B, C → swarm, through the MCP bridge (bare filename; move the brief i
 afterwards; wait on the `agy` pid, not the result file). **B0 is a gate: the swarm stops and
 reports if it fails.** Part D's two follow-ups → Claude. Check `git diff` against §7; a
 `SUCCESS` report proves nothing.
+
+## Build notes (2026-09-25 → 26, Claude, built directly on founder instruction)
+
+- [x] B1 — target existed from the spike. Added: `unlirice://` via `UnliRice-Info.plist`
+  (no `INFOPLIST_KEY_*` mapping for `CFBundleURLTypes`); **`NSExtension` via
+  `UnliRiceWidget-Info.plist`** — the `INFOPLIST_KEY_NSExtensionPointIdentifier` setting was
+  silently ignored, so the built .appex carried no `NSExtension` and never registered;
+  widget versions 1.2 (6) to match the app.
+- [x] B2 — `TodoTimelineProvider`; row logic in Core `TodoWidgetList` (tested). Reasons for
+  Unknown are plain sentences (`TodoWidgetList.reason(for:)`).
+- [x] B3 — `TodoWidget`, copy verbatim. Medium shows titles on one line to fit three rows;
+  large shows two lines. Done is a Reminders-style circle with the "Mark done: …" label.
+- [x] B4 — `MarkTodoDoneIntent`; the check-then-archive is Core `TodoDone` (tested: repeat
+  tap and non-todo are no-ops, one archive event).
+- [x] B5 — `AppStore+TodoWidget.swift`: `handleTodoURL`, Darwin observer + reload on
+  becoming active, pane `load()` keyed on `todoRefreshToken`, widget reloaded only when the
+  set of open to-dos changes (the 5-minute tick would otherwise spend its budget).
+- [x] B6 — "Fix with AI…" on the note view for a to-do or its handoff, and on AI rows in
+  the pane (item bodies now tell the founder to use it). `copyTodoPrompt` now resolves the
+  handoff through `TodoHandoff.target` (it had looked the id up directly).
+- [ ] B0 (b) — skipped by the founder. Fail-closed covers it: a folder the widget can't
+  open shows Unknown with "The widget can't open a custom notes folder yet."
+- [ ] §7 hand checks — blocked: a development-signed build is refused the app group
+  container, so they need a TestFlight/App Store build.
+- Beyond the plan: plain wording across both To Do panes and `StudioTodo` (labels, titles,
+  empty states, one shared `Kind.blurb`), and a long next step shown as its first sentence
+  with `Item.detail` holding the full text (used by Details and by the prompt).

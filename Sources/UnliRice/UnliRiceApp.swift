@@ -58,6 +58,20 @@ struct UnliRiceApp: App {
                 ) { _ in
                     store.flushHouseRulesState()
                 }
+                // The to-do widget (B5). Links open in the frontmost window rather than a
+                // new one each time; with no window open, SwiftUI makes one.
+                .onOpenURL { store.handleTodoURL($0) }
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
+                // The widget can archive while the app is open. Its Darwin notification
+                // is the fast path; becoming active is the fallback if the sandbox drops it.
+                .onAppear {
+                    TodoChangeObserver.shared.start { [store] in store.refreshAfterTodoChange() }
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+                ) { _ in
+                    store.refreshAfterTodoChange()
+                }
         }
         .commands {
             CommandGroup(after: .saveItem) {

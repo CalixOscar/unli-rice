@@ -2531,3 +2531,45 @@ The Tier 1 handoff was concrete before dispatch, but its G4 entry was added to t
 Founder-approved (INTENT-006): a headed sidebar (CONTEXT / GUARDRAILS / SECURITY / PROJECTS, Setup last), More removed, Garden and Repos as one Projects page, cut features hidden rather than deleted, and the background-work switch always visible. Navigation state is now one `Pane` value instead of 18 flags. Codex's pre-mortem (13 findings) and post-mortem (no blockers) are in `docs/dialogue/four-jobs.md`; the plan is `docs/PLAN-four-jobs.md`.
 
 Lessons: copy promises must be checked against the code path, including cards moved over unchanged. A conditional button in source isn't evidence that a user can reach it. A verification record must list every check it skipped, not only the ones it flagged. Computer use needs the debug build wrapped in a bundled `.app` with its own bundle ID, running on a regular Space.
+
+## The to-do widget, and AI to-dos that never reached the app (2026-09-26)
+
+**Decision (founder, 2026-09-25): AI sessions use the installed app's store.** Every
+Claude Code session under `~/Documents` ran `swift run unlirice-mcp` with
+`UNLIRICE_DATA_PATH=~/Documents/events.jsonl` (from a `~/Documents/.mcp.json` dated
+2026-07-20), while the App Store app reads the app group store. The two share no note ids;
+the app held 502 open notes and **zero** to-dos, so no to-do an agent ever filed had reached
+it. `~/Documents/.mcp.json` and this repo's `.mcp.json` now run
+`/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`. The old store is untouched; its
+11 AI-written notes were copied across with a provenance line. The two `-byollm` /
+`-sharetoai` branch folders still carry the old config.
+
+**Decision (founder, 2026-09-25): Claude built B1–B6 directly**, not the swarm, and B0 test
+(b) was skipped; the widget is fail-closed instead. Build notes and deviations:
+`docs/PLAN-todo-widget.md` § "Build notes".
+
+**Decision: the To Do list is written for a non-developer** — plain group labels and item
+titles, a next step shown as its first sentence with the rest under Details, and to-do
+bodies that open with plain sentences before `For the AI picking this up:`. The rule is in
+the vault guardrails, the memory template and this repo's `AGENTS.md`.
+
+Open: the widget has not been seen drawing real notes. A development-signed build is
+refused the app group container (wildcard team profile, no `application-groups`); only a
+TestFlight/App Store build can run plan §7. Filed as a to-do for the founder.
+
+## Unli Rice 1.3: the To Do list for everyone, and an iPhone widget (2026-09-26)
+
+**Decision (founder): the To Do list must work for every customer on default settings.**
+Customers have no published `repos.json` (studio tooling), so the pane showed only an
+instruction to run a studio script and hid their AI to-dos. Now every open AI to-do shows in
+the pane and on the phone, the Mac pane scans the folders granted in Repos itself when no
+snapshot exists, and no product copy names a studio script. The built-in house rules teach
+connected assistants to file to-dos in plain words; a test keeps studio-only terms out of them.
+
+**Decision (founder): the widget on iPhone too.** The layout is shared with the Mac widget.
+The phone widget reads a list Capture writes into a new App Group after each sync, and queues
+Done taps for Capture's next sync; it hides titles while the app lock is on.
+
+**Released:** Mac 1.3 (8) and Capture 1.3 (8) uploaded for review (Capture 1.3 (7) lacked the export-compliance key and is superseded), founder-requested
+("ready for app store"). 1.2 was already approved, closing its train; build numbers 6 and 7
+were already used on the Mac. Submission itself is the founder's.

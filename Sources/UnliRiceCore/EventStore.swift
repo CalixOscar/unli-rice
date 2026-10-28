@@ -48,6 +48,7 @@ public struct EventBatch: Sendable {
 /// reversible by construction. See PROJECT_NOTES.md.
 public final class EventStore: @unchecked Sendable {
     public let fileURL: URL
+    public private(set) var skippedLines: Int = 0
     private let queue = DispatchQueue(label: "com.unlirice.eventstore")
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -59,6 +60,21 @@ public final class EventStore: @unchecked Sendable {
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             FileManager.default.createFile(atPath: fileURL.path, contents: nil)
         }
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        self.encoder = enc
+        let dec = JSONDecoder()
+        dec.dateDecodingStrategy = .iso8601
+        self.decoder = dec
+    }
+
+    /// Opens an existing event log in read-only mode without creating missing files or directories.
+    /// Throws WidgetCorpus.Unreadable.logMissing if the file does not exist.
+    public init(readingExisting fileURL: URL) throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            throw WidgetCorpus.Unreadable.logMissing
+        }
+        self.fileURL = fileURL
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         self.encoder = enc
@@ -182,9 +198,14 @@ public final class EventStore: @unchecked Sendable {
             }
 
             let complete = data[data.startIndex...lastNewline]
-            let events = complete
-                .split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true)
-                .compactMap { try? decoder.decode(Event.self, from: Data($0)) }
+            var events: [Event] = []
+            for chunk in complete.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: true) {
+                if let event = try? decoder.decode(Event.self, from: Data(chunk)) {
+                    events.append(event)
+                } else {
+                    self.skippedLines += 1
+                }
+            }
 
             return EventBatch(
                 events: events,

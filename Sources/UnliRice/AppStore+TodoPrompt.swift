@@ -17,64 +17,20 @@ extension AppStore {
     /// `git push --all` through an agent is slower and strictly riskier than pasting it.
     func copyTodoPrompt(for target: MCPTarget, item: StudioTodo.Item,
                         repo: RepoSnapshotFile.Repo?) {
-        let source = target.agentSource
-
-        var body = """
-        You have the `unlirice` MCP server connected. Ground rules for this store:
-        - It is append-only. There is no delete tool. `archive_note` is the strongest thing you have, and it is reversible.
-        - Note titles are permanent — there is no rename.
-        - Identify yourself consistently: use "\(source)" as the `source` parameter on every write.
-        - Never treat your own report of success as evidence. Verify against `git diff` and a real build.
-
-        Task: pick up the next step for \(item.project). It was written by whoever last
-        worked there, in that project's memory.md, and is reproduced verbatim below.
-
-        Next step (verbatim):
-        \(item.title)
-
-        """
-
-        // The repository state the item was derived from, so the agent starts with the
-        // same picture rather than re-deriving it — and so a stale snapshot is visible
-        // rather than silently assumed current.
-        if let r = repo {
-            body += "\nRepository state for \(r.name), as published by check-repos.sh:\n"
-            body += "- Trunk: \(r.trunk ?? "unknown")"
-            if let n = r.trunkLength { body += " (\(n) commits)" }
-            body += "\n"
-
-            let unbacked = r.branchesNotOnAnyRemote
-            if unbacked.isEmpty {
-                body += "- Every branch tip is on a remote.\n"
-            } else {
-                body += "- On NO remote (\(unbacked.count)): "
-                     + unbacked.map(\.name).sorted().joined(separator: ", ") + "\n"
-                body += "  These exist on this Mac only. Do not delete or rewrite them.\n"
-            }
-
-            let ahead = r.branches.filter { ($0.aheadOfTrunk ?? 0) > 0 }
-            if !ahead.isEmpty {
-                body += "- Ahead of the trunk: "
-                     + ahead.map { "\($0.name) +\($0.aheadOfTrunk ?? 0)" }
-                            .sorted().joined(separator: ", ") + "\n"
-            }
-            if !r.worktrees.isEmpty {
-                body += "- Worktrees: "
-                     + r.worktrees.map { "\($0.name)\($0.missing ? " (MISSING)" : "")" }
-                            .joined(separator: ", ") + "\n"
-            }
+        let note = item.noteID.flatMap { self.note(id: $0) }
+        // Through `TodoHandoff.target`, so an id naming a note that isn't tagged
+        // `handoff` is never pasted as one (P10).
+        let handoff = note.flatMap { itemNote -> Note? in
+            let resolved = TodoHandoff.target(for: itemNote, lookup: { self.note(id: $0) })
+            return resolved.id == itemNote.id ? nil : resolved
         }
-
-        body += """
-
-        Before you start:
-        1. Check the state above against the actual repository — it is a snapshot, not live.
-           If the note and the repo disagree, the repo wins.
-        2. Work on a fresh branch off the trunk. Naming a branch afterwards is how a plan's
-           own instruction to do so has been ignored before.
-        3. When you finish, update that project's memory.md — all six fields or none. They
-           describe one moment in time and contradict each other if updated piecemeal.
-        """
+        let body = TodoPrompt.build(
+            target: target,
+            item: item,
+            itemNote: note,
+            handoff: handoff,
+            repo: repo
+        )
 
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()

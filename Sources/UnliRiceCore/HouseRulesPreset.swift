@@ -85,6 +85,18 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Identify every write.** Pass your own lowercase tool name as `source`. Never write as `janitor` or `ingest`; those identities are reserved for machine pipelines.
 
+    **Verify, don't report.** Your own report that a change worked is not evidence. Check the diff and a real build or test run before saying it's done, and mark anything you couldn't check as unverified.
+
+    **Define intent before generating.** State the user, task, context, desired outcome, product point of view, and observable acceptance criteria. Use existing components and complete flow patterns where they fit. Explain a deliberate departure rather than silently inventing a parallel system.
+
+    **Treat the first polished output as a draft.** Review the information hierarchy and task with styling mentally removed. Walk the complete journey: first use, success, empty or partial data, denied permissions, failure and recovery, and return after interruption. Apply only relevant states and record what was checked; mark unchecked states unverified. Build passing is not proof of usability.
+
+    **Keep character and ownership.** Judge the experience against this user's context and product voice, not a generic template. Check one layer deeper: accurate copy, focus and keyboard behaviour, loading feedback, preserved state, and safe recovery. Avoid decorative novelty that obstructs the task. Keep maintenance and handoff responsibilities visible.
+
+    **Use saved time to explore.** For a consequential design choice, compare a credible alternative and explain the trade-off. Keep worthwhile unusual ideas when they improve the user's outcome. Report verified behaviour, remaining limits, and deferred work separately; do not claim that prompt instructions mechanically enforce quality.
+
+    **Keep the user's to-do list in plain words.** File deferred work as a note tagged `todo` plus the project's lowercased folder name. The title is one plain sentence with no file names, code names or acronyms. The body opens with two or three plain sentences, saying why it matters and what the user must do or "An AI can do this", then the technical detail after a line reading `For the AI picking this up:`. These items appear on the user's To Do list and widget. Archive one only when you finished it, naming the evidence.
+
     **Do not make structural judgements unilaterally.** If notes duplicate or contradict one another, use `flag_for_review` and explain the evidence. Do not merge, archive, or resolve the conflict yourself. There is no delete tool; archiving is soft and reversible.
 
     **Exception Guardrail.** If the user asks for something that contradicts these notes, ask whether it's a one-time exception or whether the note should change. One-time → note the exception in the session; change → append the change to the relevant note.
@@ -100,6 +112,8 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Flag suspected duplicates or contradictions for human review; do not resolve them yourself.
     - Exception Guardrail: If user request contradicts notes, ask if one-time exception or note change.
     - Nothing is deleted. Archive is soft and reversible.
+    - File deferred work as a note tagged `todo` + project folder name: a plain-sentence title, a plain opening for the user, technical detail after `For the AI picking this up:`. Archive only what you finished, with evidence.
+    - Check claims against current evidence; mark what you couldn't check as unverified.
     """
 
     private static let engineeringGuardrailsBody = """
@@ -107,7 +121,9 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Notes basics.** Search before writing, and check `Wiki: index` first when it exists. Append to an existing topic; create a note only for a genuinely new concept. Titles are permanent. Pass your own lowercase tool name as `source`, and never write as `janitor` or `ingest`. Flag suspected duplicates or contradictions with `flag_for_review` rather than resolving them yourself. Nothing is deleted; archiving is soft and reversible.
 
-    **Working state and history are different files.** Keep the current state (status, task in flight, files touched, next step, gotchas) in one short file such as `memory.md`, and update it as a whole when it changes. Keep what was decided, when, and why in an append-only file such as `PROJECT_NOTES.md`. If either disagrees with the repository, the repository wins: check `git log` and `git status` before building on them.
+    **Keep the user's to-do list in plain words.** File deferred work as a note tagged `todo` plus the project's lowercased folder name. The title is one plain sentence with no file names, code names or acronyms. The body opens with two or three plain sentences, saying why it matters and what the user must do or "An AI can do this", then the technical detail after a line reading `For the AI picking this up:`. These items appear on the user's To Do list and widget. Archive one only when you finished it, naming the evidence.
+
+    **Working state and history are different files.** Keep the current state (status, task in flight, files touched, next step, gotchas) in one short working-state file, and update it as a whole when it changes. Keep what was decided, when, and why in an append-only file such as `PROJECT_NOTES.md`. If either disagrees with the repository, the repository wins: check `git log` and `git status` before building on them.
 
     **Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`. Never leave one at the repository root. Start the work on a fresh branch off the main branch, not on top of unrelated commits.
 
