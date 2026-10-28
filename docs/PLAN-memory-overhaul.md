@@ -138,7 +138,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
 - [x] `planner` Cut `claude/memory-overhaul` from `b35b0c9`.
 
 #### A1. Background extras in core (`build`)
-- [ ] `build` `AgentSettings`: add `public var bulkImportEnabled: Bool` and
+- [x] `build` _(built 2026-10-29; 471 tests, 2 skipped, 0 failures, verified by Claude)_ `AgentSettings`: add `public var bulkImportEnabled: Bool` and
       `public var duplicateDetectionEnabled: Bool`, with `CodingKeys` entries and init parameters
       (default `false`). `init(from:)` uses `decodeIfPresent(...) ?? true` for both.
       `Pipelines.standard` gains `includeLocalFiles: Bool = true` and skips `LocalFileImporter`
