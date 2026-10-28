@@ -2,10 +2,10 @@
 
 **Intent:** `docs/intent/INTENT-007-memory-overhaul.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 2 draft, for Codex's pre-mortem (2026-10-29)
-**Pre-mortem:** `docs/dialogue/memory-overhaul.md` _(not written yet)_
+**Stage:** 3 Phase A settled, awaiting the founder's go-ahead; Phases B and C reopened (2026-10-29)
+**Pre-mortem:** `docs/dialogue/memory-overhaul.md` (codex, 2026-10-29: 21 findings, all accepted)
 **Branch:** `claude/memory-overhaul`, cut from `main` after A0 merges `feature/todo-widget`.
-**Verified against:** `d6d8602` on `main`
+**Verified against:** `0ba0c1a` on `main`
 
 ## 0. What was asked for
 
@@ -24,9 +24,14 @@ defaults for its open questions:
 - **Q6:** Projects and To do stay on for existing users who already use them.
 - **Q7:** evals cover coding-agent transcripts only at first.
 
-**This plan is staged.** Phase A (navigation and Extras switches) is build-ready. Phases B
-(what each AI remembers) and C (evals) are settled at the design level here. Each gets its task
-list written, and goes back to Codex, before it's built. Phase D is named, not designed.
+**The promise, narrowed (pre-mortem 1):** Unli Rice lets you *inspect the local memory files you
+choose*, and *checks observable actions in supported session logs*. It does not claim to know what
+an AI loaded, retained or obeyed. Unsupported sources and undecidable results are shown as such.
+
+**This plan is staged.** Phase A (navigation and Extras switches) is settled and build-ready.
+Phases B (memory files) and C (evals) were reopened by the pre-mortem: each gets a new draft
+that starts from Codex's findings and goes back to Codex before any build. Phase D is named, not
+designed.
 
 ## 1. What already exists (checked, not assumed)
 
@@ -80,20 +85,24 @@ list written, and goes back to Codex, before it's built. Phase D is named, not d
 3. **UI extras live in `UserDefaults`**, one key `unliRice.enabledExtras` holding the raw values
    of the extras that are on. **Background extras live in `AgentSettings`**, because the background
    agent must read them.
-4. **Defaults that don't take things away.**
-   - Projects and To do: when `unliRice.enabledExtras` is absent (first launch of this version), they
-     start on if the user has at least one scan root, and the result is written immediately so it
-     never flips later. Every other UI extra starts off.
-   - Background extras: a *new* `AgentSettings` (no file yet) has them off. Decoding an existing file
-     that lacks the keys gives **on**, which keeps today's behaviour for current users.
-5. **Grounding mirrors other tools' memory into notes, read-only (Phase B).** One note per memory
-   file, made of existing event kinds: `created` on first sight, `appended` with the full new text
-   when the file changes. Codex can then search Claude's memory over MCP, and the other way round.
-   Unli Rice never writes to another tool's files.
-6. **Evals are derived, not stored (Phase C).** Results are recomputed from transcripts on disk and
-   in `raw/`, like To do. No new event kind, no results file.
-7. **Evals v1 are deterministic.** No model in the app. Judged checks (tone, judgement calls) are
-   Phase D and use localhost only or a copyable prompt.
+4. **Defaults that don't take things away** (pre-mortem 2, 6).
+   - Projects and To do: when `unliRice.enabledExtras` is absent (first launch of this version),
+     they start **on** for an existing install, meaning the event log exists and is non-empty, or
+     `unliRice.scanRoots` holds any saved path, resolved or not. A new install starts with them
+     off. The result is written immediately and never recomputed. A saved empty array is respected.
+     Every other UI extra starts off.
+   - Background extras: decoding an existing `AgentSettings` file that lacks the keys gives **on**
+     (today's behaviour). A missing or unreadable file gives **off**: less background work, never
+     more. The app reads the file once at launch, before anything saves over it.
+5. **Off means off** (pre-mortem 4, 5). With bulk import off, adding a folder doesn't read
+   its files or offer an import. With duplicate detection off, the app janitor uses local token
+   overlap and never contacts the embedding server. A switch takes effect from the next run;
+   flags already queued stay for review. **Exceptions, stated in the copy:** Claude Code session
+   import and the Notes for Unli Rice inbox keep running. The draft hint while writing a note
+   stays on: it's local and synchronous.
+6. **Unli Rice never writes to another tool's files**, in any phase.
+7. **Evals are deterministic and read-only** (Phase C). No model in the app. Judged checks are
+   Phase D, localhost only or a copyable prompt.
 
 ## 3. Point of view and patterns
 
@@ -129,48 +138,58 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
 
 #### A1. Background extras in core (`build`)
 - [ ] `build` `AgentSettings`: add `public var bulkImportEnabled: Bool` and
-      `public var duplicateDetectionEnabled: Bool`, with `CodingKeys` entries. The memberwise/default
-      init sets both `false`. `init(from:)` uses `decodeIfPresent(...) ?? true` for both.
-      `Pipelines.standard` gains `includeLocalFiles: Bool = true` and skips `LocalFileImporter` when
-      false. `JanitorConfig` gains `public let detectsDuplicates: Bool` (init parameter, default
-      `true`). `Janitor.scan` skips `possibleDuplicate` proposals when it's false.
+      `public var duplicateDetectionEnabled: Bool`, with `CodingKeys` entries and init parameters
+      (default `false`). `init(from:)` uses `decodeIfPresent(...) ?? true` for both.
+      `Pipelines.standard` gains `includeLocalFiles: Bool = true` and skips `LocalFileImporter`
+      when false. `JanitorConfig` gains `public let detectsDuplicates: Bool` (init parameter,
+      default `true`); `Janitor.scan` (`Janitor.swift:96`) skips `duplicateProposals` entirely when
+      it's false, so the provider is never called.
       Callers in this step: `RoutineDriver.swift:88` passes
       `includeLocalFiles: settings.bulkImportEnabled`; `RoutineDriver.swift:322` and
-      `unlirice-agent/main.swift:110` pass `detectsDuplicates: settings.duplicateDetectionEnabled`
-      (`manualSettings` there); `unlirice-agent/main.swift:125` passes
-      `includeLocalFiles: manualSettings.bulkImportEnabled`. Left on the default, deliberately:
-      `janitor-calibrate` and the draft hint (`AppStore+Drafts.swift:16`), which warns while you
-      write rather than queueing work. App callers are A2.
-      Tests in `Tests/UnliRiceCoreTests/`: (a) decoding today's settings JSON (without the keys)
-      gives both `true`; (b) a default `AgentSettings` has both `false`; (c) `Pipelines.standard`
-      with `includeLocalFiles: false` and a scan root contains no `LocalFileImporter`; (d) a scan with
-      two near-identical notes and `detectsDuplicates: false` yields no `possibleDuplicate`.
+      `unlirice-agent/main.swift:110` pass `detectsDuplicates: …duplicateDetectionEnabled`;
+      `unlirice-agent/main.swift:125` passes `includeLocalFiles: manualSettings.bulkImportEnabled`.
+      Left on the defaults, deliberately: `janitor-calibrate` and `AppStore+Drafts.swift:16`.
+      Tests in a new `Tests/UnliRiceCoreTests/ExtrasSettingsTests.swift`:
+      (a) today's settings JSON without the keys decodes to both `true`;
+      (b) explicit `false` survives save → load;
+      (c) `AgentSettings.load(from:)` on a missing file and on a corrupt file gives both `false`;
+      (d) toggle → save → load → save → load keeps the value (two "launches");
+      (e) `Pipelines.standard(…, includeLocalFiles: false)` with a scan root has no `LocalFileImporter`;
+      (f) a spy `SimilarityProvider` records zero calls with `detectsDuplicates: false`, while an
+          `addTag` proposal on the same notes is still produced.
       — files: `Sources/UnliRiceCore/Agent/AgentSettings.swift`,
       `Sources/UnliRiceCore/Schedule/RoutineDriver.swift`, `Sources/UnliRiceCore/Janitor/Janitor.swift`,
       `Sources/unlirice-agent/main.swift`, `Tests/UnliRiceCoreTests/ExtrasSettingsTests.swift` (new)
       — verify: `swift build` and `swift test` green, new tests included
 
-#### A2. UI extras in the app (`build`)
+#### A2. Extras state in the app (`build`)
+- [ ] `build` `AppStore.swift`:
+      add `@Published var enabledExtras: Set<Extra> = []`, `static let enabledExtrasKey = "unliRice.enabledExtras"`,
+      and `@Published var bulkImportEnabled = false` / `@Published var duplicateDetectionEnabled = false`,
+      each with `didSet { syncAgentSettings() }` (they live in `AgentSettings`, not `UserDefaults`).
+      In `init`, **immediately after `noticeStore = driver.noticeStore` (`AppStore.swift:615`) and
+      before `reload()` and the launch `syncAgentSettings()` (`:665`)**: read
+      `let persisted = AgentSettings.load()` once; assign both published values from it; then call
+      `loadExtras()`. (Property observers don't fire for assignments in the class's own `init`.)
+      The computed `agentSettings` (`:916-934`) passes `bulkImportEnabled: bulkImportEnabled,
+      duplicateDetectionEnabled: duplicateDetectionEnabled`.
 - [ ] `build` New file `Sources/UnliRice/Extras.swift`:
       `enum Extra: String, CaseIterable, Identifiable { case projects, todo, map, yearSoFar, profiles, extraExports, capturePromo }`
-      with `id`, `title` and `detail` from §5 A3's copy table. In an `AppStore` extension in the same
-      file: `@Published` storage can't live in an extension, so add
-      `@Published var enabledExtras: Set<Extra> = []` to `AppStore.swift`, plus
-      `static let enabledExtrasKey = "unliRice.enabledExtras"`. In `Extras.swift`:
-      `func isOn(_ extra: Extra) -> Bool`, `func setExtra(_ extra: Extra, on: Bool)` (updates the set,
-      writes the raw values to `UserDefaults`), and `func loadExtras()`: when the key is absent, set
-      `[.projects, .todo]` if `!scanRoots.isEmpty`, else `[]`, and write it; otherwise read it,
-      ignoring unknown raw values. Call `loadExtras()` from the init path, after scan roots are
-      loaded (beside the other `UserDefaults` reads near `AppStore.swift:577`).
-      Add `bulkImportEnabled` and `duplicateDetectionEnabled` as `@Published` properties on
-      `AppStore`, following `routinesEnabled` (`AppStore.swift:439-444`): `didSet` writes into
-      `agentSettings` and calls `syncAgentSettings()`. Load them from `agentSettings` where
-      `routinesEnabled` is loaded. App callers: `AppStore+Ingest.swift:24` passes
-      `includeLocalFiles: bulkImportEnabled`; `AppStore+Janitor.swift:39,59` pass
-      `detectsDuplicates: duplicateDetectionEnabled`.
-      — files: `Sources/UnliRice/Extras.swift` (new: say so, Xcode needs `xcodegen generate`),
-      `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/AppStore+Ingest.swift`,
-      `Sources/UnliRice/AppStore+Janitor.swift` — verify: `swift build` green
+      with `id`, `title`, `detail` from A3's copy table. An `AppStore` extension with
+      `func isOn(_:) -> Bool`, `func setExtra(_:on:)` (updates the set, writes raw values to
+      `UserDefaults`, never navigates), and `func loadExtras()`: if the key is absent, the set is
+      `[.projects, .todo]` when `FileManager` reports the event log at `dataURL` exists with size > 0
+      or `UserDefaults.standard.stringArray(forKey: Self.scanRootsKey)` is non-empty, else `[]`;
+      write it at once. If present, read it, ignoring unknown raw values (an empty array stays empty).
+- [ ] `build` App callers: `AppStore+Ingest.swift:24` passes `includeLocalFiles: bulkImportEnabled`.
+      `AppStore+Janitor.swift:37-39` and `:57-59`: when `!duplicateDetectionEnabled`, use
+      `TokenOverlapSimilarity()` and skip `similarityProvider()`; pass
+      `JanitorConfig(autonomy: autonomy, detectsDuplicates: duplicateDetectionEnabled)`.
+      `addScanRoot` (`AppStore+Ingest.swift:118-185`): after `scanRoots = change.roots`, when
+      `!bulkImportEnabled`, set `statusMessage` to the A3 "folder added" copy and return before
+      the `LocalFileImporter` discovery and alert.
+      — files: `AppStore.swift`, `Extras.swift` (new: run `xcodegen generate`), `AppStore+Ingest.swift`,
+      `AppStore+Janitor.swift` — verify: `swift build` green
 
 #### A3. Sidebar, doors and Setup › Extras (`build`)
 - [ ] `build` Sidebar (`ContentView.swift:122-185`):
@@ -181,37 +200,45 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       these rows are on, in this order: Projects (`showGarden()`, active on `.projects`/`.repos`),
       To do (`showTodo()`), Map (`showGraph()`, active on `.map`), Your year so far
       (`showRetrospective()`, active on `.retrospective`). Each row calls `store.selectNote(nil)`
-      first, like the others. Then `Spacer()`; then, if capturePromo is on, `CapturePromoCard()`;
-      then Setup as today. Sidebar subtitle (`:115`): "AI Notes & Memory" → "Guardrails, grounding, evals".
-- [ ] `build` Doors: `HomeView.swift:157-159` shows "Start Profile" only when profiles is on.
-      `SetupView.visibleTabs` shows Separate memories when profiles is on *or* there's more than one
-      profile. `UnliRiceApp.swift:65` filters `.zip`/`.pdf` out only when extraExports is off.
-- [ ] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` (after
-      `.automation`). New view `ExtrasView` in `Extras.swift`: a `ScrollView` (24pt horizontal
-      padding, 16pt spacing) with one `Card` (icon `square.grid.2x2`, title "Extras", subtitle =
-      header copy below) holding one `AutomationToggleRow` per UI extra in `Extra.allCases`
-      order, bound through `isOn`/`setExtra`. Then a second `Card` (icon `moon`, title "Extras
-      that run in the background", no subtitle) holding the two background rows, bound to
-      `bulkImportEnabled` and `duplicateDetectionEnabled`; both rows `disabled` when
-      `!store.routinesEnabled`. — files: `ContentView.swift`, `HomeView.swift`, `SetupView.swift`,
-      `UnliRiceApp.swift`, `Extras.swift` — verify: `swift build` green
+      first. Then `Spacer()`; then, if capturePromo is on, `CapturePromoCard()`; then Setup as today.
+      Sidebar subtitle (`:115`): "AI Notes & Memory" → "Guardrails, grounding, evals".
+- [ ] `build` Doors:
+      `HomeView.swift:16` renders `gardenEntry` only when projects is on.
+      `ProjectGardenView.swift:94`'s "To do" button only when todo is on.
+      `HomeView.swift:157-159`'s "Start Profile" only when profiles is on.
+      `SetupView.visibleTabs` shows Separate memories when profiles is on *or* there's more than one profile.
+      `UnliRiceApp.swift:65` filters `.zip`/`.pdf` out only when extraExports is off.
+      `AppStore+Notices.swift:52`: `.retrospective` calls `showRetrospective()` (replaces the `break`).
+- [ ] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` after `.automation`,
+      and `case .extras: ExtrasView()` to the tab switch (`SetupView.swift:66-98`). `ExtrasView` in
+      `Extras.swift`: `ScrollView { VStack(alignment: .leading, spacing: 16) { … } }` with 24pt
+      horizontal padding. First `Card` (icon `square.grid.2x2`, title "Extras", subtitle = header
+      copy) holds one `AutomationToggleRow` per `Extra.allCases`, in order, bound through
+      `isOn`/`setExtra`, spaced as `ScheduleCard`'s rows are. Second `Card` (icon `moon`, title
+      "Extras that run in the background", no subtitle) holds the two background rows, bound to
+      `bulkImportEnabled` and `duplicateDetectionEnabled`, using `AutomationToggleRow`'s `disabled`
+      argument when `!store.routinesEnabled`.
+- [ ] `build` `AutomationView.swift`, JanitorCard: under `embeddingServerRow` (`:354`), a 12pt
+      `Theme.textSecondary` line: "Used only to spot duplicate notes, when that's on in Setup › Extras."
+      — files: `ContentView.swift`, `HomeView.swift`, `ProjectGardenView.swift`, `SetupView.swift`,
+      `UnliRiceApp.swift`, `AppStore+Notices.swift`, `AutomationView.swift`, `Extras.swift`
+      — verify: `swift build` green
 - [x] `planner` Copy (exact):
 
-      | Row | Title | Detail |
-      |---|---|---|
-      | header | — | "Things Unli Rice can do beyond its three jobs. Each is off until you turn it on. Turning one off hides it; nothing is deleted." |
-      | projects | Projects | "Git status and next steps for the folders in Setup › Folders." |
-      | todo | To do | "A list built from your repos, project notes, and notes your AI tagged." |
-      | map | Map | "A graph of how your notes link to each other." |
-      | yearSoFar | Your year so far | "A look back over a month or a year of your notes." |
-      | profiles | Separate memories | "Keep more than one memory, each with its own notes." |
-      | extraExports | PDF and ZIP export | "Adds PDF and ZIP to File › Export." |
-      | capturePromo | iPhone Capture | "Shows the card for the free iPhone app in the sidebar." |
-      | bulkImport | Import files from your folders | "Reads the Markdown and text files in Setup › Folders and adds them as notes. Claude Code sessions are imported either way." |
-      | duplicates | Spot duplicate notes | "Suggests merging notes that look alike. Nothing merges without your OK." |
-
-      When background work is off, both background rows show the detail line followed by
-      " Needs background work on (Setup › What runs on its own)."
+      | Where | Text |
+      |---|---|
+      | Extras header | "Things Unli Rice can do beyond its three jobs. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one." |
+      | projects | **Projects** — "Git status and next steps for the folders in Setup › Folders." |
+      | todo | **To do** — "A list built from your repos, project notes, and notes your AI tagged." |
+      | map | **Map** — "A graph of how your notes link to each other." |
+      | yearSoFar | **Your year so far** — "A look back over a month or a year of your notes." |
+      | profiles | **Separate memories** — "Keep more than one memory, each with its own notes." |
+      | extraExports | **PDF and ZIP export** — "Adds PDF and ZIP to File › Export." |
+      | capturePromo | **iPhone Capture** — "Shows the card for the free iPhone app in the sidebar." |
+      | bulkImport | **Import files from your folders** — "Reads the Markdown and text files in Setup › Folders and adds them as notes. Claude Code sessions and the Notes for Unli Rice folder are imported either way." |
+      | duplicates | **Spot duplicate notes** — "Suggests merging notes that look alike, when the janitor runs. Nothing merges without your OK. The hint while you write a note is separate." |
+      | background off | Both background rows append: " Needs background work on (Setup › What runs on its own)." |
+      | folder added, import off | "\(name) added. Projects reads its git details; its files aren't imported as notes. To import them, turn on Import files from your folders in Setup › Extras." |
 
 #### A4. Copy that now says the wrong thing (`build-light`)
 - [ ] `build-light` `AutomationView.swift:185` (routines on) becomes: "Unli Rice imports new Claude
@@ -224,13 +251,35 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       — files: `AutomationView.swift` — verify: `swift build` green
 
 #### A5. Verify (`planner`)
-- [ ] `planner` Review each builder diff. `swift test`, Xcode Mac build. Walk the running debug
-      build in an isolated data folder (memory.md Gotchas): a fresh data folder (two jobs, no EXTRAS,
-      all nine switches off), each switch on and off, a data folder with a scan root and no
-      `enabledExtras` key (Projects and To do on), and an old `AgentSettings` JSON (both background
-      switches on).
+- [ ] `planner` Review each builder diff against this plan. `xcodegen generate` (after A2's new
+      file), `swift test`, Xcode Mac build.
+- [ ] `planner` Isolated running-app checks (debug binary in a scratch `.app`; memory.md Gotchas).
+      Export the debug defaults domain first and restore it after (four-jobs B6). Set both
+      `UNLIRICE_DATA_PATH` and `UNLIRICE_AGENT_SETTINGS` to scratch paths. Never toggle the login item.
+      1. Fresh: no event log, no settings file, no `enabledExtras`. Sidebar shows two jobs, no
+         EXTRAS; nine switches off; Home has no Projects entry.
+      2. Upgrade: a non-empty event log and an old settings JSON without the new keys. After
+         launch, Projects and To do are on, and the settings file on disk has both background keys
+         `true`. Quit, relaunch: unchanged.
+      3. Each switch on and off, relaunching once; the multi-profile exception; File › Export with
+         extraExports on and off.
+      4. Bulk import off: add a scratch folder with two `.md` files. No alert; the event log and
+         `raw/` are byte-identical before and after.
+      5. Duplicates off, with an embedding URL pointing at a local listener: Janitor Preview makes
+         no request to it.
+      6. Doors with extras off: Home, Garden's To do button, a year-so-far notice (opens the page),
+         a widget To do URL after A0 (opens To do).
+      7. Setup's five tabs at the 960pt minimum width.
 
-### Phase B — What each AI remembers (design settled; tasks written before build)
+### Phase B — Memory files (reopened by pre-mortem 10–12; redraft before build)
+
+The first draft below failed review. The redraft must answer, at minimum: content-addressed raw
+copies plus small structured observation notes and a derived current-file reader instead of
+full-text `appended` history (10); its own writer, stable source identity, title collisions,
+unavailable-not-deleted, hash reversion (11); explicit consent with a preview, allowlists,
+symlink and size bounds, a pre-write secret screen, and keeping these copies out of the
+folder mirror's `Context/RAW` and of sync (12). Kept here for the record:
+
 
 - **Sources.** Claude Code: `~/.claude/projects/*/memory/*.md`, through the existing Claude folder
   grant. Codex: `~/.codex/AGENTS.md` and `~/.codex/memories/**`, through a new one-time grant
@@ -249,7 +298,16 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
 - **Setup › AI Tools** gains the Codex grant row next to the Claude one.
 - **Tests:** a mirror run over a fixture tree (create, change, unchanged, oversized, deleted).
 
-### Phase C — Evals: did your AI follow the rules? (design settled; tasks written before build)
+### Phase C — Evals (reopened by pre-mortem 13–20; redraft before build)
+
+The redraft must: read canonical records and join tool calls to results (13); use four outcomes:
+followed / broke / not applicable / can't tell (13); name each check after the signal it can
+actually observe, and define it precisely or drop it: test result before an actual commit (14),
+branch resolution at the action (15), explicit approval rather than a keyword (16), a supported
+shell grammar and real scratch roots (17), credential-shaped text in successful writes with
+redacted evidence (18), normalised folder boundaries (19); and define live-versus-`raw/`
+precedence, version selection and missing-evidence states (20). Kept here for the record:
+
 
 - **Reader.** A new core `TranscriptReader` turns a Claude Code `.jsonl` (from `~/.claude/projects`
   or `raw/`, deduplicated by session id) into an ordered list: user messages, and tool calls with
@@ -289,29 +347,38 @@ trimming the MCP tool list once recorded transcripts show which tools agents cal
 - [ ] `swift build` / `swift test` green; count recorded. Xcode Mac build succeeds.
 - [ ] `git diff --name-only` for Phase A within the files named in A1–A4, plus this plan,
       `docs/dialogue/memory-overhaul.md`, `memory.md`, `PROJECT_NOTES.md`.
+- [ ] A1's tests (a)–(f) present and passing.
+- [ ] A5's seven running-app checks done, or each marked "(unverified)" with why.
 - [ ] No change to `Event.swift`, the note format or sync shards.
 
 **Editorial — in a running build**
 - [ ] With the styling ignored, a fresh sidebar says the app is about grounding and guardrails.
 - [ ] Every extra comes back with its switch and goes away without one.
-- [ ] Existing-user defaults seen, not assumed (A5's two upgrade cases).
+- [ ] Existing-user defaults seen, not assumed (A5 checks 1 and 2, including the JSON on disk).
 
 ## 7. Known limits, accepted
 
 - An extra that's off can still be opened by a deep link. Accepted: notices and the widget keep working.
-- The "has a scan root" test for existing Projects/To do users is a proxy for "has used it".
+- "Existing install" (non-empty event log or any saved scan root) is broader than "has used
+  Projects/To do". Accepted: it errs towards keeping a screen on.
+- A corrupt or missing settings file turns both background extras off. Accepted: it errs towards
+  less background work.
 - Phase A ships a sidebar with no EVALS heading. It appears with Phase C.
 
 ## 8. Rides along or deferred
 
-- App Store listing, screenshots, the public roadmap page: release tasks, after Phase C.
+- **Founder, before Phase B is redrafted** (pre-mortem 1): check the real note and event counts
+  in the installed app (by source), and name one concrete task the memory view should save time on.
+- App Store listing, screenshots, the public roadmap page, and Home's "one memory your AI tools
+  share" copy (`HomeView.swift:44-52`): release positioning, after Phase C.
 - Deleting code for any extra: a later decision (INTENT-007 scope).
 - `feature/byo-llm` and `docs/BYO_LLM.md`: close in A0's housekeeping commit.
 - Archive `docs/ANTIGRAVITY_*.md`; prune `.claude/worktrees/`: housekeeping, any time.
 
 ## 9. Pre-mortem responses
 
-_(after Codex's pre-mortem)_
+All 21 findings accepted; answers in `docs/dialogue/memory-overhaul.md` (claude — response —
+2026-10-29). Phase A revised (A1–A5, decisions 4–5, §6–§8). Phases B and C reopened.
 
 ## Handoff
 

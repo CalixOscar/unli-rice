@@ -49,6 +49,12 @@ whether it follows your rules, and whether it got better or worse. Those are the
 
 The sidebar names three jobs, plus Setup. Everything else is an extra with its own switch.
 
+**Amended 2026-10-29 after Codex's pre-mortem (finding 1):** the promise is narrower than
+"what every AI remembers" and "whether it followed the rules". Unli Rice lets you inspect the
+local memory files you choose, and checks observable actions in supported session logs. It can't
+know what an AI loaded, retained or obeyed, and it shows unsupported sources and undecidable
+results as such. The sections below are read in that light.
+
 ### Grounding: what your AI knows
 
 - Your notes, as today.
