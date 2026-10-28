@@ -69,8 +69,8 @@ history, and flags when they drift apart.** It stops trying to be the place they
 | Trust Center, snapshots, archived notes | **Keep** | Security job |
 | Folder mirror (plain-file export) | **Keep** | Matches where the vendors went |
 | Sync shards (multi-device) | **Keep** | Vendor memories are per machine |
-| **Map (note graph)** | **Founder's call:** delete, or keep behind a switch (see open question 1) | Founder wants it gone from view |
-| Your year so far (retrospective) | Same switch as the Map, or delete | Hidden since four-jobs |
+| **Map (note graph)** | **Behind one "Show extras" switch** in Setup, off by default (founder decided 2026-10-29) | Founder wants it gone from view, not gone |
+| Your year so far (retrospective) | **Same "Show extras" switch** | Hidden since four-jobs |
 | Profiles / Profile Builder / multi-vault | **Delete the code** | Hidden since four-jobs; nothing has missed it |
 | PDF and ZIP export | **Delete the code** | Hidden since four-jobs |
 | Bulk ingest of local files (`LocalFileImporter`) | **Narrow** to memory files and session history | 697 of 724 logged events were ingest noise |
@@ -87,15 +87,11 @@ the pipeline on 2026-10-16), decide the ~10 open branches, prune the four stale 
 
 ## Open questions
 
-1. **Map: delete or switch?** The founder first said "let go of the map", then "or can we make it
-   toggleable". Options:
-   - **A. One "Show extras" switch** in Setup, off by default, that brings back the Map and Your
-     year so far together. Cheap: both screens still exist, so the switch only adds
-     two rows to the sidebar. Costs: two views (`MapPaneView.swift`, `NoteGraphView.swift`) keep
-     compiling and need a glance at each UI change. *(Claude's recommendation: one switch, not one
-     per feature, so Setup doesn't grow a row each time something is retired.)*
-   - **B. Delete** both files and the `.map` pane case. `BranchGraphView` (Projects) and
-     `LinkIndex` (backlinks) are separate and stay either way.
+1. ~~**Map: delete or switch?**~~ **Decided 2026-10-29: one "Show extras" switch** in Setup, off
+   by default, that brings back the Map and Your year so far together. When it's on, the two
+   rows reappear in the sidebar. Rejected: deleting `MapPaneView.swift` and `NoteGraphView.swift`.
+   One switch rather than one per feature, so Setup doesn't grow a row each time something is
+   retired. The switch is a persisted preference, so it goes through the plan with the rest.
 2. **Positioning:** does the App Store listing change from "a memory layer for your AIs" to "see
    what every AI remembers about you"? That changes screenshots and the public roadmap page
    (calmdownoscar.com/unlirice).
