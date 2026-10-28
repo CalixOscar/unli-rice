@@ -22,10 +22,11 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On local `main`. Garden (`codex/project-garden`) and four-jobs (`claude/four-jobs`) are merged into it, which also brought in `chore/plan-high-build-low`. 406 tests, 2 skipped, 0 failures, and the `UnliRice` Mac scheme builds (verified: swift test + xcodebuild on the merged tree, Claude, 2026-10-29). Local `main` is ahead of `origin/main` and is not pushed.
-**Task:** Merge Garden and four-jobs into `main`. Done. Next up is the founder's requested overhaul audit (what Unli Rice still needs given built-in AI memory and agents).
-**Files touched:** Merge resolutions only: `PROJECT_NOTES.md` (both sides kept), `memory.md`, `Sources/UnliRice/AppStore.swift` (four-jobs' `Pane` code, `main`'s corrected To do comment).
-**Next step:** The overhaul audit. Separately, `feature/todo-widget` (25 commits, including the 1.3 release uploaded on both platforms) is not in `main`; the founder decides whether to merge it. Before any further App Store submission: new screenshots of the new sidebar, and the 6-Month Post-Mortem. Deferred: a way to select archived notes so "Restore Selected" works.
+**Status:** On local `main` (not pushed). Garden and four-jobs merged 2026-10-29: 406 tests, 2 skipped, 0 failures; Mac scheme builds (verified: swift test + xcodebuild on the merged tree, Claude, 2026-10-29). INTENT-007 (guardrails, grounding, evals) approved; `docs/PLAN-memory-overhaul.md` pre-mortemed by Codex (21 findings, all accepted). Phase A is settled; Phases B and C are reopened.
+**Task:** The memory overhaul (INTENT-007). Waiting on the founder's go-ahead to build Phase A.
+**Files touched:** `docs/intent/INTENT-007-memory-overhaul.md`, `docs/PLAN-memory-overhaul.md`, `docs/REVIEW-memory-overhaul.md`, `docs/dialogue/memory-overhaul.md`, `memory.md`. Merge resolutions: `PROJECT_NOTES.md`, `Sources/UnliRice/AppStore.swift`.
+**Next step:** On the founder's go-ahead: plan A0 (merge `feature/todo-widget` into `main`, baseline), cut `claude/memory-overhaul`, build A1–A4 with the builders, verify per A5. Before Phase B is redrafted: the founder checks real note/event counts in the installed app and names one task the memory view should save time on (plan §8). Before any App Store submission: new sidebar screenshots and the 6-Month Post-Mortem.
+
 **Gotchas:** Computer use needs a bundled app on a regular Space: wrap the debug binary in a scratch `.app` with its own bundle ID (plan Build notes). The debug build tries to save `profiles.json` into the App Store app's group container; macOS refuses it, so never run the two-profile test there. Never toggle "Keep working with the window closed" in a debug build: it registers a real login item. Garden's native QA (Codex, 2026-10-19) is partly covered now: Projects opened and switched segments in the walk. `Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents (`02-setup-tools.png` is All Notes, `03-map.png` is the Repos graph); check before citing one.
 **To-dos:** none this checkpoint (this session's `unlirice` MCP reported 0 notes, so it is not the real store).
 **Left by:** Claude Code 2026-10-29
