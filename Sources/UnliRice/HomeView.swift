@@ -13,7 +13,9 @@ struct HomeView: View {
                 // Block 1 — App Purpose Header
                 purposeHeader
 
-                gardenEntry
+                if store.isOn(.projects) {
+                    gardenEntry
+                }
 
                 // Block 2 — What your AI knows about you (R5.1, R6.2, R6.4)
                 whatAIKnowsCard
@@ -153,19 +155,21 @@ struct HomeView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.textSecondary)
 
-                    HStack {
-                        Button("Start Profile") {
-                            store.showProfileBuilder()
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .foregroundStyle(Theme.onAccent)
-                        .background(Theme.accentColor)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    if store.isOn(.profiles) {
+                        HStack {
+                            Button("Start Profile") {
+                                store.showProfileBuilder()
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(Theme.onAccent)
+                            .background(Theme.accentColor)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
 
-                        Spacer()
+                            Spacer()
+                        }
                     }
                 }
                 .padding(14)

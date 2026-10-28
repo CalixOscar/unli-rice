@@ -76,7 +76,7 @@ struct UnliRiceApp: App {
         .commands {
             CommandGroup(after: .saveItem) {
                 Menu("Export Notes") {
-                    ForEach(ExportFormat.allCases.filter { $0 != .zip && $0 != .pdf }, id: \.self) { format in
+                    ForEach(ExportFormat.allCases.filter { store.isOn(.extraExports) || ($0 != .zip && $0 != .pdf) }, id: \.self) { format in
                         Button("as \(format.displayName)…") {
                             store.exportNotes(as: format)
                         }

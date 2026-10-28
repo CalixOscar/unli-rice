@@ -195,7 +195,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       `janitorSimilarity()` also resets `similarityEngine` to token overlap when duplicates are off.)_
 
 #### A3. Sidebar, doors and Setup › Extras (`build`)
-- [ ] `build` Sidebar (`ContentView.swift:122-185`):
+- [x] `build` Sidebar (`ContentView.swift:122-185`):
       GROUNDING: Home, Notes, The folder your AI can read (unchanged actions).
       GUARDRAILS: What your AI should always do, Needs you (with its badge), Trust Center, Archived
       notes. Remove the SECURITY and PROJECTS headings and the To do and Projects rows.
@@ -205,14 +205,14 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       (`showRetrospective()`, active on `.retrospective`). Each row calls `store.selectNote(nil)`
       first. Then `Spacer()`; then, if capturePromo is on, `CapturePromoCard()`; then Setup as today.
       Sidebar subtitle (`:115`): "AI Notes & Memory" → "Guardrails, grounding, evals".
-- [ ] `build` Doors:
+- [x] `build` Doors:
       `HomeView.swift:16` renders `gardenEntry` only when projects is on.
       `ProjectGardenView.swift:94`'s "To do" button only when todo is on.
       `HomeView.swift:157-159`'s "Start Profile" only when profiles is on.
       `SetupView.visibleTabs` shows Separate memories when profiles is on *or* there's more than one profile.
       `UnliRiceApp.swift:79` filters `.zip`/`.pdf` out only when extraExports is off.
       `AppStore+Notices.swift:52`: `.retrospective` calls `showRetrospective()` (replaces the `break`).
-- [ ] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` after `.automation`,
+- [x] `build` Setup › Extras: add `case extras = "Extras"` to `SetupView.Tab` after `.automation`,
       and `case .extras: ExtrasView()` to the tab switch (`SetupView.swift:66-98`). `ExtrasView` in
       `Extras.swift`: `ScrollView { VStack(alignment: .leading, spacing: 16) { … } }` with 24pt
       horizontal padding. First `Card` (icon `square.grid.2x2`, title "Extras", subtitle = header
@@ -221,7 +221,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       "Extras that run in the background", no subtitle) holds the two background rows, bound to
       `bulkImportEnabled` and `duplicateDetectionEnabled`, using `AutomationToggleRow`'s `disabled`
       argument when `!store.routinesEnabled`.
-- [ ] `build` `AutomationView.swift`, JanitorCard: under `embeddingServerRow` (`:354`), a 12pt
+- [x] `build` `AutomationView.swift`, JanitorCard: under `embeddingServerRow` (`:354`), a 12pt
       `Theme.textSecondary` line: "Used only to spot duplicate notes, when that's on in Setup › Extras."
       — files: `ContentView.swift`, `HomeView.swift`, `ProjectGardenView.swift`, `SetupView.swift`,
       `UnliRiceApp.swift`, `AppStore+Notices.swift`, `AutomationView.swift`, `Extras.swift`
@@ -393,3 +393,6 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
   (`AutomationView.swift:63`, `ConnectView.swift:446`, `RetrospectiveView.swift:388`). Planner
   decision: `ExtrasView` lives in `AutomationView.swift`, beside `Card` and `AutomationToggleRow`,
   as four-jobs did for Setup's other cards. `Extras.swift` keeps the model only.
+- **A3 review fixes (planner):** the first sidebar heading renamed CONTEXT → GROUNDING (the builder
+  left it, unsure); `Card` in `AutomationView.swift` skips an empty subtitle, so the background card
+  has no blank line. 471 tests, Mac build green (Claude, 2026-10-29).

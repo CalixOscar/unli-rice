@@ -76,9 +76,11 @@ private struct Card<Content: View>: View {
                     Text(title.uppercased())
                         .font(.system(size: 10.5, weight: .bold, design: .monospaced))
                         .foregroundStyle(Theme.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.8))
+                    }
                 }
             }
             content()
@@ -135,6 +137,70 @@ struct AutonomyCard: View {
                     }
                     .padding(.leading, 8)
             }
+        }
+    }
+}
+
+/// Setup › Extras. One switch per optional feature; a switch only adds or
+/// removes the feature's buttons, it never deletes anything.
+struct ExtrasView: View {
+    @EnvironmentObject var store: AppStore
+
+    private static let backgroundOff = " Needs background work on (Setup \u{203A} What runs on its own)."
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Card(
+                    title: "Extras",
+                    subtitle: "Things Unli Rice can do beyond its three jobs. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one.",
+                    icon: "square.grid.2x2"
+                ) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(Array(Extra.allCases.enumerated()), id: \.element.id) { index, extra in
+                            if index > 0 {
+                                Divider().overlay(Theme.borderLight)
+                            }
+                            AutomationToggleRow(
+                                isOn: Binding(
+                                    get: { store.isOn(extra) },
+                                    set: { store.setExtra(extra, on: $0) }
+                                ),
+                                title: extra.title,
+                                detail: extra.detail
+                            )
+                        }
+                    }
+                }
+
+                Card(
+                    title: "Extras that run in the background",
+                    subtitle: "",
+                    icon: "moon"
+                ) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        AutomationToggleRow(
+                            isOn: $store.bulkImportEnabled,
+                            title: "Import files from your folders",
+                            detail: "Reads the Markdown and text files in Setup \u{203A} Folders and adds them as notes. Claude Code sessions and the Notes for Unli Rice folder are imported either way."
+                                + (store.routinesEnabled ? "" : Self.backgroundOff),
+                            disabled: !store.routinesEnabled
+                        )
+
+                        Divider().overlay(Theme.borderLight)
+
+                        AutomationToggleRow(
+                            isOn: $store.duplicateDetectionEnabled,
+                            title: "Spot duplicate notes",
+                            detail: "Suggests merging notes that look alike, when the janitor runs. Nothing merges without your OK. The hint while you write a note is separate."
+                                + (store.routinesEnabled ? "" : Self.backgroundOff),
+                            disabled: !store.routinesEnabled
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 24)
         }
     }
 }
@@ -352,6 +418,10 @@ struct JanitorCard: View {
                 .disabled(store.janitorBusy)
 
                 embeddingServerRow
+
+                Text("Used only to spot duplicate notes, when that's on in Setup \u{203A} Extras.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.textSecondary)
 
                 if let summary = store.janitorSummary {
                     Text(summary)

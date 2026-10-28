@@ -50,7 +50,7 @@ extension AppStore {
         case .reviewQueue:
             showReviewQueue()
         case .retrospective:
-            break // The year-so-far page is hidden (plan four-jobs); the notice is already marked read above.
+            showRetrospective()
         case .notesFolder:
             showNotesFolder()
         }

@@ -10,13 +10,14 @@ struct SetupView: View {
         case connect = "AI Tools"
         case folders = "Folders"
         case automation = "What runs on its own"
+        case extras = "Extras"
         case profiles = "Separate memories"
 
         var id: String { rawValue }
     }
 
     private var visibleTabs: [Tab] {
-        Tab.allCases.filter { $0 != .profiles || store.profileRegistry.profiles.count > 1 }
+        Tab.allCases.filter { $0 != .profiles || store.isOn(.profiles) || store.profileRegistry.profiles.count > 1 }
     }
 
     private var effectiveTab: Tab {
@@ -95,6 +96,8 @@ struct SetupView: View {
                     }
                 case .automation:
                     AutomationTab()
+                case .extras:
+                    ExtrasView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

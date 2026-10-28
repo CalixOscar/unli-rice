@@ -111,7 +111,7 @@ struct ContentView: View {
                 Text("UNLI RICE")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(Theme.textPrimary)
-                Text("AI Notes & Memory")
+                Text("Guardrails, grounding, evals")
                     .font(.system(size: 10.5))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -119,7 +119,7 @@ struct ContentView: View {
             .padding(.top, 20)
             .padding(.bottom, 18)
 
-            sidebarHeading("CONTEXT")
+            sidebarHeading("GROUNDING")
 
             sidebarRow("Home", active: store.pane == .home) {
                 store.selectNote(nil)
@@ -143,11 +143,6 @@ struct ContentView: View {
                 store.showHouseRules()
             }
 
-            sidebarRow("To do", active: store.pane == .todo) {
-                store.selectNote(nil)
-                store.showTodo()
-            }
-
             let needsYouBadge = store.pending.count + store.unreadNoticeCount
             sidebarRow(
                 "Needs you",
@@ -157,8 +152,6 @@ struct ContentView: View {
                 store.selectNote(nil)
                 store.showNeedsYou()
             }
-
-            sidebarHeading("SECURITY")
 
             sidebarRow("Trust Center", active: store.pane == .trustCenter) {
                 store.selectNote(nil)
@@ -170,14 +163,43 @@ struct ContentView: View {
                 store.showArchived()
             }
 
-            sidebarHeading("PROJECTS")
+            if store.isOn(.projects) || store.isOn(.todo) || store.isOn(.map) || store.isOn(.yearSoFar) {
+                sidebarHeading("EXTRAS")
 
-            sidebarRow("Projects", active: store.pane == .projects || store.pane == .repos) {
-                store.selectNote(nil)
-                store.showGarden()
+                if store.isOn(.projects) {
+                    sidebarRow("Projects", active: store.pane == .projects || store.pane == .repos) {
+                        store.selectNote(nil)
+                        store.showGarden()
+                    }
+                }
+
+                if store.isOn(.todo) {
+                    sidebarRow("To do", active: store.pane == .todo) {
+                        store.selectNote(nil)
+                        store.showTodo()
+                    }
+                }
+
+                if store.isOn(.map) {
+                    sidebarRow("Map", active: store.pane == .map) {
+                        store.selectNote(nil)
+                        store.showGraph()
+                    }
+                }
+
+                if store.isOn(.yearSoFar) {
+                    sidebarRow("Your year so far", active: store.pane == .retrospective) {
+                        store.selectNote(nil)
+                        store.showRetrospective()
+                    }
+                }
             }
 
             Spacer()
+
+            if store.isOn(.capturePromo) {
+                CapturePromoCard()
+            }
 
             sidebarRow("Setup", active: store.pane == .setup) {
                 store.selectNote(nil)

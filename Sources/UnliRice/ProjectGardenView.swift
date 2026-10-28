@@ -91,7 +91,9 @@ struct ProjectGardenView: View {
                     .font(.system(size: 13.5))
                     .foregroundStyle(Theme.textSecondary)
                 HStack(spacing: 14) {
-                    Button("To do") { store.showTodo() }
+                    if store.isOn(.todo) {
+                        Button("To do") { store.showTodo() }
+                    }
                     Button("Manage folders") { store.showGardenFolders() }
                 }
                 .buttonStyle(.plain).font(.system(size: 11.5)).foregroundStyle(Theme.accentColor)
