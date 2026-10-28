@@ -2,15 +2,11 @@
      memory.md holds CURRENT WORKING STATE ONLY, capped at 32,000 characters
      (~8,000 tokens) and enforced by Scripts/lint-memory.sh in pre-commit.
 
-     * The seven fields below are atomic: Status, Task, Files touched, Next step,
-       Gotchas, To-dos, Left by — in that order, no repeats, **Left by:** carries a
-       YYYY-MM-DD date. They describe ONE moment in time. Update all seven or none;
+     * The six fields below are atomic: Status, Task, Files touched, Next step,
+       Gotchas, Left by — in that order, no repeats, **Left by:** carries a
+       YYYY-MM-DD date. They describe ONE moment in time. Update all six or none;
        changing one in isolation produces a file that contradicts itself in
        adjacent lines, which reads as current and is worse than a stale file.
-     * **To-dos:** at every checkpoint, file what you deferred and close what you
-       finished in the Unli Rice to-do list (notes tagged `todo`), then record it in
-       that field: "filed 2 (...); closed 1 (...)" or "none this checkpoint". The
-       procedure is in AGENTS.md § "At every handoff".
      * No dated headings. Nothing here is a log. Finished work moves to
        PROJECT_NOTES.md; design detail goes to docs/ and is referenced by path.
      * A claim carries its own evidence or is marked unverified:
@@ -26,32 +22,40 @@
 
 # Unli Rice — Working Memory
 
-**Status:** On **`feature/copy-that-overstates`**, local only, not pushed, not merged.
-Four commits ahead of `main` from the copy fix, plus the 2026-09-19 docs commits (widget
-plan, To-dos field, stage-4 revision). 380 tests, 0 failures, 2 skipped (verified:
-`swift build` and `swift test` 2026-09-07; no Swift changed since). **Both targets ship
-as 1.2 (6)**, the App Store install is still **1.1 (4)**, and **neither 1.2 build has been
-archived or uploaded**; that is the founder's step. `README.md` carries an uncommitted edit
-that predates 2026-09-19; left alone.
-**Task:** The to-do widget (INTENT-005). Stages 2–4 done on 2026-09-19. Codex's pre-mortem
-(`docs/PREMORTEM-todo-widget.md`, `gpt-6-astra`, 20 objections) is answered in
-`docs/PLAN-todo-widget.md` §10, and the plan is **settled**. Key changes: fail-closed
-corpus read; `Handoff-ID: <uuid>` instead of `[[title]]`; no clipboard write from a
-URL; the widget ignores the repo snapshot; a B0 spike gates Part B. Part D follow-ups
-done: `AGENTS.md` (Handoff-ID, step 0, the archive exception) and linters (To-dos must be
-non-empty).
-**Files touched:** This repo: `docs/PLAN-todo-widget.md`, `docs/PREMORTEM-todo-widget.md`
-(new), `AGENTS.md`, `memory.md`, `Scripts/lint-*.sh`. Vault: `scripts/lint-memory.sh`,
-`scripts/lint-project-notes.sh` (`69efa80`). Linter sync committed in Badminton, Get rich,
-Nibwise, Nuptia, CalmdownOscar, OpenGrail. The installer also rewrote the script copies in
-Architecturally, Butter Smooth, UnliDisk and both worktrees. **Those are uncommitted**, left
-for whoever next works there.
-**Next step:** Dispatch Parts A–C of `docs/PLAN-todo-widget.md` to the swarm on a branch off
-`main` (merge this branch first). B0 is a gate: if the signed extension can't read the
-corpus, the swarm stops and reports. Then verify against §7 by `git diff` and a real build.
-Still outstanding: add the To-dos field to UnliDisk and Butter Smooth; the running-build
-checks for this branch (To Do pane, Connect screen, sidebar lag).
-**Gotchas:** The app is sandboxed: `Process`/`NSTask` is unavailable, so git
+**Status:** On `codex/project-garden`. Garden now includes local/remote visual comparison, independently built on 2026-10-19. The previous full suite ran 406 tests, 2 skipped, zero failures; core/tests are unchanged by this display-only follow-up. Native interaction/appearance QA remains unverified. No release/version change.
+**Task:** Founder requested visuals distinguishing GitHub from the local machine. Cards/details now show laptop/cloud lanes, labeled matching/different branch-tip bars, honest unknowns and observation dates. A legend states GitHub live is not checked and Refresh uses cached remote records on the Mac.
+**Files touched:** `Sources/UnliRice/ProjectGardenView.swift`, `docs/PLAN-project-garden.md`, `docs/dialogue/project-garden.md`, `memory.md`, `PROJECT_NOTES.md` for this UI follow-up. Earlier integration files are recorded in PROJECT_NOTES.md.
+**Next step:** Founder inspects the updated Garden preview and gives feedback. Complete native interaction, minimum-width and light/dark checks before release. No push/main merge/upload/version bump requested; earlier branch follow-ups remain deferred.
+**Gotchas:** Comparison is exact branch-tip SHA presence among cached remote refs, not live GitHub, ancestry, ahead/behind, file differences or backup status. Remote host and fetch time are unavailable. Preview uses isolated bundle ID com.calmdownoscar.unlirice.garden-preview and sample data under /tmp/unlirice-garden-qa; /tmp cleanup removes it. Updated signed preview also staged at /tmp/unlirice-garden-visuals-preview. Native UI inspection is unavailable, so launch success is not visual QA. Pre-existing untracked docs/intent/INTENT-006-four-jobs.md belongs to other work and was untouched. Full-notes invalidation remains conservative.
+**To-dos:** none this checkpoint (added at merge into main).
+**Left by:** Codex 2026-10-19
+
+## Earlier branch follow-ups
+
+The previous session's handoff (not revalidated in this session) left: restart Claude sessions for bridge changes; the older shipped-guardrails post-mortem; founder decision on pushing/merging chore/plan-high-build-low and its relationship with local main; committing vault changes; first two builder-model observations; and watching the sidebar before a release. These are separate from Garden and remain deferred.
+
+## Build and release reference
+
+**Every bridge run is told to run the project's build/tests**, even a
+one-line brief; a cheap model will try. Keep briefs explicit about what *not* to do.
+**The bridge prompt says "implement all tasks" in the file it writes**, so a review
+brief must say "write one file, change nothing else". The bridge now refuses a missing
+`planFileName` or one outside `docs/`. **A builder's pasted test output is not evidence:** `builder-light` misnamed a case in
+its pasted smoke output on 2026-10-17. Rerun it yourself. **The bridge smoke test takes about a minute** (four 2 s timeouts run to
+their 10 s / 15 s cleanup deadlines), and it reads the real `~/.codex/build*.config.toml`. **Codex 0.163 reads a profile only from `~/.codex/<name>.config.toml`**;
+`[profiles.*]` in `config.toml` is ignored, and `-p` works only on runtime commands
+(`exec`, not `doctor`). **Build with `--scratch-path /tmp/unlirice-spm-build`.** The in-tree
+`.build` fails codesign ("resource fork, Finder information, or similar detritus") in
+this iCloud folder; `Scripts/make-app.sh` (release) still works.
+**A development-signed build cannot open the App Store build's app group container**,
+so the `dist/` app shows "The House Rules state file is unavailable" and cannot see the
+real vault, and the `unlirice` MCP reads the App Store copy's data, not the build under
+test. To test UI that writes, run the unsigned debug binary against a throwaway vault:
+`UNLIRICE_DATA_PATH=<scratch>/events.jsonl /tmp/unlirice-spm-build/debug/UnliRiceApp`.
+The House Rules gallery is More → "What your AI should always do". The editable draft
+is More → Setup & Tools → House Rules → Edit; the gallery preview is read-only.
+Built-in presets cannot be edited, so edits live in `draftText`, never in
+`customPresets`. The app is sandboxed: `Process`/`NSTask` is unavailable, so git
 state is read by parsing `HEAD`, `refs/`, `packed-refs` and `worktrees/`
 directly, and every "fix" the UI offers is copied text, never an action. Do
 NOT pass `.skipsHiddenFiles` to an enumerator under `.git` — it is itself
@@ -59,33 +63,27 @@ hidden and yields nothing. Security-scoped bookmarks are bound to the signing
 identity, so re-signing invalidates every folder grant. **Adding a file under
 `Sources/` requires `xcodegen generate`** — `swift test` globs sources and
 passes while Xcode fails; `.xcodeproj` is gitignored so the regeneration is
-local-only and never arrives via `git pull`. **The sandbox makes `~/Documents`
-mean something else:** it resolves inside
-`~/Library/Containers/com.calmdownoscar.unlirice/Data/Documents/`, so any copy
-naming `~/Documents` as a place the user can visit is wrong for the App Store
-build and right for `swift run UnliRiceApp`. **App Store Connect can be ahead of
-`project.yml`** — check ASC's actual last-uploaded build per target before ever
-setting `CURRENT_PROJECT_VERSION`. `/Applications/Unli Rice.app` is the **App
-Store install** (`_MASReceipt`); `dist/` is the local one. `deleteCapture`
+local-only and never arrives via `git pull`. **App Store Connect can be ahead
+of `project.yml`:** before this session's bump, ASC's TestFlight already had
+Capture build **5** validated (uploaded 2026-08-13) while `project.yml` still
+said `CURRENT_PROJECT_VERSION "4"` for both targets — something incremented
+and uploaded a Capture build without committing the number back. Check ASC's
+actual last-uploaded build per target before ever setting
+`CURRENT_PROJECT_VERSION`; don't trust `project.yml` alone. `/Applications/Unli
+Rice.app` is the **App Store install** (`_MASReceipt`, was v1.1) — the shipped
+product, not a stale build; `dist/` is the local one. The eight Xcode schemes
+are distinct targets from `project.yml`, not duplicate apps. `deleteCapture`
 purges `events.jsonl` via `TrashService`, so "no destructive delete" is true of
 the Mac's note tools but **not** of the phone. `Sources/UnliRiceCapture/
 Resources/Assets 2.xcassets` is still a stray duplicate, left for the founder
-to delete. **This file's Next step has gone stale before and cost real time** —
-check `git log -10` before acting on anything here. macOS screenshot filenames
-contain a narrow no-break space (U+202F) before `AM`/`PM`, so a normal space in
-a shell path silently fails as "No such file" — glob them (`*10.32.22*`).
-**Screenshot filenames in `Screenshots/AppStore-Mac-2026-09-03/` do not match
-their contents:** `02-setup-tools.png` is All Notes and `03-map.png` is the
-Repos branch graph; check before citing one by name. **The Antigravity MCP
-bridge takes a bare filename only** — a path in `planFileName` is rejected, so
-the brief lands at the repo root and has to be moved into `docs/` afterwards;
-and it creates its result JSON **empty at dispatch**, so "the file exists" is
-not a completion signal — wait on the `agy` pid instead.
-**To-dos:** None filed or closed: this session's Unli Rice MCP connection reported 0 notes,
-so it is not the real store. Would have filed: "Add the to-do field to the UnliDisk and
-Butter Smooth notes" (unlidisk, butter smooth); "Commit the linter script updates waiting in
-Architecturally, Butter Smooth and UnliDisk" (same projects, plus architecturally).
-**Left by:** Claude Opus 5 2026-09-19
+to delete. **This file's Next step went stale and cost real time:** it still
+said "commit the `project.yml` bump" after `92be76e` had committed it, and a
+session was spent re-deriving that. Check `git log -10` before acting on
+anything here. macOS screenshot filenames contain a narrow no-break space
+(U+202F) before `AM`/`PM`, so a normal space in a shell path silently fails as
+"No such file" — glob them (`*10.32.22*`) rather than typing the name. Plans dated before
+2026-10-16 say "the swarm builds it": read that as the planner's builder models.
+The `builder` subagents load only when Claude Code starts in the repo root.
 
 ## Open hypotheses
 
@@ -101,14 +99,6 @@ Architecturally, Butter Smooth and UnliDisk" (same projects, plus architecturall
   if single clicks now land reliably; kills if the lag persists, which points at
   the 17 `@Published` writes themselves rather than the cost of each redraw.
   Delete this entry once someone has actually clicked the sidebar.
-- **The app may disagree with itself about where the Unli Rice folder is.**
-  `PROJECT_NOTES.md` records `openMirrorFolderInFinder()` being pointed at
-  `~/Documents/Unli Rice/` and away from "hidden `Group Containers`", while the
-  Connect card displays the sandbox container path. Under the App Sandbox those
-  may be the same place or two different places depending on how each resolves.
-  Confirms if the Finder button opens a different folder than the path shown on
-  the Connect screen; kills if they land in the same directory. One launch
-  settles it. If they differ it is a real bug, not a copy problem.
 
 ## Active constraints
 
@@ -123,15 +113,6 @@ Architecturally, Butter Smooth and UnliDisk" (same projects, plus architecturall
 - The app is shipped on the Mac App Store, so anything on this branch is a submission
   candidate and the pre-launch gate (`_AI Context/07_Prelaunch_Post_Mortem.md`) applies
   before it goes out.
-- **The public guide and the app's own copy are now expected to agree.** The guide at
-  `calmdownoscar.com/unlirice/user_guide.html` was audited against the code, so a string
-  changed in the app without changing the guide re-opens the divergence that
-  `docs/PLAN-copy-that-overstates.md` exists to close. Changing either means checking the
-  other.
-- **The Mirror folder is bidirectional, in one narrow way.** Exported files are
-  regenerated copies and edits to them are lost, but `Notes for Unli Rice/` is a drop box
-  that `RoutineDriver` ingests on every tick (`RoutineDriver.swift:164`). "The folder is
-  read-only" is wrong; "a tool can add a note but not edit one" is right.
 - `docs/PLAN-note-contract.md` is a settled stage-2 plan that has not been built yet.
 - `docs/IOS_CAPTURE_RELEASE.md` §1.6 ("Decide iPad, deliberately") is **resolved**:
   keep `TARGETED_DEVICE_FAMILY: "1,2"`. The doc itself still poses it as an open
@@ -145,8 +126,3 @@ Architecturally, Butter Smooth and UnliDisk" (same projects, plus architecturall
   second language; the agreement test (`StudioTodoTests.swift`) is real and passes, but
   it will not catch a *new* `EventKind` added later without someone remembering to
   extend `KNOWN_EVENT_KINDS` in the Python file too.
-- **`docs/PLAN-copy-that-overstates.md` also went to the swarm without a Codex
-  pre-mortem**, by explicit founder instruction on 2026-09-07. Two of its three open
-  questions were answered by the swarm and one was resolved in the brief; none were
-  reviewed by a second tool. Same caveat as the AI-todo feature above: the code works,
-  the judgement in it is unreviewed.

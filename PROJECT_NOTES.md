@@ -2324,3 +2324,204 @@ copy problem.
 same files are in the active App Store submission set, so listing captions may be attached
 to the wrong images. `08-todo.png` additionally shows the pre-`cbfa54a` header text.
 Re-shooting is a release task and was deliberately not done on this branch.
+## Plan high, build low: the pipeline loses the swarm (2026-10-16)
+
+Founder decision. Claude and Codex both plan on their best models and build with
+cheaper ones. Claude uses Sonnet through the `builder` subagent and Haiku through
+`builder-light`, both defined in `.claude/agents/`. Codex uses a smaller Codex model.
+Antigravity leaves the pipeline. It is still a supported MCP client of the app, but
+it no longer receives plans.
+
+The planner/reviewer roles are now per plan rather than fixed. Before this, Claude
+always planned and Codex always pre-mortemed. Now whichever tool plans a feature owns
+it end to end: plan, build dispatch, review of the builder's diff, tests, and
+`memory.md`. The other tool writes the pre-mortem and a new post-mortem stage after
+the build. Both go in `docs/dialogue/<slug>.md`, which is append-only with one file
+per plan. That file is the bridge. It was chosen over `unlirice` notes because it is
+versioned with the code it argues about, and because it works when the MCP server
+isn't running.
+
+The change in risk: cheaper builders make more local mistakes than the swarm's large
+passes did, so every builder diff gets a best-model review before commit. Steps are
+labelled `sonnet` or `haiku` in the plan, which keeps "does this step need judgement?"
+a planning decision rather than the builder's own.
+
+The vault's `04_Guardrails.md` is authoritative for this and **has not been updated
+yet**: the session that made this change ran in a cloud container without the vault.
+Repo-side changes are in `CLAUDE.md`, `AGENTS.md`, `.claude/agents/`, and
+`docs/dialogue/README.md`. Plans written before this date say "the swarm". Read that
+as "the planner's builder models".
+
+## Engineering Guardrails ships as a built-in preset (2026-10-16)
+
+Phase 1 of `docs/PLAN-shipped-guardrails.md` is built. It adds a fourth built-in House
+Rules preset, `engineering-guardrails`, beside Standard, Codebase and Minimalist. The
+gallery renders `builtIn` generically, so no UI code changed, and the drafts-only
+guarantee in `HouseRulesPreset`'s docstring is untouched.
+
+The plan changed in three ways before the build. All three were founder decisions or
+found while revising the plan:
+- **The preset ships the plan-high, build-low workflow, not only hygiene.** With the
+  tool names removed it stops being studio policy. The shipped text names no vendor
+  or model, and a test enforces that by rejecting "Claude", "Codex", "Sonnet",
+  "Haiku", "Antigravity", "calmdownoscar", "Spark" and "App Store".
+- **The body opens with the note-safety basics.** Choosing a preset replaces the
+  House Rules. A hygiene-only preset would therefore silently drop `source` identity,
+  the reserved `janitor`/`ingest` names, and flag-don't-resolve.
+- **The Codex pre-mortem was skipped at founder direction**, and the plan's header
+  records it. The post-mortem is open in `docs/dialogue/shipped-guardrails.md`.
+
+This is the first change built under the new pipeline: two Haiku `builder-light`
+steps, then the planner reviewed the diff. **Unverified:** the build ran in a cloud
+container with no Swift, so the new tests (`testBuiltInPresetIDsAreUnique`,
+`testEngineeringGuardrailsPresetShipsNoStudioSpecifics`) have not been run.
+
+## Engineering Guardrails verified on the Mac (2026-10-17)
+
+The "Unverified" in the entry above is closed. On the Mac, `swift test` ran **382
+tests, 0 failures, 2 skipped**, including both new `HouseRulesTests`. Plan checks 1, 3
+and 4 passed: the gallery shows the preset, choosing it left `events.jsonl`
+byte-identical, and a draft edit survived a relaunch while the built-in stayed
+unchanged. Details are in `docs/PLAN-shipped-guardrails.md` § "Verified on the Mac".
+
+One lesson is worth keeping. A development-signed `dist/` build cannot open the App
+Store build's app group container, so House Rules reports "state file is unavailable"
+and the real vault is out of reach. Reading the vault through the `unlirice` MCP then
+shows the App Store copy's data, not the build under test. A check that "nothing was
+written" proves nothing in that setup. The working setup is the unsigned debug binary
+pointed at a throwaway vault:
+`UNLIRICE_DATA_PATH=<scratch>/events.jsonl /tmp/unlirice-spm-build/debug/UnliRiceApp`.
+Every file it writes can then be read directly.
+
+## One builder contract for both tools (2026-10-17)
+
+`docs/PLAN-codex-builder-contract.md` is built. It came out of two Codex passes:
+a review of the Codex builder setup (`docs/dialogue/codex-builder-setup.md`, 7
+findings) and a pre-mortem of the plan (`docs/dialogue/codex-builder-contract.md`, 8
+findings). All were answered before the founder approved.
+
+Decided:
+- **The builder rules live once, in `AGENTS.md` § "Builder contract".** It applies to
+  Claude's `builder` / `builder-light` subagents and Codex's `build` / `build-light`
+  profiles alike. A run is a builder because its handoff starts `Role: builder`, not
+  because of its model. Claude's agent files point at the contract instead of copying
+  it.
+- **Step labels name the job, not a model:** `build`, `build-light`, `planner`.
+  `sonnet` / `haiku` are aliases for old plans.
+- **Builders get a stricter circuit breaker than planners.** They stop after two
+  failed attempts, or after one on security, data integrity, a core invariant or the
+  architecture. They report the diagnosis; the planner writes it to `memory.md` and
+  decides on any further attempt.
+- **The bridge pins, never guesses.** With a profile it passes that profile's model and
+  effort explicitly and refuses a profile missing either. Plans must live under
+  `docs/`, which deliberately breaks the old root `PLAN.md` default. Declined: a bridge
+  step selector (each planner drives its own builders), and relaxing the dirty-tree
+  check (the planner commits each reviewed step first).
+- **The shipped preset's checkpoint waits for review** and belongs to the planner. It
+  had said "commit at every step" a paragraph before "review before commit".
+
+Verified: 383 tests, 0 failures, 2 skipped; the bridge smoke test passes 13/13,
+including a descendant that ignores SIGTERM; and a real `build-light` run through the
+bridge used `gpt-6-luna` at `low`, according to Codex's own session record.
+
+Lesson: Codex 0.163 reads `-p <name>` only from `~/.codex/<name>.config.toml`.
+`[profiles.*]` sections in `config.toml` are silently ignored, which is how the first
+attempt at these profiles went wrong. Only a real run's banner or session record
+proves which model ran.
+
+Post-mortem lessons (2026-10-17, `docs/dialogue/codex-builder-contract.md`): a plan
+must say **whose files a test may delete**. The bridge's smoke test was told to clean
+up, chose to delete every new file in the shared `logs/`, and could erase a concurrent
+run's evidence. And a planner's response must not promise more than the plan then
+specifies: "refuse a profile that can't be parsed" became line extraction that
+accepts duplicates.
+
+## Bridge hardening: the four post-mortem gaps closed (2026-10-17)
+
+`docs/PLAN-bridge-hardening.md` is built. It closes the four bridge gaps from Codex's
+post-mortem of the builder contract. Codex's pre-mortem
+(`docs/dialogue/bridge-hardening.md`, 7 findings) was answered before the founder
+approved.
+
+Decided:
+- **An empty profile name is invalid**, not absent: `profile: ""` is refused like
+  `../x`.
+- **The bridge reads profile files more strictly than TOML, on purpose.** Each root
+  line is blank, a comment, or a one-line `key = value` with a quoted string (no
+  backslash in double quotes), `true`, `false` or a number. `model` and
+  `model_reasoning_effort` are quoted and set once. Anything else is refused before
+  anything is written. Declined: a TOML library, since the files are two lines we own.
+- **A timed-out result says whether cleanup worked.** It carries `cleanupFailed`,
+  `groupAliveAtResult`, and the first non-ESRCH `signalError`.
+- **The test switch lives in the run spec, not the environment.** `index.js` never
+  writes `testSignals`, so a real dispatch can't inherit it. This was Codex's
+  pre-mortem finding 1: an environment variable would have let a real run skip its
+  timeout kill.
+- **The smoke test deletes only the five paths each of its dispatches reports**,
+  after waiting for its runners to exit. It treats any new `logs/` file it can't
+  prove is another repo's run as a failure.
+
+Verified: the bridge smoke test passes 26/26 (`node ~/.tools/codex-mcp-bridge/test/smoke.mjs`,
+2026-10-17). `logs/` held the same files before and after the run, and no stand-in
+process was left. The bridge diff against
+`~/.tools/codex-mcp-bridge.bak-2026-10-17-hardening` holds only the planned hunks.
+
+Not tested: a group that survives a real SIGKILL, and a group already gone when it is
+signalled (ESRCH). Neither can be produced on demand.
+
+Correction and post-mortem (2026-10-17, `docs/dialogue/bridge-hardening.md`):
+"anything else is refused" above is too broad. The bridge checks the *form* of each
+root line and is strict about the two keys it pins. It still accepts a repeated
+non-pinned key and a number like `1__2`. Those are Codex's to judge. The builder had
+left two planned assertions out of smoke case 22; they were added, and the test is
+still 26/26. Known gap: a setup failure before the test's `try`, such as a sandbox
+refusing the sentinel write, leaves its `$TMPDIR` folder behind, but never a `logs/`
+file. Lessons: a builder's pasted test output is not evidence (one report misnamed a
+case), and a plan that says "everything else is settled" must say so only of what
+it actually spells out.
+
+
+### 2026-10-19 — Project Garden integration planned
+
+The founder requested the standalone Project Garden be placed inside Unli Rice as a quick overview. Codex inspected both repositories and created `docs/intent/INTENT-005-project-garden.md` and `docs/PLAN-project-garden.md` on `codex/project-garden`, based at c7b5d6e. No application source has changed at this checkpoint. The scope is a native read-only overview over existing folder grants, notes and optional snapshots; no server, network access, persistent registry or historical portfolio import.
+
+Claude's pre-mortem is in `docs/dialogue/project-garden.md`; Codex answered all five findings and marked it settled. The plan now routes folder management to the actual Automation folder controls, keeps ordinary local branch tips out of attention scoring, pins security-scope pairs inside the worker task, documents display-only separator ambiguity, and bounds status/next-step text. The founder explicitly approved Claude reviewing relevant repository files in this chat. Live vault access was unavailable; no wiki/to-do check or note write is claimed.
+
+Baseline verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build` on 2026-10-19 executed 383 tests, 2 skipped, zero failures. G1 has not yet been built.
+
+
+### 2026-10-19 — Garden G1 checkpoint and planner corrections
+
+The configured build profile started with `model: gpt-reserve` / `reasoning effort: medium` (startup log checked). It added `ProjectGarden.swift` and six focused tests. Independent verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests` on 2026-10-19, six tests, zero failures. The planner did not accept this as complete: inspection found omitted notes-only todo association, source priority/bounds, live-Git-independent snapshot fallback and coverage for several promised boundaries. `docs/PLAN-project-garden.md` G1R now specifies those corrections and tests. This checkpoint is intentionally incomplete and no UI has been built.
+
+
+### 2026-10-19 — Garden report accepted after source-ownership review
+
+G1R (gpt-reserve / medium, startup verified) completed the source/fallback corrections and reported ten passing tests. Planner review found further ownership ambiguity and duplicate related-note IDs when joining notes-only and snapshot providers. The planner-owned G1P step now restricts primary status to the matching project registration, prevents explicit provenance being overridden by a notes-only tag, deduplicates note UUIDs, puts snapshot dates into fallback captions, validates detached Git HEAD IDs and reports depth coverage. No persisted format or existing scanner behavior changed.
+
+Independent verification: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter ProjectGardenTests` on 2026-10-19 executed 22 tests, zero failures. Tests cover live-vs-snapshot precedence/dates, cleared steps, invalid/oversized/symlink memory, ambiguous/nested identities, provenance precedence, archived notes, unknown remotes, invalid HEAD, discovery caps, ignore/symlink/archive exclusions, deterministic IDs and read-only repeated loads. G2 UI remains next.
+
+
+### 2026-10-19 — Native Garden build and sample preview
+
+G2 (gpt-reserve / medium, startup checked) added the Garden sidebar/Home entry, native adaptive project cards, search/attention filter, related-note details and folder-management navigation. The planner-owned G2P finalized optional-snapshot failure degradation, value-based load identity and cancellation forwarding, source-specific next-step dates, unknown initial counts, project issues/locations and an explicit Done button with scrollable details. No new persistent model, dependency, network request or note mutation was added by Garden.
+
+Independent verification after the interrupted UI inspection: `swift build --disable-sandbox --scratch-path /tmp/unlirice-spm-build --product UnliRiceApp` succeeded; `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build` executed 406 tests, 2 skipped, zero failures, on 2026-10-19. `xcodegen generate` succeeded. The generated Mac app target built with `xcodebuild -project UnliRice.xcodeproj -scheme UnliRice -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/unlirice-garden-mac-derived CODE_SIGNING_ALLOWED=NO build` using approved host access after a sandboxed attempt prevented SwiftUI macro processes from starting. The Core iOS simulator build had succeeded before interruption; its temporary log was cleared later.
+
+At the founder's request, `dist/Unli Rice Garden Preview.app` was assembled under a separate bundle identity and launched with a sample vault/project set and isolated agent settings; LaunchServices identified it as the foreground app. The regular installed app and real vault were not used for this preview. Automated native UI inspection hung and was interrupted, then was unavailable: interactive search/filter/detail/note navigation, minimum-width and light/dark checks remain unverified. Claude's approved post-mortem is pending at this checkpoint.
+
+
+### 2026-10-19 — Garden post-mortem completed
+
+Claude's approved source post-mortem returned no blockers. The CLI's dialogue-write request did not complete; Codex transcribed the actual returned review into `docs/dialogue/project-garden.md`, clearly attributing the transcription, and answered all suggestions. Initial loading now avoids a transient false failure message, and empty-note guidance describes both tag and recorded-source association. Association-aware invalidation was deferred: full-note equality preserves correctness for tags/flags/body/archive changes, while discovery is bounded and runs off the main actor. The dialogue is closed.
+
+After the two UI polish edits, `swift build --disable-sandbox --scratch-path /tmp/unlirice-spm-build --product UnliRiceApp` succeeded on 2026-10-19. The last full suite on the same date executed 406 tests, 2 skipped, zero failures; core/tests did not change after that run. The sample preview remains available in `dist/Unli Rice Garden Preview.app`. Interactive/appearance QA is explicitly unverified and remains a pre-release check. No push, main merge, installed-app replacement, upload or version bump was performed.
+
+
+### 2026-10-19 — Garden local and remote visuals
+
+At the founder's request, Garden cards/details gained laptop/cloud lanes, a labeled matching/different branch-tip capsule bar, observation dates and neutral unavailable states. The legend distinguishes this Mac, saved remote records and unchecked live remote state. Refresh performs no network fetch. Exact SHA presence in cached remote refs does not establish ancestry, push state, file differences or current GitHub state. This follow-up changes only native presentation; core models/scanning/navigation are unchanged.
+
+Initial implementation used the build profile (gpt-reserve / medium); exact review corrections used build-light (gpt-6-luna / low), both startup-verified. Claude Opus reviewed the supplied source/diff and requested truthfulness/layout corrections. Codex transcribed the actual review, answered all six findings, reviewed the correction diff and independently rebuilt UnliRiceApp. Missing remote records now have an explicit unavailable lane, stale captions require records, invalid comparison counts render neutral, different tips use violet and compact labels stack. `git diff --check` passed. Existing full-suite result remains 406 tests, 2 skipped, zero failures; core/tests were not changed in this follow-up.
+
+The Tier 1 handoff was concrete before dispatch, but its G4 entry was added to the existing plan afterward; this planning-record sequencing deviation is explicit in the plan. The sample preview was rebuilt and launched with isolated sample data. Native automated interaction/light-dark/minimum-width QA remains unavailable and unverified. Pre-existing untracked INTENT-006-four-jobs.md was untouched. No release or remote Git action was performed.

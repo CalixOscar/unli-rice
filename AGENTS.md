@@ -20,13 +20,109 @@ here.
 > Connect status), mark it explicitly as unverified instead of stating it as
 > fact.
 
+## How work moves — plan high, build low
+
+The studio guardrails in the vault are authoritative. This is the part Codex needs
+when it is working in this repo.
+
+- **Claude and Codex are both planners.** Each one plans on its best model and
+  builds with a cheaper one. Each step carries a label, and the table under
+  § "Builder contract" maps it to a model. Each Codex profile is its own file,
+  `~/.codex/<name>.config.toml`. Antigravity no longer builds plans.
+- **For any one plan, the planner owns it end to end.** That means the
+  `docs/PLAN-<slug>.md`, handing build steps to the cheaper model, reviewing that
+  model's diff, running the tests, and updating `memory.md`. A builder model never
+  makes a design call. On an ambiguity it stops and reports back.
+- **The other tool reviews**, on its best model. It writes the pre-mortem before the
+  build and the post-mortem after, both in `docs/dialogue/<slug>.md`. That file is
+  the bridge between Claude and Codex: append-only, one file per plan. The format
+  is in `docs/dialogue/README.md`.
+- Older plans say "the swarm builds it". Read that as "the planner's builder
+  models build it".
+
+## Builder contract
+
+This applies whenever a handoff starts with `Role: builder`: Claude's `builder` /
+`builder-light` subagents, and Codex runs on the `build` / `build-light` profiles. A
+profile only picks a model; the handoff is what makes a run a builder. A planner
+never hands a step over without one.
+
+A handoff carries these fields, all required:
+
+```text
+Role: builder
+Plan: docs/PLAN-<slug>.md
+Step: <step id and title, exactly as in the plan>
+Branch: <branch name, never main>
+Files you may change: <paths>
+Changes already in the tree: none
+Verify with: <commands>
+```
+
+- Build that one step. Don't start the next one, even if it looks easy.
+- Change only the files the handoff names. Needing any other file is a stop.
+- Work only on the named branch, and never on `main`. If the checked-out branch isn't
+  the one named, or the tree has changes the handoff didn't list, stop before
+  touching anything. Never switch branches, commit, push or open a PR. The planner
+  reviews your diff and commits it; checkpoints are the planner's.
+- Don't edit `memory.md`, `PROJECT_NOTES.md`, `CLAUDE.md`, `AGENTS.md`, or anything
+  in `docs/`.
+- Make no design calls. If the step is ambiguous, contradicts the code, or leaves a
+  choice open, stop and report it with `file:line`.
+- **Circuit breaker.** After two failed attempts at the same problem, stop. Stop
+  after one if it touches security, data integrity, a core invariant or the
+  architecture. Report what is wrong, what you tried, and why each attempt failed.
+  Don't try again; the planner decides.
+- If you add a file under `Sources/`, say so: Xcode needs `xcodegen generate`.
+- Run the handoff's verification commands before you report.
+
+Report the files you changed, each command with its pass/fail counts, and anything
+you stopped on. Your report is not evidence: the planner reads the diff and reruns
+the tests.
+
+### Step labels
+
+| Label | The job | Claude builds with | Codex builds with |
+|---|---|---|---|
+| `build` | a settled implementation step that still needs care in *how* it is written, in one file or many | `builder` (Sonnet) | `codex -p build` (`gpt-reserve`, medium) |
+| `build-light` | a small edit where the plan gives the exact text | `builder-light` (Haiku) | `codex -p build-light` (`gpt-6-luna`, low) |
+| `planner` | anything a builder may not touch, or that needs a design call | the planner | the planner |
+
+Older plans say `sonnet` / `haiku`; read them as `build` / `build-light`.
+
+### Codex as planner: handing over a step
+
+```bash
+codex -p build exec --cd "<repo>" --sandbox workspace-write "$(cat <<'HANDOFF'
+Role: builder
+Plan: docs/PLAN-<slug>.md
+Step: <id and title>
+Branch: <branch>
+Files you may change: <paths>
+Changes already in the tree: none
+Verify with: <commands>
+
+Follow AGENTS.md § "Builder contract".
+HANDOFF
+)"
+```
+
+`codex` may not be on `PATH`; the app ships it at
+`/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex`. Swift builds
+inside the sandbox need `--disable-sandbox` and
+`--scratch-path /tmp/unlirice-spm-build`. Before accepting the result, check the
+`model:` and `reasoning effort:` lines at the top of the run's output against the
+table. Whether a profile with no file silently falls back to the expensive default
+is unverified.
+
 ## Open plan — Note Contract validation
 
 `docs/PLAN-note-contract.md` is a stage-2 plan — architecture, files to
 touch, edge cases, gotchas — for structural validation on the MCP write path,
 so `create_note`/`append_to_note` stop accepting note shapes that contradict
 themselves. **Not built, and not yet pre-mortemed.** Next step is Codex
-against §9 "Open questions", then Claude revises, then the swarm builds it.
+against §9 "Open questions", then Claude revises, then Claude's builder models
+build it.
 If you are picking up implementation work here, read it first rather than
 re-deriving the design. Left by Claude Code 2026-08-29.
 

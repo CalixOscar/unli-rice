@@ -23,6 +23,8 @@ the system comes from whatever agent you connect over MCP.
 
 ## Screenshots
 
+**Garden.** A native project overview, available directly below Home in the sidebar. Search project cards, read recorded status and next steps with their sources, filter open to-do/review notes, and open related notes. It reads the folders already selected in the app and notes titled `Project: <name>`; saved repository details carry their own dates, and missing data stays unknown. Manage its folders through **More → What Runs on Its Own**.
+
 **Setup & Tools → AI Tools.** One row per tool, each showing the config file its block goes in, a Copy Configuration button, and when that tool last checked in. Unli Rice never opens or edits those files — you paste the block yourself. The path at the top is the folder route for tools that read local files rather than speaking MCP; note that it is the sandbox container path, not your own `~/Documents`.
 
 ![The Connect screen, listing Claude Code, Claude Desktop, Cursor, Antigravity and Codex with their config files](Screenshots/connect-screen.png)

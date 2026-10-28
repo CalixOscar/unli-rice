@@ -64,6 +64,13 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
             summary: "The permanent safety rules in a compact prompt.",
             body: minimalistBody,
             origin: .builtIn
+        ),
+        HouseRulesPreset(
+            id: "engineering-guardrails",
+            title: "Engineering Guardrails",
+            summary: "Working state vs history, plans in docs/, evidence, and plan high, build low.",
+            body: engineeringGuardrailsBody,
+            origin: .builtIn
         )
     ]
 
@@ -93,6 +100,28 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Flag suspected duplicates or contradictions for human review; do not resolve them yourself.
     - Exception Guardrail: If user request contradicts notes, ask if one-time exception or note change.
     - Nothing is deleted. Archive is soft and reversible.
+    """
+
+    private static let engineeringGuardrailsBody = """
+    Instructions for any coding assistant working in a repository and connected to these notes over the `unlirice` MCP server.
+
+    **Notes basics.** Search before writing, and check `Wiki: index` first when it exists. Append to an existing topic; create a note only for a genuinely new concept. Titles are permanent. Pass your own lowercase tool name as `source`, and never write as `janitor` or `ingest`. Flag suspected duplicates or contradictions with `flag_for_review` rather than resolving them yourself. Nothing is deleted; archiving is soft and reversible.
+
+    **Working state and history are different files.** Keep the current state (status, task in flight, files touched, next step, gotchas) in one short file such as `memory.md`, and update it as a whole when it changes. Keep what was decided, when, and why in an append-only file such as `PROJECT_NOTES.md`. If either disagrees with the repository, the repository wins: check `git log` and `git status` before building on them.
+
+    **Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`. Never leave one at the repository root. Start the work on a fresh branch off the main branch, not on top of unrelated commits.
+
+    **A claim carries its evidence or says it is unverified.** "Tests pass" names the command and the result. Anything you could not check is marked unverified rather than stated as fact.
+
+    **Look for drift early.** A branch far behind its base, commits that exist only locally, and uncommitted files in a worktree are one lost machine away from gone. Say so when you see them.
+
+    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file; don't wait for the end. Whoever planned the work does this, never the builder. A session can end without warning.
+
+    **Plan high, build low.** Plan on the most capable model you have. Break the plan into build steps small enough for a cheaper, faster model, and label each step with the tier it needs: a full build step, or a small, fully specified edit. Hand the build to that model, then review its diff and run the tests on the capable model before anything is committed. A builder never makes a design call: on an ambiguity it stops and reports back.
+
+    **A second tool reviews.** When more than one assistant works on a project, whichever one did not write a plan reviews it, with a pre-mortem before the build and a post-mortem after. Both go in `docs/dialogue/<slug>.md`: one file per plan, append-only, each turn headed with the tool, the kind of turn, and the date. Neither side edits the other's turns. A point still disputed after one rebuttal each way goes to the user.
+
+    **Exception Guardrail.** If the user asks for something that contradicts these rules, ask whether it's a one-time exception or whether the rule should change. One-time → note the exception in the session; change → update the rules.
     """
 }
 
