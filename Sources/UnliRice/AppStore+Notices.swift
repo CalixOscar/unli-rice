@@ -49,8 +49,8 @@ extension AppStore {
             break
         case .reviewQueue:
             showReviewQueue()
-        case .retrospective:
-            showRetrospective()
+        case .retrospective(let period):
+            showRetrospective(periodID: period)
         case .notesFolder:
             showNotesFolder()
         }

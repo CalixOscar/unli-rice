@@ -357,7 +357,7 @@ trimming the MCP tool list once recorded transcripts show which tools agents cal
 
 **Editorial — in a running build**
 - [x] With the styling ignored, the sidebar says the app is about grounding and guardrails (seen: upgrade profile, 2026-10-29).
-- [~] Every extra comes back with its switch and goes away without one: Projects, To do, Map, PDF/ZIP export seen; Your year so far, Separate memories, iPhone Capture not seen (unverified).
+- [x] Every extra comes back with its switch and goes away without one (all seven seen, 2026-10-29 walk).
 - [x] Existing-user defaults seen, not assumed (A5 checks 1 and 2, including the JSON on disk).
 
 ## 7. Known limits, accepted
@@ -430,4 +430,31 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
   unchanged); duplicates off with a local embedding request counter and an "on" control; then
   post-mortem 10's table (fresh sidebar, Garden's To do button, year-so-far and Capture switches,
   a seeded retrospective notice, QA-targeted widget URLs, five tabs at 960pt).
+- **Second walk, 2026-10-29 (planner), QA bundle `overhaul-qa-walk`:** scratch vault with two
+  near-duplicate notes, a seeded retrospective notice, an embedding address pointing at a local
+  request counter, and its own `unlirice://` handler. Domain deleted afterwards; no login item.
+  - **Duplicates off, verified:** Janitor Preview sent **0** requests and reported nothing to do.
+    Positive control: duplicates on (switched with background work still off, so post-mortem fix 2
+    is verified too) sent **1** `POST /v1/embeddings`, and the engine label changed to the model.
+  - **Folder add with import off, partly verified:** the picker opened as "Add a project folder"
+    with the new message and an "Add Folder" button (post-mortem fix 1). The picker runs in a
+    separate macOS process that the QA grant can't drive, so a folder was **not** chosen: the
+    no-alert, no-import return after choosing remains **unverified in a running app** (code review
+    and A1 test (e) only). Needs a person to pick `qa/importme` once.
+  - **Doors, verified:** Garden's To do button shows with To do on and disappears with it off; Your
+    year so far, Separate memories (fifth tab, fits at 960pt) and iPhone Capture each appear and
+    disappear with their switch; the all-off sidebar reads GROUNDING / GUARDRAILS / Setup only.
+  - **Notice, verified after a fix:** opening the notice from All messages with Your year so far off
+    showed the page and marked it read. It ignored the notice's period: A3 told the builder to call
+    `showRetrospective()`, dropping the `period` the pre-four-jobs code passed. Restored
+    `showRetrospective(periodID: period)`; a `2026` notice then opened 2026. (A month with no notes
+    still falls back to the newest month: existing behaviour.) Needs you rows only offer Dismiss;
+    opening is in All messages (existing four-jobs behaviour).
+  - **Widget links, verified:** `unlirice://todo` opened To do with To do off; a note link sent
+    while Archived was open brought the note forward in Notes (the `closeAllPanes()` merge fix).
+  - **Sidebar overflow, found and fixed:** with Projects, Your year so far and the Capture card on,
+    the sidebar outgrew the 628pt window and pushed the whole window's content up, clipping the
+    top. The rows now sit in `ViewThatFits`: the old layout when it fits, a scrolling list above a
+    pinned Setup when it doesn't. Seen fixed in the same state. 471 tests, 2 skipped, 0 failures;
+    Mac build succeeded.
 
