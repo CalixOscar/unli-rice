@@ -2,7 +2,7 @@
 
 **Intent:** `docs/intent/INTENT-007-memory-overhaul.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 3 Phase A settled, awaiting the founder's go-ahead; Phases B and C reopened (2026-10-29)
+**Stage:** 5 Phase A built and verified (with unverified items in Build notes), awaiting post-mortem; Phases B and C reopened (2026-10-29)
 **Pre-mortem:** `docs/dialogue/memory-overhaul.md` (codex, 2026-10-29: 21 findings, all accepted)
 **Branch:** `claude/memory-overhaul`, cut from `main` after A0 merges `feature/todo-widget`.
 **Verified against:** `0ba0c1a` on `main`
@@ -255,9 +255,9 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
       _(done by the planner, smaller than a handoff; swift build green, 2026-10-29)_
 
 #### A5. Verify (`planner`)
-- [ ] `planner` Review each builder diff against this plan. `xcodegen generate` (after A2's new
-      file), `swift test`, Xcode Mac build.
-- [ ] `planner` Isolated running-app checks (debug binary in a scratch `.app`; memory.md Gotchas).
+- [x] `planner` Review each builder diff against this plan. `xcodegen generate` (after A2's new
+      file), `swift test`, Xcode Mac build. _(471 tests, 2 skipped, 0 failures; BUILD SUCCEEDED, 2026-10-29)_
+- [x] `planner` Isolated running-app checks _(partly: see Build notes; unverified items listed there)_ (debug binary in a scratch `.app`; memory.md Gotchas).
       Export the debug defaults domain first and restore it after (four-jobs B6). Set both
       `UNLIRICE_DATA_PATH` and `UNLIRICE_AGENT_SETTINGS` to scratch paths. Never toggle the login item.
       1. Fresh: no event log, no settings file, no `enabledExtras`. Sidebar shows two jobs, no
@@ -348,17 +348,17 @@ trimming the MCP tool list once recorded transcripts show which tools agents cal
 ## 6. Acceptance — against reality, not a builder's report
 
 **Mechanical (Phase A)**
-- [ ] `swift build` / `swift test` green; count recorded. Xcode Mac build succeeds.
+- [x] `swift build` / `swift test` green: 471 tests, 2 skipped, 0 failures. Xcode Mac build succeeds (Claude, 2026-10-29).
 - [ ] `git diff --name-only` for Phase A within the files named in A1–A4, plus this plan,
       `docs/dialogue/memory-overhaul.md`, `memory.md`, `PROJECT_NOTES.md`.
-- [ ] A1's tests (a)–(f) present and passing.
-- [ ] A5's seven running-app checks done, or each marked "(unverified)" with why.
-- [ ] No change to `Event.swift`, the note format or sync shards.
+- [x] A1's tests (a)–(f) present and passing (`ExtrasSettingsTests`, 6 tests).
+- [x] A5's seven running-app checks done, or each marked "(unverified)" with why (Build notes).
+- [x] No change to `Event.swift`, the note format or sync shards (checked: `git diff b35b0c9 --stat`).
 
 **Editorial — in a running build**
-- [ ] With the styling ignored, a fresh sidebar says the app is about grounding and guardrails.
-- [ ] Every extra comes back with its switch and goes away without one.
-- [ ] Existing-user defaults seen, not assumed (A5 checks 1 and 2, including the JSON on disk).
+- [x] With the styling ignored, the sidebar says the app is about grounding and guardrails (seen: upgrade profile, 2026-10-29).
+- [~] Every extra comes back with its switch and goes away without one: Projects, To do, Map, PDF/ZIP export seen; Your year so far, Separate memories, iPhone Capture not seen (unverified).
+- [x] Existing-user defaults seen, not assumed (A5 checks 1 and 2, including the JSON on disk).
 
 ## 7. Known limits, accepted
 
@@ -397,3 +397,29 @@ Builders get one step at a time under AGENTS.md § Builder contract, on `claude/
 - **A3 review fixes (planner):** the first sidebar heading renamed CONTEXT → GROUNDING (the builder
   left it, unsure); `Card` in `AutomationView.swift` skips an empty subtitle, so the background card
   has no blank line. 471 tests, Mac build green (Claude, 2026-10-29).
+- **A5 walk, 2026-10-29 (planner).** Two scratch `.app` bundles wrapping the debug binary, each with
+  its own bundle ID (fresh defaults domain) and `LSEnvironment` pointing `UNLIRICE_DATA_PATH` and
+  `UNLIRICE_AGENT_SETTINGS` at scratch. Both domains deleted afterwards; no login item touched.
+  - Check 2, **verified on disk**: upgrade profile (one-note event log, old settings JSON without the
+    keys, no `enabledExtras`). After launch: `enabledExtras = [projects, todo]`; the settings file
+    gained `bulkImportEnabled: true`, `duplicateDetectionEnabled: true`. After quit and relaunch:
+    unchanged. (`routinesEnabled` became `false` because it lives in the empty QA defaults domain:
+    existing behaviour, not this plan.)
+  - Check 1, **verified on disk only**: fresh profile wrote `enabledExtras = []` and both background
+    keys `false`. Its window could not be captured (macOS delivered no picture), so the no-EXTRAS
+    sidebar was not seen (unverified).
+  - Check 3, **partly verified**: sidebar read GROUNDING / GUARDRAILS / EXTRAS with To do and Map
+    after turning Map on and Projects off; `enabledExtras` followed each click. File › Export Notes
+    listed Markdown and OKF with PDF/ZIP off, and added Zip and PDF with it on; both survived a
+    relaunch. Setup showed four tabs (Separate memories hidden: off, one profile) within the 960pt
+    window. The background card showed both switches on, disabled, with the "Needs background work
+    on" sentence, and no blank subtitle line. Unverified: Your year so far, Separate memories and
+    iPhone Capture switches; the multi-profile exception (`profiles.json` is the App Store app's).
+  - Check 6, **partly verified**: Home lost the Projects card with Projects off. Unverified: Garden's
+    To do button (Garden unreachable with Projects off in that run), the year-so-far notice (no
+    notice was due) and the widget URL (it opens the installed App Store app, not a QA bundle).
+  - Checks 4 and 5, **unverified in the running app**: adding a folder needs the open panel, and
+    the duplicates check needs a local embedding listener; window capture failed before either.
+    Covered by code review (`addScanRoot` returns before `LocalFileImporter`; `janitorSimilarity()`
+    skips `similarityProvider()`) and, for the core, by A1 tests (e) and (f).
+
