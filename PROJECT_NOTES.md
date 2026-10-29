@@ -2594,3 +2594,22 @@ checked at every caller, including the folder picker and the embedding warm-up, 
 scheduled pipeline. Core tests can't see the app target: app-boundary behaviour needs an isolated
 QA bundle walk, and two such checks are still open (plan Build notes). Phases B (memory files)
 and C (evals) were reopened by the pre-mortem and must be redrafted before any build.
+
+## Mac 1.4 (9) uploaded (2026-10-29)
+
+**Released:** Mac 1.4 (9) uploaded to App Store Connect by Claude at the founder's explicit
+request ("Proceed with step 1-4", then "Yes, upload it"), after the 6-Month Post-Mortem
+(`docs/release/1.4-premortem.md`). Not submitted for review; that and TestFlight are the
+founder's. Capture stays 1.3 (8). Build 9 was accepted, so ASC's last Mac build was 8 as
+recorded. Signing came from Xcode's cloud-managed App Store certificates
+(`xcodebuild -exportArchive -allowProvisioningUpdates`); this Mac holds only development
+certificates.
+
+**Premortem fixes applied before upload:** the sidebar subtitle says "Guardrails and grounding"
+(no "evals" until Phase C exists); the Extras header names grounding and guardrails; What's New
+tells 1.3 users where Map and Your year so far went; the description, screenshots and review
+notes no longer sell features 1.4 hides by default.
+
+**Screenshots:** with Stage Manager on, a window in the side strip is captured shrunk and
+skewed; the app has to be in front. The window can't be set to an exact 1440x900 here, so
+the scratch `fit` tool trims the title bar and repeats one plain pixel row to reach 16:10.
