@@ -153,7 +153,7 @@ struct ExtrasView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Card(
                     title: "Extras",
-                    subtitle: "Things Unli Rice can do beyond its three jobs. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one.",
+                    subtitle: "Things Unli Rice can do beyond grounding and guardrails. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one.",
                     icon: "square.grid.2x2"
                 ) {
                     VStack(alignment: .leading, spacing: 14) {

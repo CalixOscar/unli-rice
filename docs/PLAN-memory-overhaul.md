@@ -230,7 +230,7 @@ Reuse: `AutomationToggleRow` for every switch, `Card` for groupings, the four-jo
 
       | Where | Text |
       |---|---|
-      | Extras header | "Things Unli Rice can do beyond its three jobs. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one." |
+      | Extras header | "Things Unli Rice can do beyond grounding and guardrails. Turning one off removes its buttons from the app; nothing is deleted. Separate memories stays while you have more than one." |
       | projects | **Projects** — "Git status and next steps for the folders in Setup › Folders." |
       | todo | **To do** — "A list built from your repos, project notes, and notes your AI tagged." |
       | map | **Map** — "A graph of how your notes link to each other." |
