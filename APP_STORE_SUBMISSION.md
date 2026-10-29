@@ -39,7 +39,7 @@ items require the owner's Apple Developer and App Store Connect accounts.
 Kept here so it's versioned with the rest of the submission, not only pasted
 into App Store Connect. Update this section whenever the description changes;
 regenerate it after any feature that changes the sidebar or a headline
-capability (Brain Map, Profiles, House Rules, Trust Center are all named
+capability (House Rules, Needs You, Trust Center and the Extras list are all named
 below and drift if renamed).
 
 ```
@@ -88,23 +88,18 @@ Permanently hosted reviewer guide and sample configuration files:
 - Sample JSON Config: `https://raw.githubusercontent.com/CalixOscar/unli-rice/main/docs/sample_configs/claude_desktop_config.json`
 - Sample TOML Config: `https://raw.githubusercontent.com/CalixOscar/unli-rice/main/docs/sample_configs/config.toml`
 
-### App Review Notes Copy-Paste Text for App Store Connect
+### App Review Notes Copy-Paste Text for App Store Connect (1.4)
 
 ```text
-Thank you for your review. We have addressed both guidelines as follows:
+Unli Rice 1.4 reorganises the sidebar into two sections, Grounding and Guardrails. Features that were in the sidebar before (Projects, To do, Map, Your year so far, Separate memories / Profile Builder, PDF and ZIP export) are now optional and off by default for a new install; turn any of them on in Setup → Extras. Each switch only shows or hides a feature. Nothing is removed from the app.
 
-1. Guideline 5 (Legal - China Storefront):
-   - We have removed the China mainland storefront from our app's Availability settings in App Store Connect. The app is no longer distributed in China mainland.
+Unli Rice works on its own without any AI tool or account. To try it without an MCP client:
+1. Open Unli Rice.app. Click Notes in the sidebar, click New Note, add a title and text, save, then search for it.
+2. Click "What your AI should always do", pick a template such as Engineering Guardrails, click Use as Draft, then in Setup → AI Tools → House Rules click Save to notes.
+3. Click Trust Center, then Run checks.
+4. Open Setup → Extras and turn on Map; Map appears in the sidebar.
 
-2. Guideline 2.1(a) (Information Needed - MCP Client Configuration & Verification):
-   - Unli Rice is a standalone native macOS note vault app that does not require an external AI tool or subscription to function. All features (Notes, House Rules, Needs You, Trust Center, Mirror Export) are usable directly within the standalone GUI. Optional features (Projects, To do, Map, Your year so far, Separate memories / Profile Builder, PDF and ZIP export) are off by default and can be turned on in Setup › Extras; each switch only shows or hides that feature.
-   - For reviewing the optional Model Context Protocol (MCP) inter-process communication helper embedded at `/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`, we have published permanently hosted sample configuration files and testing instructions:
-
-   - Comprehensive Reviewer Guide: https://github.com/CalixOscar/unli-rice/blob/main/docs/APPLE_REVIEW_GUIDE.md
-   - Sample JSON Config File: https://raw.githubusercontent.com/CalixOscar/unli-rice/main/docs/sample_configs/claude_desktop_config.json
-   - Sample TOML Config File: https://raw.githubusercontent.com/CalixOscar/unli-rice/main/docs/sample_configs/config.toml
-
-Sample MCP Client Configuration snippet for `mcpServers`:
+To try the optional MCP helper (/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp), add this to an MCP client such as Claude Desktop, restart the client, and ask it to save a note in Unli Rice:
 {
   "mcpServers": {
     "unlirice": {
@@ -114,12 +109,10 @@ Sample MCP Client Configuration snippet for `mcpServers`:
   }
 }
 
-Test steps without an MCP client:
-1. Open Unli Rice.app.
-2. Go to Setup -> Who You Are & Profiles -> Load Template... -> Studio Standard -> Finish. Note files are created in Notes.
-3. Go to Setup -> House Rules -> select Standard Memory -> Save.
-4. Go to Notes tab -> click + New Note -> enter title and content -> search for the note.
-5. Go to Brain Map tab to view the visual note graph.
+Reviewer guide with step-by-step instructions and sample configs:
+https://github.com/CalixOscar/unli-rice/blob/main/docs/APPLE_REVIEW_GUIDE.md
+
+The app stores data in its App Group container, reads other folders only after the user picks them in an open panel, never edits another app's configuration files (Connect only copies text), and the optional embedding connection accepts localhost only. The China mainland storefront remains deselected.
 ```
 
 ## Archive and validate

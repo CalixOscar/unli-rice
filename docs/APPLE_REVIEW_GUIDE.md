@@ -53,14 +53,13 @@ Unli Rice is a standalone native macOS productivity application that manages a p
 ## 3. Review Verification Steps
 
 ### Option A: Standalone Verification (No External Client Required)
-1. Install and launch **Unli Rice.app**.
-2. **Home Screen:** Verify the initial guide notes ("Welcome to Unli Rice" and "How tags and the janitor work").
-3. **Profile Builder:** Click **Build Profile** on Home (or go to **Setup → Who You Are & Profiles**). Select **Load Template… → Studio Standard** and complete the setup. Notice how profile notes (`Profile: identity`, `Profile: voice`, etc.) are created in the **Notes** tab.
-4. **House Rules:** Navigate to **Setup → House Rules**. Select a preset (e.g., *Standard Memory*) and click **Save**.
-5. **Notes & Search:** Go to **Notes** tab. Create a new note manually by clicking **+ New Note**. Enter a title and content, then search for it using the search bar.
-6. **Brain Map:** Click **Brain Map** in the sidebar to view the visual graph linking notes and context profiles.
-7. **Mirror Export:** Go to **Setup → Mirror Export** and click **Export Now**. Click **Open in Finder** to inspect the generated plain markdown mirror export folder.
-8. **Trust Center:** Turn on **Advanced Mode** in settings to view **Trust Center**, confirming local vault integrity and connection diagnostics.
+Names below are the buttons in Unli Rice 1.4. The sidebar has two sections, Grounding and Guardrails, with Setup at the bottom.
+1. Install and launch **Unli Rice.app**. Home opens.
+2. **Notes:** Click **Notes** in the sidebar. A new vault starts with two guide notes, "Welcome to Unli Rice" and "How tags and the janitor work". Click **New Note**, enter a title and content, save it, then find it with the search field.
+3. **House Rules:** Click **What your AI should always do**. Select a template (for example *Engineering Guardrails*) and click **Use as Draft**. Then open **Setup → AI Tools**, scroll to **House Rules** and click **Save to notes**. The rules appear as a note in **Notes**.
+4. **Mirror export:** Click **The folder your AI can read**, then **Export Now** and **Open in Finder** to inspect the plain-Markdown copy.
+5. **Trust Center:** Click **Trust Center**, then **Run checks**, to see vault integrity and connection diagnostics.
+6. **Optional features:** Open **Setup → Extras**. Projects, To do, Map, Your year so far, Separate memories (with the Profile Builder), PDF and ZIP export and the iPhone Capture card are off by default for a new install. Turning one on adds it to the sidebar (or the File menu); turning it off only hides it. For example, turn on **Map** and click **Map** in the sidebar to see the note graph.
 
 ### Option B: Verification with an MCP Client (e.g., Claude Desktop or MCP Inspector)
 1. Install **Unli Rice.app** into `/Applications`.
