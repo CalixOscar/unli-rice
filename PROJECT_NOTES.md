@@ -2613,3 +2613,10 @@ notes no longer sell features 1.4 hides by default.
 **Screenshots:** with Stage Manager on, a window in the side strip is captured shrunk and
 skewed; the app has to be in front. The window can't be set to an exact 1440x900 here, so
 the scratch `fit` tool trims the title bar and repeats one plain pixel row to reach 16:10.
+
+**Submitted (2026-10-29):** Mac 1.4 (9) submitted for App Review at the founder's request
+("Yes, submit it"); status "Waiting for Review". App Store Connect still held 1.3 in Prepare for
+Submission (never submitted; 1.2 is live), so the draft was renamed to 1.4 and its What's New
+also covers 1.3's To Do widget. Release options (manual/automatic, phased) were left as they
+were. The founder dragged the screenshots in; App Store Connect stored them out of order and
+they were reordered 01–07 before submitting.
