@@ -34,7 +34,7 @@ items require the owner's Apple Developer and App Store Connect accounts.
 - Encryption: the app does not implement non-exempt encryption;
   `ITSAppUsesNonExemptEncryption` is `false`.
 
-## App Store description (2026-07-24)
+## App Store description (2026-10-29, for 1.4)
 
 Kept here so it's versioned with the rest of the submission, not only pasted
 into App Store Connect. Update this section whenever the description changes;
@@ -43,29 +43,24 @@ capability (Brain Map, Profiles, House Rules, Trust Center are all named
 below and drift if renamed).
 
 ```
-Unli Rice gives every AI tool you use a shared, permanent memory on your Mac. Connect Claude, ChatGPT, Gemini, coding agents, or your own local tools over MCP so they read and write into the same notes — instead of you re-explaining yourself to a new session every time.
+Unli Rice gives the AI tools you use one place on your Mac for what they should know and the rules they should follow. Connect Claude, ChatGPT, Codex, Cursor or your own local tools over MCP so they read and write the same notes, instead of you re-explaining yourself to every new session.
 
-WHAT'S DOING WHAT
-Home shows what's happening right now. Needs You collects everything actually waiting on a decision — nothing else. Brain Map visualizes your notes as a living graph: select any note to see exactly what it's connected to, or watch Grow replay your memory being built, oldest note first.
+GROUNDING: WHAT YOUR AI KNOWS
+Home shows what's happening right now and which assistant last checked in. Notes holds everything your assistants and you have written, each change attributed and dated. The folder your AI can read keeps a plain-Markdown copy for tools that can't use MCP.
+
+GUARDRAILS: WHAT YOUR AI SHOULD ALWAYS DO
+House Rules are standing instructions every connected assistant reads at the start of a session: what to read first, what's worth remembering, how to attribute its work, and when to stop and ask you. Start from a built-in template, including Engineering Guardrails for coding assistants, or import your own. Needs You collects only what's waiting on your decision. The Trust Center checks that your memory is readable and writable, shows which assistants have connected, and makes verified recovery points before big changes.
 
 A PERMANENT, ATTRIBUTED RECORD
-Every change is an immutable, append-only event. You can see who wrote or updated a note, what happened, and when. Connected agents can append and create — they cannot rewrite history or permanently delete anything.
+Every change is an append-only event. Connected assistants can append and create; they cannot rewrite history or permanently delete anything. Archiving is reversible.
 
-PROFILES, YOUR WAY
-Build a personal AI Context Profile — identity, voice, principles, guardrails — with the Profile Builder, or start from a template (Studio Standard, Solo Developer, Writer/Researcher, Minimalist). Run multiple Profiles as separate vaults, each with its own Master Profile guardrails. Mirror Export generates a plain-markdown copy of any Profile for AI tools that can't use MCP.
-
-HOUSE RULES, PER MEMORY SPACE
-Each memory space can carry its own House Rules — standing instructions telling connected agents what to read first, what's worth remembering, how to attribute their work, and when a conflict should wait for you. Start from a built-in template or import your own Markdown, and every saved revision joins the same auditable history as everything else.
-
-TRUST, VERIFIABLE
-The Trust Center's Connection Doctor checks whether your memory space is readable and writable, whether an assistant has actually connected, whether recovery points exist, and whether background routines are running. Diagnostics record only client names, versions, and outcomes — never note contents. Create verified local recovery points before big changes; restores are conservative and never touch your current history.
+EXTRAS, WHEN YOU WANT THEM
+Setup › Extras turns on Projects (where each project stands and what comes next), To do, the note Map, Your year so far, separate memories, PDF and ZIP export and more. Each is off until you turn it on, and turning one off never deletes anything.
 
 STAYS OUT OF YOUR WAY
-Turn on "Keep working with the window closed" and ingestion and maintenance can continue in the background. Anything that needs a human decision waits quietly for you. Looking Back can read a month or a year of notes back to you, curated from the memory you've already built.
+Background work is off unless you turn it on, and each background job has its own switch. Nothing running unattended can exceed the app's own limits: it may only tag and flag, imports may only create and append, and every structural question is yours to answer.
 
-Nothing running unattended can exceed the app's own limits: background routines may only tag and flag, ingestion may only create and append, recovery requires a deliberate action from you, and every structural question is yours to answer.
-
-Unli Rice runs entirely on your Mac. No account, no analytics, no cloud sync, no bundled model — the reasoning comes from whichever AI tool you connect, and the optional embedding connection is restricted to localhost.
+Unli Rice runs entirely on your Mac. No account, no analytics, no cloud sync, no bundled model. The reasoning comes from whichever AI tool you connect, and the optional embedding connection is restricted to localhost.
 
 Unli Rice is open source and MIT licensed.
 ```
@@ -102,7 +97,7 @@ Thank you for your review. We have addressed both guidelines as follows:
    - We have removed the China mainland storefront from our app's Availability settings in App Store Connect. The app is no longer distributed in China mainland.
 
 2. Guideline 2.1(a) (Information Needed - MCP Client Configuration & Verification):
-   - Unli Rice is a standalone native macOS note vault app that does not require an external AI tool or subscription to function. All features (Notes, Profile Builder, House Rules, Brain Map, Mirror Export, Trust Center) are 100% usable directly within the standalone GUI.
+   - Unli Rice is a standalone native macOS note vault app that does not require an external AI tool or subscription to function. All features (Notes, House Rules, Needs You, Trust Center, Mirror Export) are usable directly within the standalone GUI. Optional features (Projects, To do, Map, Your year so far, Separate memories / Profile Builder, PDF and ZIP export) are off by default and can be turned on in Setup › Extras; each switch only shows or hides that feature.
    - For reviewing the optional Model Context Protocol (MCP) inter-process communication helper embedded at `/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`, we have published permanently hosted sample configuration files and testing instructions:
 
    - Comprehensive Reviewer Guide: https://github.com/CalixOscar/unli-rice/blob/main/docs/APPLE_REVIEW_GUIDE.md
