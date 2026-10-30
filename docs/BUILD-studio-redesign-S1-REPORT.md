@@ -11,3 +11,16 @@ Test defects: `Tests/UnliRiceCoreTests/BuildGateTests.swift:131` expects missing
 Independent driver command: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build`: exit 1; 512 executed, 2 skipped, 2 failed assertions across 2 failed tests (508 passed). Failures: testHeaderSearchStopsAt40Lines and testIntentLineWithoutPathIsUnknown. The builder's earlier full-suite command also failed; its exact counts were not retained here. Driver log: `/tmp/unlirice-studio-s1d-driver.log`.
 
 Committed files: this report only. The two implementation/test files remain untracked in the S1d worktree for inspection. No implementation is approved or committed. A new source file requires xcodegen generate before an Xcode build; none was run.
+
+## Failure output
+
+The implementation and tests were subsequently preserved unchanged in WIP commit `ef97808` for the planner's takeover. The earlier report describes their state at the stop.
+
+Verbatim assertion messages from `/tmp/unlirice-studio-s1d-driver.log`:
+
+```text
+/Users/calmdownoscar/.codex/worktrees/studio-s1d/Unli Rice/Tests/UnliRiceCoreTests/BuildGateTests.swift:138: error: -[UnliRiceCoreTests.BuildGateTests testHeaderSearchStopsAt40Lines] : failed
+/Users/calmdownoscar/.codex/worktrees/studio-s1d/Unli Rice/Tests/UnliRiceCoreTests/BuildGateTests.swift:131: error: -[UnliRiceCoreTests.BuildGateTests testIntentLineWithoutPathIsUnknown] : XCTAssertEqual failed: ("Optional(UnliRiceCore.BuildGate.Light.unknown("no path on the Intent line"))") is not equal to ("Optional(UnliRiceCore.BuildGate.Light.missing)")
+```
+
+The line-138 assertion logs only `failed`; it contains no expected/actual text. For line 131, the logged actual is `Optional(UnliRiceCore.BuildGate.Light.unknown("no path on the Intent line"))`; the test's expected value is `Optional(UnliRiceCore.BuildGate.Light.missing)`.
