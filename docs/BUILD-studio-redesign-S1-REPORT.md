@@ -50,3 +50,12 @@ The changes to `BuildGateTests.swift`:
 
 These changes were not compiled: the cloud session has no Swift. The driver's test run on the
 Mac is the verification.
+
+## Verification of ded8987
+
+Codex driver, 2026-10-30. Fetched origin and fast-forwarded the clean `codex/studio-S1d` worktree to `ded8987`. No source files changed during verification.
+
+- `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build`: exit 0; 515 executed, 513 passed, 0 failed, 2 skipped. Log: `/tmp/unlirice-ded8987-full.log`.
+- `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build --filter BuildGateTests`: exit 0; 35 executed, 35 passed, 0 failed, 0 skipped. Log: `/tmp/unlirice-ded8987-buildgate.log`.
+
+Both requested verification runs passed. This entry records test results only; no merge was performed.
