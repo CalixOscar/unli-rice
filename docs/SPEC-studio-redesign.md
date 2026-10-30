@@ -16,12 +16,14 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 
 | Id | Requirement | Check |
 |---|---|---|
-| A1 | The app opens on one screen with three decks: Garden, Branches and Notes. There is no text sidebar on it. | walk |
+| A1 | The app opens on the **Studio** tab, which shows three decks: Garden, Branches and Notes. A glass tab bar switches to **Guardrails & Grounding**, which shows two decks. There is no text sidebar. | walk |
 | A2 | Each deck shows a picture, plus at most one number and one short label, before you click it. | walk + screenshot |
 | A3 | Clicking a deck makes it fill the window. Esc, or clicking its title, brings back all three. Keyboard: 1, 2 and 3 open each deck. | walk |
 | A4 | One gear button opens everything that left the main stage: Connect, House Rules, Trust Center, Archived, Extras and Setup. Each is reached in at most two clicks. | walk; a list in the plan of every former `Pane` case and its new route |
 | A5 | Every former `AppStore.Pane` case is still reachable. | test: a new `case` fails to compile until it is routed |
 | A6 | Dark by default, with one accent colour per deck. Light mode still works and stays readable. Text contrast is at least 4.5:1. | walk in both modes |
+| A9 | Liquid Glass is on the controls layer only: the tab bar, toolbar and buttons. It goes through `LiquidGlass.swift`, and no view calls `.glassEffect` directly. Deck content is solid. The text uses the system font. | review: grep for `.glassEffect` outside the helper |
+| A10 | Motion uses interruptible springs. With Reduce Motion on, the crate flips become cross-fades. With Reduce Transparency on, the glass becomes solid. | walk with both accessibility settings on |
 | A7 | The window works at 960×600 (the current minimum, `UnliRiceApp.swift:42`). Decks stack or shrink, and nothing is cut off. | walk |
 | A8 | The top strip shows the current project's name and its seven lights (§C). With no project picked, it shows the most recently active one, or nothing. | walk |
 
@@ -29,9 +31,9 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 
 | Id | Requirement | Check |
 |---|---|---|
-| B1 | **Garden:** one mark per `ProjectGarden.Project`, coloured fine, needs you or unknown. `needsAttention` decides "needs you". A project with no readable status is "unknown", never "fine". | test (state mapping) + walk |
-| B2 | **Garden:** mark size follows recent activity, measured as the newest commit date or note date. With no dates the mark is the smallest size and grey, not hidden. | test |
-| B3 | **Garden:** above 40 projects, labels show only on hover or selection, following the Map's label budget rule. | walk with a 60-repo sample |
+| B1 | **Garden:** a crate of album sleeves, one per `ProjectGarden.Project` plus one per seed. The front sleeve is full size, and up to three peek out behind it. Each sleeve's sticker reads fine, needs you, can't read, or seed. `needsAttention` decides "needs you". A project with no readable status is "can't read", never "fine". | test (state mapping) + walk |
+| B2 | **Garden:** flip with the arrow buttons, the left and right arrow keys, a trackpad swipe, or a click on a sleeve behind. A row of dots, one per sleeve, jumps straight to a sleeve. The order is most recently active first. With no dates a project goes last, and it is never hidden. | test (ordering) + walk |
+| B3 | **Garden:** under the crate, the front sleeve's seven lights and its next step. Opening the Garden shows the back of the sleeve: the seven stages as a tracklist (Side A before building, Side B building), with the Copy prompt for the next step. | walk with a 60-repo sample |
 | B4 | **Branches:** shows `BranchGraphView` for the selected Garden project. It reuses the existing drawing and claims, and adds no new git reading. | walk; diff shows `GitRepoScanner` unchanged |
 | B5 | **Branches:** with no ancestry published, it says so in one sentence, as today. It never draws guessed shapes. | walk |
 | B6 | **Notes:** shows the total open notes, the "needs you" count (`pending.count + unreadNoticeCount`), the source of the newest write, and the five newest titles. Clicking a title opens the existing note detail. | test (counts) + walk |
@@ -45,7 +47,7 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 | C2 | `unknown` is returned when the folder or a file can't be read. `missing` is returned only when the folder was read and the file isn't there. | test, including an unreadable fixture |
 | C3 | Intent is `done` only when an intent doc's `**Status:**` line starts with `approved`. A draft counts as `missing`, shown as "draft". | test |
 | C4 | Spec is `done` when a `docs/SPEC-*.md` names that intent in its `**Intent:**` line. | test |
-| C5 | Agents is `done` when both `AGENTS.md` and `CLAUDE.md` exist at the root. A `CLAUDE.md` that is only `@AGENTS.md` counts. | test (subject to intent open question 3) |
+| C5 | Agents is `done` when `AGENTS.md` exists at the root. `CLAUDE.md` is optional. If `CLAUDE.md` exists but neither imports (`@AGENTS.md`) nor names `AGENTS.md`, the light is a draft, because Claude Code would then skip `AGENTS.md`. | test |
 | C6 | Pre-mortem is `done` when `docs/dialogue/<slug>.md` has a `## <tool> — pre-mortem —` turn **and** a later `— settled —` turn. A plan header saying the pre-mortem was skipped gives `skipped`. | test, using the dialogue README's format |
 | C7 | Build is `done` when the plan's `**Stage:**` line says built or post-mortem. Post-mortem is `done` when a `— post-mortem —` turn exists. | test |
 | C8 | Reading is bounded: at most 200 files per project and 128 KB per file, the same bound as `ProjectGarden.maxMemoryBytes`. Symlinks out of the granted folder are not followed. | test |
@@ -68,7 +70,7 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 | Id | Requirement | Check |
 |---|---|---|
 | E1 | `AGENTS.md` § "How work moves" lists the order: idea (new apps only) → intent → spec → agent files → plan → pre-mortem through the bridge → build → post-mortem. | review |
-| E2 | `CLAUDE.md` and `docs/dialogue/README.md` say a planner may not hand over a `build` or `build-light` step until intent, spec, agent files and a settled pre-mortem exist. A founder skip is allowed, but it must be written in the plan header. | review |
+| E2 | `CLAUDE.md` and `docs/dialogue/README.md` say a planner may not hand over a `build` or `build-light` step until intent, spec, `AGENTS.md` and a settled pre-mortem exist. A founder skip is allowed, but it must be written in the plan header. | review |
 | E3 | The builder handoff gains `Intent:` and `Spec:` fields. | review |
 | E4 | Lines found outdated on `8d2189c` are corrected, and nothing else changes. | review of the diff |
 

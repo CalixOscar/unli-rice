@@ -47,7 +47,7 @@ of the two didn't plan a feature writes its pre-mortem and post-mortem in
 guardrails for the full pipeline. Antigravity no longer builds plans.
 
 **Nothing is built without its paperwork.** Before handing over any `build` or `build-light`
-step, check that the approved intent, the spec, the agent files (`AGENTS.md`, `CLAUDE.md`) and
+step, check that the approved intent, the spec, the target repo's `AGENTS.md` and
 a settled pre-mortem in `docs/dialogue/<slug>.md` all exist. A new app starts one step earlier,
 with an Idea Clinic brief. The full order is in `AGENTS.md` § "The order, for every app". A
 founder skip is allowed only when the plan header records it. Plans written

@@ -45,7 +45,7 @@ Plan revised to match. Building.
 ## Before a pre-mortem is asked for
 
 The planner checks that the approved intent, the spec (`docs/SPEC-<slug>.md`) and the target
-repo's `AGENTS.md` and `CLAUDE.md` exist, and names them in the request. The reviewer attacks all
+repo's `AGENTS.md` exist, and names them in the request. `CLAUDE.md` is optional. The reviewer attacks all
 three, not only the plan. A missing spec is itself a finding.
 
 **The build waits for `settled`.** No `build` or `build-light` step is handed over while

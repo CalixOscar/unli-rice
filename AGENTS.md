@@ -45,8 +45,10 @@ when it is working in this repo.
 1. **Idea**, for a new app only: an Idea Clinic brief in `docs/idea/IDEA-<slug>.md`.
 2. **Intent**: `docs/intent/INTENT-00N-<slug>.md`, approved by the founder.
 3. **Spec**: `docs/SPEC-<slug>.md`, numbered requirements, each with how it is checked.
-4. **Agent files**: `AGENTS.md` and `CLAUDE.md` at the target repo's root, current for this
-   work. `CLAUDE.md` may be the single line `@AGENTS.md`.
+4. **Agent files**: `AGENTS.md` at the target repo's root, current for this work. Claude Code
+   reads `AGENTS.md` by itself when there is no `CLAUDE.md`. A `CLAUDE.md` is optional, for
+   Claude-only instructions, and it must import (`@AGENTS.md`) or name `AGENTS.md`. Otherwise
+   Claude Code reads only the `CLAUDE.md`.
 5. **Plan**: `docs/PLAN-<slug>.md`, tracing to the intent and the spec ids.
 6. **Pre-mortem through the bridge**: the other planner's turn in `docs/dialogue/<slug>.md`,
    answered, then a `settled` turn.
