@@ -6,6 +6,10 @@
 **Stage:** 2 — plan drafted, waiting for Codex's pre-mortem in `docs/dialogue/studio-redesign.md`.
 No `build` or `build-light` step is handed over until that file says `settled`.
 **Branch:** `claude/studio-redesign`, cut from `main` at `8d2189c` (1.4 (9), in App Review).
+**Who builds (founder, 2026-10-30):** "If the build is happening on Mac Codex has to do it."
+Claude Code on the Mac is out of weekly usage. Codex therefore runs the build on the Mac by the
+procedure in §7. Claude stays the planner: it answers the pre-mortem, settles, and reviews every
+pushed step from a cloud session.
 **Verified against:** `8d2189c` plus this branch's doc commits. No Swift in the cloud container
 that wrote this plan, so every `file:line` below was read, not compiled.
 **Mockup:** claude.ai artifact `JQZD7Bq97CwaX3pFYiemtJ`. It shows four screens: Studio, Garden
@@ -312,3 +316,59 @@ parallel. S5 to S9 are sequential, because S5 changes the files the others build
 4. Orca detection (§2.7): keep it, or move it to a later plan?
 5. Is hand-porting the Idea Clinic tree from JavaScript to Swift, with a hash test, safer than
    shipping `app.js`'s data as a JSON resource that both the website and the app read?
+
+## 7. Build on the Mac, by Codex (only after `settled`)
+
+Codex works in two roles here, and they are kept apart:
+
+- **The driver** is Codex on its best model. It sets up worktrees, hands steps over, runs the
+  verification and pushes. It makes no design calls.
+- **The builders** are `codex -p build` runs (or `build-light` where the step says so). Each one
+  gets the handoff below, filled in from §3's row for its step.
+
+For each step:
+
+1. Create a worktree on a step branch cut from the tip of `claude/studio-redesign`:
+   `codex/studio-<step>`, for example `codex/studio-S1`. S1, S2 and S3 may run at the same time,
+   each in its own worktree (Orca: one workspace each). S5 to S9 run one at a time, each cut
+   from the tip after Claude has merged the step before it.
+2. Hand over the step:
+
+   ```text
+   Role: builder
+   Intent: docs/intent/INTENT-009-studio-redesign.md
+   Spec: docs/SPEC-studio-redesign.md (<spec ids from §3>)
+   Plan: docs/PLAN-studio-redesign.md
+   Step: <id and title from §3>
+   Branch: codex/studio-<step>
+   Files you may change: <files from §3>
+   Changes already in the tree: none
+   Verify with: swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build
+                (app steps also: swift build --disable-sandbox --scratch-path /tmp/unlirice-spm-build --product UnliRiceApp)
+
+   Follow AGENTS.md § "Builder contract".
+   ```
+
+3. **The driver checks before committing:**
+   - the run's `model:` and `reasoning effort:` lines match the `AGENTS.md` table;
+   - `git diff --stat` touches only the step's files;
+   - the verify commands pass when the driver reruns them itself. The builder's pasted output
+     is not evidence.
+4. **The driver commits on the step branch and pushes it.** The message is
+   `S<n>: <title> (unreviewed)`, followed by the test counts. It never merges into
+   `claude/studio-redesign` or `main`.
+5. **The driver writes `docs/BUILD-studio-redesign-S<n>-REPORT.md` on the same branch.** It
+   records:
+   - the files changed;
+   - the commands run and their pass/fail counts;
+   - the model lines;
+   - anything a builder stopped on, with `file:line`.
+
+   A builder that stops on an ambiguity ends the step. The driver does not guess: it pushes
+   the report, and Claude decides.
+6. **Claude reviews the pushed branch.** It either merges it into `claude/studio-redesign`, or
+   leaves review notes in the report file for a retry. Builders keep their circuit breaker:
+   two failed attempts, or one on data integrity or architecture, and the step stops.
+
+S10 (the QA walk) needs eyes on the running app. The founder or Codex does it on the Mac, using
+§4's checklist. Claude reviews the results. S11 and S12 are Claude's.
