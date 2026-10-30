@@ -54,8 +54,8 @@ struct ContentView: View {
             } else {
                 VStack(spacing: 0) {
                     corpusBanner
-                    HStack(spacing: 0) {
-                        sidebar
+                    VStack(spacing: 0) {
+                        StudioToolbar()
                         Divider().opacity(0.3)
                         mainColumn
                     }
@@ -105,171 +105,13 @@ struct ContentView: View {
         }
     }
 
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("UNLI RICE")
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Theme.textPrimary)
-                Text("Guardrails and grounding")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.textSecondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-            .padding(.bottom, 18)
-
-            // Rows and the Capture card fit above Setup at the 600pt minimum height
-            // only while few extras are on. When they don't fit, the same rows scroll
-            // rather than pushing the window's content up.
-            ViewThatFits(in: .vertical) {
-                VStack(alignment: .leading, spacing: 4) {
-                    sidebarRows
-                    Spacer(minLength: 0)
-                    sidebarCapture
-                }
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        sidebarRows
-                        sidebarCapture
-                    }
-                }
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
-
-            sidebarRow("Setup", active: store.pane == .setup) {
-                store.selectNote(nil)
-                store.showSetup()
-            }
-            .padding(.bottom, 10)
-        }
-        .frame(width: 190, alignment: .topLeading)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .liquidGlass(cornerRadius: 0)
-    }
-
-    @ViewBuilder
-    private var sidebarRows: some View {
-        sidebarHeading("GROUNDING")
-
-        sidebarRow("Home", active: store.pane == .home) {
-            store.selectNote(nil)
-            store.showHome()
-        }
-
-        sidebarRow("Notes", active: store.pane == .notes) {
-            store.selectNote(nil)
-            store.showAllNotes()
-        }
-
-        sidebarRow("The folder your AI can read", active: store.pane == .aiFolder) {
-            store.selectNote(nil)
-            store.showAIFolder()
-        }
-
-        sidebarHeading("GUARDRAILS")
-
-        sidebarRow("What your AI should always do", active: store.pane == .houseRules) {
-            store.selectNote(nil)
-            store.showHouseRules()
-        }
-
-        let needsYouBadge = store.pending.count + store.unreadNoticeCount
-        sidebarRow(
-            "Needs you",
-            active: store.selectedNoteID == nil && (store.pane == .needsYou || store.pane == .notices),
-            badge: needsYouBadge
-        ) {
-            store.selectNote(nil)
-            store.showNeedsYou()
-        }
-
-        sidebarRow("Trust Center", active: store.pane == .trustCenter) {
-            store.selectNote(nil)
-            store.showTrustCenter()
-        }
-
-        sidebarRow("Archived notes", active: store.pane == .archived) {
-            store.selectNote(nil)
-            store.showArchived()
-        }
-
-        if store.isOn(.projects) || store.isOn(.todo) || store.isOn(.map) || store.isOn(.yearSoFar) {
-            sidebarHeading("EXTRAS")
-
-            if store.isOn(.projects) {
-                sidebarRow("Projects", active: store.pane == .projects || store.pane == .repos) {
-                    store.selectNote(nil)
-                    store.showGarden()
-                }
-            }
-
-            if store.isOn(.todo) {
-                sidebarRow("To do", active: store.pane == .todo) {
-                    store.selectNote(nil)
-                    store.showTodo()
-                }
-            }
-
-            if store.isOn(.map) {
-                sidebarRow("Map", active: store.pane == .map) {
-                    store.selectNote(nil)
-                    store.showGraph()
-                }
-            }
-
-            if store.isOn(.yearSoFar) {
-                sidebarRow("Your year so far", active: store.pane == .retrospective) {
-                    store.selectNote(nil)
-                    store.showRetrospective()
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var sidebarCapture: some View {
-        if store.isOn(.capturePromo) {
-            CapturePromoCard()
-        }
-    }
-
-    private func sidebarHeading(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundStyle(Theme.textSecondary)
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 2)
-            .accessibilityAddTraits(.isHeader)
-    }
-
-    private func sidebarRow(_ title: String, active: Bool = false, badge: Int? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(title).font(.system(size: 12.5))
-                Spacer()
-                if let badge, badge > 0 {
-                    Text("\(badge)")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.brass)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(active ? Theme.accentSoft : Color.clear)
-            .foregroundStyle(active ? Theme.accentColor : Theme.textSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 10)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel((badge ?? 0) > 0 ? "\(title), \(badge ?? 0) waiting" : title)
-    }
-
     private var mainColumn: some View {
         Group {
             switch store.pane {
+            case .studio:
+                StudioView()
+            case .guardrailsGrounding:
+                GuardrailsGroundingView()
             case .firstRun:
                 FirstRunView()
             case .map:
