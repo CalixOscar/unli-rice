@@ -286,6 +286,13 @@ and `@ViewBuilder content`.
     is a private `Equatable` struct in this file.
   - `.task(id: store.studioFrontSleeve?.id) { await store.refreshStudioGate() }`.
 
+**Layout correction (settled after the S5 driver's finding, 2026-10-30).**
+- The `GeometryReader` is the outermost container below the top strip, and it only reads the
+  width. Inside it goes `ScrollView(.vertical) { deckLayout(width:).padding(24) }`.
+- Rows use `alignment: .top`, and each deck has `.frame(maxWidth: .infinity, alignment: .top)`.
+- No container gets a fixed or computed height. The only fixed heights are the 320-pt graph and
+  the 180-pt ring.
+
 **`Studio/GardenCrateView.swift`** (new, a placeholder until S6): `struct GardenCrateView: View {
 let compact: Bool }`. Its body shows the number of sleeves ("N projects") and
 `store.studioFrontSleeve?.name`. It also handles two states: `.failed(m)` shows m, and an empty
