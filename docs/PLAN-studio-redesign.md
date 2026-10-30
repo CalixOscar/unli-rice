@@ -6,11 +6,10 @@
 **Planner:** claude. **Reviewer:** codex.
 **Stage:** 3 — settled 2026-10-30 after Codex's pre-mortem (`docs/dialogue/studio-redesign.md`,
 14 findings, all accepted). The S1 and S2 stop reports were settled in §2.6 and §2.8 the same day.
-Phase A is being built: **S1, S2, S4, S5 and S6 are merged** into `claude/studio-redesign` (515 tests,
-0 failed, 2 skipped; Xcode Debug build succeeded, verified independently 2026-10-30). S7 is next,
-settled in §2.7a.
-The stage number stays 3 until Phase A (S1–S7) is fully built, per `BuildGate`'s own Build-light
-rule in §2.6. Phase B (Idea Clinic) is blocked, see §6.
+Phase A's code is built: **S1, S2, S4, S5, S6 and S7 are merged** into `claude/studio-redesign`
+(515 tests, 0 failed, 2 skipped; Xcode Debug build succeeded, verified by Claude at `35bd656`,
+2026-10-30). S8 (the QA walk with the founder) is next. The stage number stays 3 until S8–S10
+are done, because a number of 5 or more turns `BuildGate`'s Build light on (§2.6). Phase B (Idea Clinic) is blocked, see §6.
 **Branch:** `claude/studio-redesign`, cut from `main` at `8d2189c` (1.4 (9), in App Review).
 **Who builds (founder, 2026-10-30):** "I am tired of copy pasting." Claude Code on the Mac is now
 **planner and build driver** together, per `docs/BUILD-studio-redesign-HANDOFF.md`; Codex is used
