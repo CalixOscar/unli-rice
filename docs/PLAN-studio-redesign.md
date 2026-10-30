@@ -283,6 +283,27 @@ public enum BuildGate {
   `"<n> other open plans: <slugs>"`, and a `CLAUDE.md` without an `@AGENTS.md` line, as the
   draft reason. Issues never change a light; they only explain it.
 
+**Reading header lines** (settled 2026-10-30 after the S1c stop report). These rules apply to
+every `**Name:**` line the gate reads: in plans, intents, specs and dialogue files.
+
+- **Finding the line.** Use the first line among the file's first 40 that starts exactly with
+  `**Name:**`. Its value is the rest of that line, trimmed. Continuation lines are ignored.
+- **Pulling out a path.** Take the first match of `docs/[A-Za-z0-9._/-]+\.md` in the value.
+  This works with or without backticks and ignores any text around the path. For example,
+  `` `docs/intent/INTENT-009-studio-redesign.md` (approved …) `` gives
+  `docs/intent/INTENT-009-studio-redesign.md`. Paths resolve against the repo root, and two
+  paths are compared as these extracted strings.
+- **An Intent or Spec line with no path:**
+  - If the lowercased value starts with `none` or `no `, the light is
+    `notRequired(<value, first 80 chars>)`. Older plans say "none. This comes from …".
+  - Otherwise the light is `unknown("no path on the <Name> line")`.
+  - A missing `**Spec:**` line is still `notRequired("older plan")`.
+- **Status.** The lowercased value starts with `approved`.
+- **Planner and Reviewer.** The value's first word, lowercased, with trailing punctuation
+  removed.
+- **Code fences.** A line whose trimmed text starts with three backticks toggles "inside a
+  fence". Turn headings and header lines inside a fence are ignored.
+
 **"After" means later in the file** (settled 2026-10-30 after the S1b stop report). Turns are
 ordered by their line number in the dialogue file. Dates are display text and never decide
 order, because several turns often share one date. A reviewer rebuttal on a later line than the
@@ -383,7 +404,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 
 | Step | Label | What | Files (exact; anything else is a stop) | Spec | Verify |
 |---|---|---|---|---|---|
-| S1 | build | `BuildGate` exactly as §2.6, with tests: `testFeatureBindingIgnoresOtherFeaturesFiles`, `testTwoOpenPlansPicksNewestButListsBoth`, `testCopiedTimestampDoesNotChangeEvidence`, `testDraftSpecIsDraft`, `testSpecNamingOtherIntentIsUnknown`, `testLegacyPlanSpecNotRequired`, `testSettledByWrongAuthorIsNotDone`, `testSettledBeforeLastPremortemIsNotDone`, `testHeadingInsideCodeFenceIgnored`, `testSameToolBothRolesUnknown`, `testPremortemSkipRecorded`, `testIdeaNotRecordedByDefault`, `testIdeaNotRequiredLine`, `testClaudeMdWithoutImportIsDraft`, `testUnreadableFolderIsUnknownNotMissing`, `testOversizeFileUnknown`, `testDocsOver500EntriesUnknown`, `testSymlinkOutsideFolderUnknown`, `testReadsNothingOutsideDocsAndRoot`, `testUnknownAuthorAddsIssue`, `testNoPlanGivesNotRecorded`, `testStageNumberDecidesBuild`, `testNotBuiltWordingIsNotDone`, `testSameDayRebuttalAfterSettledIsDraft`, `testSameDayPostmortemAfterSettledIsDone`, `testTurnOrderIgnoresDates` | `Sources/UnliRiceCore/BuildGate.swift` (new), `Tests/UnliRiceCoreTests/BuildGateTests.swift` (new). Fixtures are built in a temp directory inside the tests; there are no fixture files | C1–C9 | Tests |
+| S1 | build | `BuildGate` exactly as §2.6, with tests: `testFeatureBindingIgnoresOtherFeaturesFiles`, `testTwoOpenPlansPicksNewestButListsBoth`, `testCopiedTimestampDoesNotChangeEvidence`, `testDraftSpecIsDraft`, `testSpecNamingOtherIntentIsUnknown`, `testLegacyPlanSpecNotRequired`, `testSettledByWrongAuthorIsNotDone`, `testSettledBeforeLastPremortemIsNotDone`, `testHeadingInsideCodeFenceIgnored`, `testSameToolBothRolesUnknown`, `testPremortemSkipRecorded`, `testIdeaNotRecordedByDefault`, `testIdeaNotRequiredLine`, `testClaudeMdWithoutImportIsDraft`, `testUnreadableFolderIsUnknownNotMissing`, `testOversizeFileUnknown`, `testDocsOver500EntriesUnknown`, `testSymlinkOutsideFolderUnknown`, `testReadsNothingOutsideDocsAndRoot`, `testUnknownAuthorAddsIssue`, `testNoPlanGivesNotRecorded`, `testStageNumberDecidesBuild`, `testNotBuiltWordingIsNotDone`, `testSameDayRebuttalAfterSettledIsDraft`, `testSameDayPostmortemAfterSettledIsDone`, `testTurnOrderIgnoresDates`, `testBacktickedPathWithTrailingTextResolves`, `testBarePathResolves`, `testIntentNoneIsNotRequired`, `testIntentLineWithoutPathIsUnknown`, `testHeaderSearchStopsAt40Lines`, `testRealHeaderFormatsFromThisRepo` (fixtures copy verbatim the header lines of this repo's `PLAN-studio-redesign.md` with `SPEC-studio-redesign.md` and `INTENT-009`'s Status line; `PLAN-four-jobs.md` with `INTENT-006`'s Status line; `PLAN-bridge-hardening.md`; and `PLAN-cleanup-menu-toast.md`. Expected, in that order: Intent done, Spec done, Build missing, open; Intent done, Spec notRequired, Build done, not open; Intent notRequired; no stage number, so not open and Build unknown) | `Sources/UnliRiceCore/BuildGate.swift` (new), `Tests/UnliRiceCoreTests/BuildGateTests.swift` (new). Fixtures are built in a temp directory inside the tests; there are no fixture files | C1–C9 | Tests |
 | S2 | build | `GardenCrate` as §2.5, and `StudioPalette` as §2.8, with tests: `testIssuesMeanCantRead`, `testAttentionMeansNeedsYou`, `testNoStatusNoRepoIsNoStatus`, `testRepoWithoutMemoryIsFine`, `testOrderNewestFirstNilLastByName`, `testSubtitleFallbackAndTruncation`, `testStableIndexIsStable`, `testAllTextPairsMeetContrast`, `testEveryTokenHasAValidHexInBothModes` | `Sources/UnliRiceCore/GardenCrate.swift` (new), `Sources/UnliRiceCore/StudioPalette.swift` (new), `Tests/UnliRiceCoreTests/GardenCrateTests.swift` (new), `Tests/UnliRiceCoreTests/StudioPaletteTests.swift` (new) | B1, B2, A6 | Tests; the existing `ProjectGardenTests` (23) still pass |
 | S3 | planner | Review S1 and S2 (on separate branches), merge both into `claude/studio-redesign`, and record the test counts | — | — | Rerun the tests at the merge |
 | S4 | build | Navigation shell as §2.3. Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/Extras.swift`, `Sources/UnliRice/SetupView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |

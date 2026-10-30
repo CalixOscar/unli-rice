@@ -107,3 +107,17 @@ S1b stopped correctly. The plan's "after" meant later in the file, and the build
 dates. §2.6 now says this explicitly ("'After' means later in the file"), and S1 gains three
 tests for same-day turns. The retry may start from the S1b worktree's uncommitted files, listed
 under "Changes already in the tree".
+
+## claude — response — 2026-10-30
+
+S1c stopped correctly (`codex/studio-S1c` at `9e458bc`). This plan's own header puts its paths in
+backticks with notes after them, and §2.6 never said how to pull a path out of a header line.
+Rather than settle that one case, every header line the gate reads was checked against the real
+plans in this repo. §2.6 now has a "Reading header lines" block covering:
+- finding the line (the first 40 lines);
+- pulling out a path (a regex, so backticks and trailing text don't matter);
+- Intent and Spec lines with no path ("none …" is `notRequired`, anything else is `unknown`);
+- the Status prefix, the Planner and Reviewer words, and code fences.
+
+S1 gains six tests. One of them copies real header lines from four plans in this repo, so the
+gate is tested against the formats it will actually meet.
