@@ -69,6 +69,8 @@ struct GardenCrateView: View {
                 .keyboardShortcut(.leftArrow, modifiers: [])
                 .accessibilityLabel("Previous project")
                 .disabled(front == 0)
+                .buttonStyle(.plain)
+                .padding(8)
                 .liquidGlassCapsule(interactive: true)
             if count <= 20 {
                 HStack(spacing: 6) {
@@ -91,6 +93,8 @@ struct GardenCrateView: View {
                 .keyboardShortcut(.rightArrow, modifiers: [])
                 .accessibilityLabel("Next project")
                 .disabled(front == count - 1)
+                .buttonStyle(.plain)
+                .padding(8)
                 .liquidGlassCapsule(interactive: true)
         }
     }

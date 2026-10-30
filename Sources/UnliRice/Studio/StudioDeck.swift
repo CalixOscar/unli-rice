@@ -32,6 +32,8 @@ struct StudioDeck<Content: View>: View {
                 }
                 .accessibilityLabel("Open \(title)")
                 .keyboardShortcut(shortcut, modifiers: [])
+                .buttonStyle(.plain)
+                .padding(8)
                 .liquidGlassCapsule(interactive: true)
             }
             content

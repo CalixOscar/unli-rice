@@ -14,6 +14,9 @@ struct StudioToolbar: View {
                     Label("All decks", systemImage: "chevron.left")
                 }
                 .keyboardShortcut(.cancelAction)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .liquidGlassCapsule(interactive: true)
                 .frame(width: 110, alignment: .leading)
             } else {
@@ -98,7 +101,12 @@ struct StudioToolbar: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        // A borderless Menu fills the width it's offered; pin it, and give it
+        // the same 110-pt slot as the back button so the tabs stay centred.
+        .fixedSize()
+        .frame(width: 44, height: 44)
         .liquidGlassCapsule(interactive: true)
         .accessibilityLabel("Settings and more")
+        .frame(width: 110, alignment: .trailing)
     }
 }

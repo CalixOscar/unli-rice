@@ -52,6 +52,9 @@ struct SleeveBackView: View {
                     } label: {
                         Label(copied ? "Copied" : "Copy prompt", systemImage: copied ? "checkmark" : "doc.on.doc")
                     }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
                     .liquidGlassCapsule(interactive: true)
                 }
                 Text("Lights show which files exist in this repo.")

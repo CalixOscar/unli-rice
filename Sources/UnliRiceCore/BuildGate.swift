@@ -21,7 +21,7 @@ public enum BuildGate {
         let root = folder.standardizedFileURL, docs = root.appendingPathComponent("docs", isDirectory: true)
         let entries: [URL]
         do { entries = try FileManager.default.contentsOfDirectory(at: docs, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]) }
-        catch CocoaError.fileNoSuchFile { return noPlanResult(folder: root) }
+        catch CocoaError.fileReadNoSuchFile, CocoaError.fileNoSuchFile { return noPlanResult(folder: root) }
         catch { return unknownResult(slug: nil, reason: "could not read docs/") }
         guard entries.count <= 500 else { return unknownResult(slug: nil, reason: "too many files in docs/") }
         let plans = entries.compactMap { url -> (slug: String, date: Date, stage: Int?)? in
