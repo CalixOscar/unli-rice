@@ -72,10 +72,11 @@ final class AppStore: ObservableObject {
     enum Pane: Equatable {
         case home, notes, aiFolder, houseRules, todo, needsYou, notices, trustCenter
         case archived, projects, repos, setup, firstRun, profileBuilder, map
-        case retrospective, whyNotTextFile
+        case retrospective, whyNotTextFile, studio, guardrailsGrounding
     }
 
     @Published var pane: Pane = .notes
+    @Published var lastTab: Pane = .studio
     /// Which tab Setup shows. Every entry into Setup sets it explicitly.
     @Published var setupTab: SetupView.Tab = .connect
     @Published var moreDestination: MoreDestination = .setup
@@ -680,7 +681,7 @@ final class AppStore: ObservableObject {
         if corpusLoaded && !hasUserAuthoredNotes {
             pane = .firstRun
         } else {
-            pane = .home
+            pane = .studio
         }
 
         // After the corpus is loaded and the opening pane is decided, so the note count
@@ -942,7 +943,7 @@ final class AppStore: ObservableObject {
         retrospectivePeriodID = nil
         switch pane {
         case .retrospective, .projects, .repos, .notices, .trustCenter:
-            pane = .notes
+            pane = .studio
         default:
             break
         }
@@ -1202,6 +1203,18 @@ final class AppStore: ObservableObject {
     func showHome() {
         pane = .home
         statusMessage = "Home — What Unli Rice is doing for you right now."
+    }
+
+    func showStudio() {
+        selectNote(nil)
+        pane = .studio
+        lastTab = .studio
+    }
+
+    func showGuardrailsGrounding() {
+        selectNote(nil)
+        pane = .guardrailsGrounding
+        lastTab = .guardrailsGrounding
     }
 
     func showGarden() {
