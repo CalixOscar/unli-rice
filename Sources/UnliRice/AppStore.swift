@@ -77,6 +77,10 @@ final class AppStore: ObservableObject {
 
     @Published var pane: Pane = .notes
     @Published var lastTab: Pane = .studio
+    @Published var studioSleeves: [GardenCrate.Sleeve] = []
+    @Published var studioFrontIndex: Int = 0
+    @Published var studioGardenState: StudioGardenState = .loading
+    @Published var studioFrontGate: BuildGate.Result? = nil
     /// Which tab Setup shows. Every entry into Setup sets it explicitly.
     @Published var setupTab: SetupView.Tab = .connect
     @Published var moreDestination: MoreDestination = .setup

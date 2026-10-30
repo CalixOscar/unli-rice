@@ -7,6 +7,18 @@ struct StudioToolbar: View {
 
     var body: some View {
         HStack {
+            if store.pane != .studio && store.pane != .guardrailsGrounding && store.pane != .firstRun && store.selectedNoteID == nil {
+                Button {
+                    store.lastTab == .studio ? store.showStudio() : store.showGuardrailsGrounding()
+                } label: {
+                    Label("All decks", systemImage: "chevron.left")
+                }
+                .keyboardShortcut(.cancelAction)
+                .liquidGlassCapsule(interactive: true)
+                .frame(width: 110, alignment: .leading)
+            } else {
+                Color.clear.frame(width: 110)
+            }
             Spacer()
             tabs
             Spacer()
