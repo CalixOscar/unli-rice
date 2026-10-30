@@ -5,7 +5,8 @@
 **Idea:** not needed — Unli Rice has existed since 2026-07; this is a redesign, not a new app
 **Planner:** claude. **Reviewer:** codex.
 **Stage:** 3 — settled 2026-10-30 after Codex's pre-mortem (`docs/dialogue/studio-redesign.md`,
-14 findings, all accepted). Phase A may be built. Phase B (Idea Clinic) is blocked, see §6.
+14 findings, all accepted). The S1 and S2 stop reports were settled in §2.6 and §2.8 the same day.
+Phase A may be built. Phase B (Idea Clinic) is blocked, see §6.
 **Branch:** `claude/studio-redesign`, cut from `main` at `8d2189c` (1.4 (9), in App Review).
 **Who builds (founder, 2026-10-30):** "If the build is happening on Mac Codex has to do it."
 Claude Code on the Mac is out of weekly usage. Codex drives the build on the Mac by §7. Claude
@@ -146,7 +147,7 @@ public enum GardenCrate {
     public struct Sleeve: Identifiable, Equatable, Sendable {
         public let id: String          // Project.id
         public let name: String
-        public let subtitle: String    // nextStep ?? status ?? "No notes yet", first line, ≤ 60 chars
+        public let subtitle: String    // nextStep ?? status ?? "No notes yet"; first line only; over 60 chars → first 59 + "…"
         public let state: State
         public let lastActivity: Date?
         public let folderURL: URL?
@@ -154,7 +155,7 @@ public enum GardenCrate {
     }
     public static func state(of project: ProjectGarden.Project) -> State
     public static func sleeves(from report: ProjectGarden.Report) -> [Sleeve]
-    public static func stableIndex(_ id: String, modulo: Int) -> Int   // FNV-1a over UTF-8
+    public static func stableIndex(_ id: String, modulo: Int) -> Int   // 32-bit FNV-1a over UTF-8 (basis 2166136261, prime 16777619), then % modulo
 }
 ```
 
@@ -214,14 +215,15 @@ public enum BuildGate {
         case draft(String)          // exists, not yet approved/settled; reason shown
         case skipped(String)        // founder skip recorded in the plan header; quote shown
         case notRequired(String)    // e.g. "older plan", "not a new app"
-        case notRecorded            // nothing says either way (Idea only)
+        case notRecorded            // nothing names evidence for this stage (see below)
         case missing                // folder read fine, file absent
         case unknown(String)        // could not read / too large / ambiguous
     }
     public struct Result: Equatable, Sendable {
         public let slug: String?
         public let openPlans: [String]   // slugs of plans not yet built, sorted
-        public let lights: [Stage: Light]
+        public let lights: [Stage: Light]   // always holds all seven stages
+        public let issues: [String]          // non-fatal notes, in the order found; shown under the tracklist
     }
     public static func read(folder: URL, slug: String) -> Result
     public static func current(folder: URL) -> Result
@@ -231,13 +233,19 @@ public enum BuildGate {
 **Picking the feature (`current`).**
 - List `docs/` at depth 1 only, with at most 500 entries. Over 500 gives every light
   `unknown("too many files in docs/")`.
-- Collect the `PLAN-<slug>.md` files. A plan is **open** unless its `**Stage:**` line contains
-  "built", "closed" or "post-mortem".
+- Collect the `PLAN-<slug>.md` files. **Stage number:** the integer immediately after
+  `**Stage:** ` on the plan's first `**Stage:**` line (regex `^\*\*Stage:\*\* (\d+)`).
+  A plan is **open** when that number is 4 or lower. A plan with no number is an older plan and
+  is never open.
 - Exactly one open plan → that slug. Several → the one with the newest modification date. The
   others are listed in `openPlans` and on the sleeve back.
 - **Modification dates only choose which feature to show.** They never decide which files count
   as evidence.
 - No plans: `slug = nil`. Agents is still read, and every other light is `notRecorded`.
+- **`notRecorded` means nothing names evidence for this stage.** It is used in exactly two
+  cases: Idea when the plan has no `IDEA-<slug>.md` and no `**Idea:**` line, and every stage
+  except Agents when the folder has no plan at all. It is drawn as a dashed grey ring with the
+  word "Not recorded". (Settled 2026-10-30 after the S1 stop report.)
 
 **Reading one feature (`read`).** Every path comes from the plan, never from a search:
 
@@ -248,7 +256,7 @@ public enum BuildGate {
 | Agents | `AGENTS.md` and `CLAUDE.md` at the root | `missing` if there is no `AGENTS.md`. With a `CLAUDE.md` that has no line equal to `@AGENTS.md` (after trimming), `draft("CLAUDE.md doesn't import AGENTS.md")`. Otherwise `done` |
 | Idea | `docs/idea/IDEA-<slug>.md`, and the plan's `**Idea:**` line | `done` if the file exists; `notRequired(reason)` for "not needed — reason"; `skipped(quote)` for "skipped — quote"; otherwise `notRecorded` |
 | Pre-mortem | `docs/dialogue/<slug>.md`, and the plan's `**Pre-mortem:**` line | See below |
-| Build | The plan's `**Stage:**` line | `done` if it contains "built" or "post-mortem"; otherwise `missing` |
+| Build | The plan's stage number | `done` if 5 or higher (5 = built, 6 = post-mortem). 4 or lower gives `missing`. No number gives `unknown("plan stage has no number")` |
 | Post-mortem | The dialogue file | `done` if a post-mortem turn **by the reviewer** comes after the planner's `settled` turn; otherwise `missing` |
 
 **Parsing the dialogue file.**
@@ -268,7 +276,12 @@ public enum BuildGate {
   - that settled turn comes after the reviewer's last pre-mortem or rebuttal turn.
 - `draft("waiting for the planner to settle")` if there is a reviewer pre-mortem but no valid
   settled turn.
-- A turn whose author is neither header tool is ignored and adds an issue.
+- A turn whose author is neither header tool is ignored and appends
+  `"dialogue turn by <author> on line <n> ignored: not the planner or reviewer"` to
+  `Result.issues`.
+- **Other things appended to `issues`:** extra open plans, as
+  `"<n> other open plans: <slugs>"`, and a `CLAUDE.md` without an `@AGENTS.md` line, as the
+  draft reason. Issues never change a light; they only explain it.
 
 **Bounds and reading rules.**
 - Each file is read up to 128 KB. A larger file gives that stage
@@ -288,12 +301,73 @@ Two decks, built only from existing data. The destinations are in §2.3.
   non-empty lines of its text. It sits beside three tiles: Need you, Safety checks and
   Archived. A dashed row reads "Did your AI follow the rules? Coming later" (Phase C).
 
-### 2.8 Colour and contrast (core: `StudioPalette`, finding 10)
+### 2.8 Colour and contrast (core: `StudioPalette`, finding 10; settled after the S2 stop report)
 
-`StudioPalette` lists every text-on-surface pair the Studio uses, as sRGB hex for dark and
-light. `contrastRatio(_:_:)` implements the WCAG 2.x relative-luminance formula. A test asserts
-4.5:1 or better for every text pair, and 3:1 for the light and sticker glyphs against their
-surfaces. The app builds its `Color`s from these values.
+```swift
+public enum StudioPalette {
+    public enum Mode: String, CaseIterable, Sendable { case dark, light }
+    public enum Token: String, CaseIterable, Sendable {
+        case background, surface, textPrimary, textSecondary
+        case garden, branches, notes, grounding, guardrails          // deck title and accent
+        case lightDone, lightDraft, lightMissing, lightUnknown       // build-gate light glyphs
+        case stickerFineFill, stickerNeedsYouFill, stickerNoStatusFill, stickerCantReadFill
+        case stickerDarkText, stickerLightText
+        case cover0, cover1, cover2, cover3, cover4, cover5, cover6, cover7, coverText, coverSubtext
+    }
+    public struct Pair: Sendable { public let foreground: Token; public let background: Token; public let minimum: Double }
+    public static func hex(_ token: Token, _ mode: Mode) -> String   // "#RRGGBB", uppercase
+    public static let pairs: [Pair]
+    public static func contrastRatio(_ a: String, _ b: String) -> Double   // WCAG 2.x
+}
+```
+
+**Values.** Where a row has one value, it is the same in both modes. These ratios were computed
+2026-10-30, and the test recomputes them.
+
+| Token | Dark | Light |
+|---|---|---|
+| background | `#0E0F12` | `#F5F5F7` |
+| surface | `#15171C` | `#FFFFFF` |
+| textPrimary | `#F2F3F5` | `#1D1D1F` |
+| textSecondary | `#9AA0AB` | `#5E636E` |
+| garden | `#3DDC97` | `#0B7A4B` |
+| branches | `#5AA9FF` | `#1F5FBF` |
+| notes | `#FFB547` | `#8F5300` |
+| grounding | `#6FD3D9` | `#0B6B70` |
+| guardrails | `#FF8A6B` | `#B23C1C` |
+| lightDone | `#3DDC97` | `#14915C` |
+| lightDraft | `#FFB547` | `#B86E00` |
+| lightMissing | `#8A909B` | `#7A808B` |
+| lightUnknown | `#6B707A` | `#878C96` |
+| stickerFineFill | `#3DDC97` | |
+| stickerNeedsYouFill | `#FFB547` | |
+| stickerNoStatusFill | `#C9D3E0` | |
+| stickerCantReadFill | `#4A4F59` | |
+| stickerDarkText | `#0E0F12` | |
+| stickerLightText | `#F2F3F5` | |
+| cover0 to cover7 | `#1F3B2E`, `#3A2A14`, `#1C2A3D`, `#3A1F2B`, `#2E2414`, `#26272D`, `#1E3336`, `#2B2B2E` | |
+| coverText | `#F2F3F5` | |
+| coverSubtext | `#C9CDD4` | |
+
+Sleeve covers and stickers are the same in both modes, because a sleeve is artwork, not chrome.
+
+**`pairs`, checked in both modes:**
+- **4.5:1:**
+  - `textPrimary`, `textSecondary` and the five deck accents, each on `background` and on
+    `surface`;
+  - `stickerDarkText` on the Fine, Needs you and No-status fills;
+  - `stickerLightText` on `stickerCantReadFill`;
+  - `coverText` and `coverSubtext` on each of `cover0` to `cover7`.
+- **3:1:** the four light glyphs on `surface`.
+
+**The test.** `testAllTextPairsMeetContrast` iterates `pairs` × `Mode.allCases`, and
+`testEveryTokenHasAValidHexInBothModes` checks the hex values. The ratios computed on
+2026-10-30:
+- lowest text pair: light `garden` on `background`, 4.95;
+- lowest glyph: light `lightUnknown` on `surface`, 3.38.
+
+**Use.** The app builds its `Color`s from these values in S5–S7. `GardenCrate.Sleeve.coverIndex`
+selects `cover<n>`.
 
 ## 3. Phase A steps
 
@@ -303,8 +377,8 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 
 | Step | Label | What | Files (exact; anything else is a stop) | Spec | Verify |
 |---|---|---|---|---|---|
-| S1 | build | `BuildGate` exactly as §2.6, with tests: `testFeatureBindingIgnoresOtherFeaturesFiles`, `testTwoOpenPlansPicksNewestButListsBoth`, `testCopiedTimestampDoesNotChangeEvidence`, `testDraftSpecIsDraft`, `testSpecNamingOtherIntentIsUnknown`, `testLegacyPlanSpecNotRequired`, `testSettledByWrongAuthorIsNotDone`, `testSettledBeforeLastPremortemIsNotDone`, `testHeadingInsideCodeFenceIgnored`, `testSameToolBothRolesUnknown`, `testPremortemSkipRecorded`, `testIdeaNotRecordedByDefault`, `testIdeaNotRequiredLine`, `testClaudeMdWithoutImportIsDraft`, `testUnreadableFolderIsUnknownNotMissing`, `testOversizeFileUnknown`, `testDocsOver500EntriesUnknown`, `testSymlinkOutsideFolderUnknown`, `testReadsNothingOutsideDocsAndRoot` | `Sources/UnliRiceCore/BuildGate.swift` (new), `Tests/UnliRiceCoreTests/BuildGateTests.swift` (new). Fixtures are built in a temp directory inside the tests; there are no fixture files | C1–C9 | Tests |
-| S2 | build | `GardenCrate` as §2.5, and `StudioPalette` as §2.8, with tests: `testIssuesMeanCantRead`, `testAttentionMeansNeedsYou`, `testNoStatusNoRepoIsNoStatus`, `testRepoWithoutMemoryIsFine`, `testOrderNewestFirstNilLastByName`, `testSubtitleFallbackAndTruncation`, `testStableIndexIsStable`, `testAllTextPairsMeetContrast` | `Sources/UnliRiceCore/GardenCrate.swift` (new), `Sources/UnliRiceCore/StudioPalette.swift` (new), `Tests/UnliRiceCoreTests/GardenCrateTests.swift` (new), `Tests/UnliRiceCoreTests/StudioPaletteTests.swift` (new) | B1, B2, A6 | Tests; the existing `ProjectGardenTests` (23) still pass |
+| S1 | build | `BuildGate` exactly as §2.6, with tests: `testFeatureBindingIgnoresOtherFeaturesFiles`, `testTwoOpenPlansPicksNewestButListsBoth`, `testCopiedTimestampDoesNotChangeEvidence`, `testDraftSpecIsDraft`, `testSpecNamingOtherIntentIsUnknown`, `testLegacyPlanSpecNotRequired`, `testSettledByWrongAuthorIsNotDone`, `testSettledBeforeLastPremortemIsNotDone`, `testHeadingInsideCodeFenceIgnored`, `testSameToolBothRolesUnknown`, `testPremortemSkipRecorded`, `testIdeaNotRecordedByDefault`, `testIdeaNotRequiredLine`, `testClaudeMdWithoutImportIsDraft`, `testUnreadableFolderIsUnknownNotMissing`, `testOversizeFileUnknown`, `testDocsOver500EntriesUnknown`, `testSymlinkOutsideFolderUnknown`, `testReadsNothingOutsideDocsAndRoot`, `testUnknownAuthorAddsIssue`, `testNoPlanGivesNotRecorded`, `testStageNumberDecidesBuild`, `testNotBuiltWordingIsNotDone` | `Sources/UnliRiceCore/BuildGate.swift` (new), `Tests/UnliRiceCoreTests/BuildGateTests.swift` (new). Fixtures are built in a temp directory inside the tests; there are no fixture files | C1–C9 | Tests |
+| S2 | build | `GardenCrate` as §2.5, and `StudioPalette` as §2.8, with tests: `testIssuesMeanCantRead`, `testAttentionMeansNeedsYou`, `testNoStatusNoRepoIsNoStatus`, `testRepoWithoutMemoryIsFine`, `testOrderNewestFirstNilLastByName`, `testSubtitleFallbackAndTruncation`, `testStableIndexIsStable`, `testAllTextPairsMeetContrast`, `testEveryTokenHasAValidHexInBothModes` | `Sources/UnliRiceCore/GardenCrate.swift` (new), `Sources/UnliRiceCore/StudioPalette.swift` (new), `Tests/UnliRiceCoreTests/GardenCrateTests.swift` (new), `Tests/UnliRiceCoreTests/StudioPaletteTests.swift` (new) | B1, B2, A6 | Tests; the existing `ProjectGardenTests` (23) still pass |
 | S3 | planner | Review S1 and S2 (on separate branches), merge both into `claude/studio-redesign`, and record the test counts | — | — | Rerun the tests at the merge |
 | S4 | build | Navigation shell as §2.3. Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/Extras.swift`, `Sources/UnliRice/SetupView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |
 | S5 | build | The Studio tab as §2.4. Replace the `StudioView` placeholder. Add the Notes and Branches decks. Extract `RepoSnapshotLoader` from `RepoPaneView` with no behaviour change. Add the top strip, the 1080 pt layout switch and the deck expand buttons routing to `.projects`, `.repos` and `.notes`. The Garden deck slot shows `GardenCrateView(compact: true)` from S6, so S5 uses a placeholder `GardenCrateView` in `Studio/GardenCrateView.swift` | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift` (new), `Sources/UnliRice/Studio/BranchesDeck.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift` (new, placeholder), `Sources/UnliRice/RepoSnapshotLoader.swift` (new), `Sources/UnliRice/RepoPaneView.swift` | A2, A3, A7, A8, B4–B7 | App build; Xcode build |
