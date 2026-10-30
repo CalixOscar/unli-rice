@@ -2620,3 +2620,21 @@ Submission (never submitted; 1.2 is live), so the draft was renamed to 1.4 and i
 also covers 1.3's To Do widget. Release options (manual/automatic, phased) were left as they
 were. The founder dragged the screenshots in; App Store Connect stored them out of order and
 they were reordered 01–07 before submitting.
+
+## The build gate, and a Studio redesign drafted (2026-10-30)
+
+**Decision (founder, 2026-10-30):** "Whenever an app is built there is intent, spec and agent
+markdowns before building, as well as a pre-mortem sent back and forth through the bridges."
+The pipeline gained a **spec** stage (`docs/SPEC-<slug>.md`, numbered requirements with how each
+is checked) and an explicit gate: no `build` or `build-light` step is handed over until the
+approved intent, the spec, `AGENTS.md`/`CLAUDE.md` and a `settled` pre-mortem exist. A new app
+starts one step earlier with an Idea Clinic brief. A founder skip stays allowed but must be in
+the plan header. The order is in `AGENTS.md` § "The order, for every app"; the builder handoff
+now carries `Intent:` and `Spec:`. The reason is on record above: three pre-mortems were skipped
+(shipped-guardrails, AI to-dos, the widget) with nothing showing it at the time.
+
+**Drafted, not approved:** `docs/intent/INTENT-009-studio-redesign.md` and its spec. The founder
+asked for a look like djay Pro: a few big, understandable pictures, namely the Garden, the
+branches and the notes. It puts Garden and Branches on the main stage a day after INTENT-007 made
+Projects an off-by-default Extra; open question 1 asks the founder to settle that. Done in a cloud
+container with no Swift and no vault: nothing was built or run.
