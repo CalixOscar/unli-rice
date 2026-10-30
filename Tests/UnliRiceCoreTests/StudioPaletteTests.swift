@@ -8,7 +8,7 @@ final class StudioPaletteTests: XCTestCase {
                 XCTAssertGreaterThanOrEqual(
                     StudioPalette.contrastRatio(StudioPalette.hex(pair.foreground, mode), StudioPalette.hex(pair.background, mode)),
                     pair.minimum,
-                    "(pair.foreground.rawValue) on (pair.background.rawValue) in (mode.rawValue)"
+                    "\(pair.foreground.rawValue) on \(pair.background.rawValue) in \(mode.rawValue)"
                 )
             }
         }
