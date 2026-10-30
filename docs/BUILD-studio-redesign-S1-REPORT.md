@@ -1,0 +1,13 @@
+# S1d build report — stopped; do not merge
+
+Base: `5d546c3`; branch `codex/studio-S1d`. Ground check confirmed the Reading header lines block, file-order rule and six new tests in §3. The two untracked S1c files were copied as requested.
+
+Builder model: `gpt-reserve`; reasoning effort: `medium` (matches AGENTS.md). The builder was interrupted after review found remaining core gate contract violations; the driver made no fixes.
+
+Stops in `Sources/UnliRiceCore/BuildGate.swift`: line 101 splits away blank lines before limiting to 40, and overwrites a previous value instead of retaining the first matching header. Line 106 reads dialogue headers throughout the file rather than the first 40 physical lines. Line 113 similarly searches stage headers outside the bounded header block and without fence filtering. These disagree with §2.6's explicit rules.
+
+Test defects: `Tests/UnliRiceCoreTests/BuildGateTests.swift:131` expects missing for a no-path Intent line where the plan requires unknown. The real-format fixture at lines 160–164 checks four-jobs through read but does not assert its required not-open result. Those defects must be corrected by an authorized builder after planner review, not waived.
+
+Independent driver command: `swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-build`: exit 1; 512 executed, 2 skipped, 2 failed assertions across 2 failed tests (508 passed). Failures: testHeaderSearchStopsAt40Lines and testIntentLineWithoutPathIsUnknown. The builder's earlier full-suite command also failed; its exact counts were not retained here. Driver log: `/tmp/unlirice-studio-s1d-driver.log`.
+
+Committed files: this report only. The two implementation/test files remain untracked in the S1d worktree for inspection. No implementation is approved or committed. A new source file requires xcodegen generate before an Xcode build; none was run.
