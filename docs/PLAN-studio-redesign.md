@@ -117,6 +117,66 @@ repo."
 - **"Back to"** is `AppStore.lastTab: Pane`, either `.studio` or `.guardrailsGrounding`. It is
   set whenever a tab is shown, and the back button calls `show(lastTab)`.
 
+### 2.3a S4 exact changes (settled before handoff, 2026-10-30)
+
+**`AppStore.swift`:**
+- `Pane` gains `case studio, guardrailsGrounding`.
+- Add `@Published var lastTab: Pane = .studio`.
+- Add `func showStudio() { selectNote(nil); pane = .studio; lastTab = .studio }`.
+- Add `func showGuardrailsGrounding() { selectNote(nil); pane = .guardrailsGrounding; lastTab = .guardrailsGrounding }`.
+- **Launch** (`:679-684`): the `else` branch sets `pane = .studio`, where it was `.home`.
+  `.firstRun` is unchanged.
+- **Switching notes folders** (`:943-947`): the `case .retrospective, .projects, .repos,
+  .notices, .trustCenter:` branch sets `pane = .studio`, where it was `.notes`.
+- No other `pane =` line changes.
+
+**`ContentView.swift`:**
+- In `body`, replace `HStack(spacing: 0) { sidebar; Divider().opacity(0.3); mainColumn }` with
+  `VStack(spacing: 0) { StudioToolbar(); Divider().opacity(0.3); mainColumn }`.
+- Delete `sidebar`, `sidebarRows`, `sidebarCapture`, `sidebarHeading` and `sidebarRow`
+  (`:108-268`).
+- In `mainColumn`, add `case .studio: StudioView()` and
+  `case .guardrailsGrounding: GuardrailsGroundingView()`.
+- `CapturePromoCard` stays in its file, unused. It is not deleted in this step.
+
+**`AutomationView.swift:160`:** iterate `Extra.allCases.filter { $0 != .projects }`.
+`Extras.swift` is unchanged.
+
+**`Studio/StudioToolbar.swift`** (new):
+- `struct StudioToolbar: View`, holding `@EnvironmentObject var store: AppStore` and
+  `@State private var showingCapture = false`.
+- Layout: `HStack { Spacer(); tabs; Spacer(); gear }`, height 52, horizontal padding 16,
+  background `Theme.bgMain`.
+- **Tabs:** two `Button`s, "Studio" and "Guardrails & Grounding", in an `HStack(spacing: 4)`
+  with 4 pt padding and `.liquidGlassCapsule()`.
+  - Their actions are `store.showStudio()` and `store.showGuardrailsGrounding()`.
+  - The selected tab is the one equal to `store.lastTab`. It gets a
+    `Capsule().fill(Theme.accentSoft)` background, `Theme.textPrimary` text and
+    `.accessibilityAddTraits(.isSelected)`. The other uses `Theme.textSecondary`.
+  - Font: `.system(size: 13, weight: .semibold)`. Padding: 16 horizontal, 7 vertical. Style:
+    `.buttonStyle(.plain)`.
+  - Shortcuts: `.keyboardShortcut("1", modifiers: .command)` and `"2"`.
+- **Gear:** `Menu`, in this order:
+  - "Setup" calls `store.selectNote(nil); store.showSetup()`.
+  - "Trust Center" calls `store.showTrustCenter()`.
+  - "Archived notes" calls `store.showArchived()`.
+  - A `Divider()`.
+  - "To do" calls `store.showTodo()`, "Map" calls `store.showGraph()` and "Your year so far"
+    calls `store.showRetrospective()`. Each appears only when `store.isOn(.todo)`, `.map` or
+    `.yearSoFar` is true.
+  - "iPhone Capture" sets `showingCapture = true`, and appears only when
+    `store.isOn(.capturePromo)` is true.
+  - A `Divider()`.
+  - "Rate Unli Rice" calls `NSWorkspace.shared.open(AppStore.writeReviewURL)`.
+  - Label: `Image(systemName: "gearshape")`, style `.menuStyle(.borderlessButton)`,
+    `.menuIndicator(.hidden)`, frame 44×44 and `.liquidGlassCapsule(interactive: true)`, with
+    `.accessibilityLabel("Settings and more")`.
+- `.sheet(isPresented: $showingCapture) { CapturePromoSheet().environmentObject(store) }`.
+
+**`Studio/StudioView.swift` and `Studio/GuardrailsGroundingView.swift`** (new placeholders):
+`struct StudioView: View { var body: some View { Text("Studio") } }`, and the same for the
+other, with the text "Guardrails & Grounding".
+
 ### 2.4 The Studio tab
 
 - **Layout.** At 1080 pt and wider there are three equal columns. Below that, Garden takes the
@@ -407,7 +467,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S1 | build | `BuildGate` exactly as §2.6, with tests: `testFeatureBindingIgnoresOtherFeaturesFiles`, `testTwoOpenPlansPicksNewestButListsBoth`, `testCopiedTimestampDoesNotChangeEvidence`, `testDraftSpecIsDraft`, `testSpecNamingOtherIntentIsUnknown`, `testLegacyPlanSpecNotRequired`, `testSettledByWrongAuthorIsNotDone`, `testSettledBeforeLastPremortemIsNotDone`, `testHeadingInsideCodeFenceIgnored`, `testSameToolBothRolesUnknown`, `testPremortemSkipRecorded`, `testIdeaNotRecordedByDefault`, `testIdeaNotRequiredLine`, `testClaudeMdWithoutImportIsDraft`, `testUnreadableFolderIsUnknownNotMissing`, `testOversizeFileUnknown`, `testDocsOver500EntriesUnknown`, `testSymlinkOutsideFolderUnknown`, `testReadsNothingOutsideDocsAndRoot`, `testUnknownAuthorAddsIssue`, `testNoPlanGivesNotRecorded`, `testStageNumberDecidesBuild`, `testNotBuiltWordingIsNotDone`, `testSameDayRebuttalAfterSettledIsDraft`, `testSameDayPostmortemAfterSettledIsDone`, `testTurnOrderIgnoresDates`, `testBacktickedPathWithTrailingTextResolves`, `testBarePathResolves`, `testIntentNoneIsNotRequired`, `testIntentLineWithoutPathIsUnknown`, `testHeaderSearchStopsAt40Lines`, `testRealHeaderFormatsFromThisRepo` (fixtures copy verbatim the header lines of this repo's `PLAN-studio-redesign.md` with `SPEC-studio-redesign.md` and `INTENT-009`'s Status line; `PLAN-four-jobs.md` with `INTENT-006`'s Status line; `PLAN-bridge-hardening.md`; and `PLAN-cleanup-menu-toast.md`. Expected, in that order: Intent done, Spec done, Build missing, open; Intent done, Spec notRequired, Build done, not open; Intent notRequired; no stage number, so not open and Build unknown) | `Sources/UnliRiceCore/BuildGate.swift` (new), `Tests/UnliRiceCoreTests/BuildGateTests.swift` (new). Fixtures are built in a temp directory inside the tests; there are no fixture files | C1–C9 | Tests |
 | S2 | build | `GardenCrate` as §2.5, and `StudioPalette` as §2.8, with tests: `testIssuesMeanCantRead`, `testAttentionMeansNeedsYou`, `testNoStatusNoRepoIsNoStatus`, `testRepoWithoutMemoryIsFine`, `testOrderNewestFirstNilLastByName`, `testSubtitleFallbackAndTruncation`, `testStableIndexIsStable`, `testAllTextPairsMeetContrast`, `testEveryTokenHasAValidHexInBothModes` | `Sources/UnliRiceCore/GardenCrate.swift` (new), `Sources/UnliRiceCore/StudioPalette.swift` (new), `Tests/UnliRiceCoreTests/GardenCrateTests.swift` (new), `Tests/UnliRiceCoreTests/StudioPaletteTests.swift` (new) | B1, B2, A6 | Tests; the existing `ProjectGardenTests` (23) still pass |
 | S3 | planner | Review S1 and S2 (on separate branches), merge both into `claude/studio-redesign`, and record the test counts | — | — | Rerun the tests at the merge |
-| S4 | build | Navigation shell as §2.3. Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/Extras.swift`, `Sources/UnliRice/SetupView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |
+| S4 | build | Navigation shell, exactly as §2.3a (§2.3 is the why). Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/AutomationView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |
 | S5 | build | The Studio tab as §2.4. Replace the `StudioView` placeholder. Add the Notes and Branches decks. Extract `RepoSnapshotLoader` from `RepoPaneView` with no behaviour change. Add the top strip, the 1080 pt layout switch and the deck expand buttons routing to `.projects`, `.repos` and `.notes`. The Garden deck slot shows `GardenCrateView(compact: true)` from S6, so S5 uses a placeholder `GardenCrateView` in `Studio/GardenCrateView.swift` | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift` (new), `Sources/UnliRice/Studio/BranchesDeck.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift` (new, placeholder), `Sources/UnliRice/RepoSnapshotLoader.swift` (new), `Sources/UnliRice/RepoPaneView.swift` | A2, A3, A7, A8, B4–B7 | App build; Xcode build |
 | S6 | build | The Garden crate as §2.5. Replace the placeholder. Add `SleeveBackView`, the expanded `.projects` route (the `mainColumn` case changes from `ProjectsPane()` to `GardenExpandedView()`, which holds the List toggle to `ProjectGardenView`), Copy prompt and Reduce Motion | `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift` (new), `Sources/UnliRice/Studio/GardenExpandedView.swift` (new), `Sources/UnliRice/ContentView.swift` (that one case only) | B1–B3, C10, A10 | App build; Xcode build |
 | S7 | build | The Guardrails & Grounding tab as §2.7, replacing the placeholder | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
