@@ -16,6 +16,9 @@ struct GardenExpandedView: View {
                 Button { Task { await store.refreshStudioGarden() } } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .liquidGlassCapsule(interactive: true)
                 Picker("View", selection: $showsList) {
                     Text("Crate").tag(false)

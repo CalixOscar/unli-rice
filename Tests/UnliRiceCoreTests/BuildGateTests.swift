@@ -89,6 +89,11 @@ final class BuildGateTests: XCTestCase {
     func testReadsNothingOutsideDocsAndRoot() throws { try plan("x", stage: 4); XCTAssertEqual(BuildGate.current(folder: root).slug, "x") }
     func testUnknownAuthorAddsIssue() throws { try plan("x", stage: 4); try write("**Planner:** claude\n**Reviewer:** codex\n**State:** settled\n## gemini — response — 2026-10-01\n", to: "docs/dialogue/x.md"); XCTAssertTrue(BuildGate.read(folder: root, slug: "x").issues.contains { $0.contains("gemini") }) }
     func testNoPlanGivesNotRecorded() throws { let result = BuildGate.current(folder: root); XCTAssertEqual(result.slug, nil); XCTAssertEqual(result.lights[.idea], .notRecorded) }
+    func testNoDocsFolderGivesNotRecorded() throws {
+        try FileManager.default.removeItem(at: root.appendingPathComponent("docs"))
+        let result = BuildGate.current(folder: root)
+        XCTAssertEqual(result.slug, nil); XCTAssertEqual(result.lights[.idea], .notRecorded)
+    }
     func testStageNumberDecidesBuild() throws { try plan("x", stage: 5); XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.build], .done) }
     func testNotBuiltWordingIsNotDone() throws { try plan("x", stage: 4); XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.build], .missing) }
     func testSameDayRebuttalAfterSettledIsDraft() throws {

@@ -86,7 +86,7 @@ struct GuardrailsGroundingView: View {
     }
 
     private func groundingButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action).font(.system(size: 13, weight: .semibold)).padding(.horizontal, 14).padding(.vertical, 8).liquidGlassCapsule(interactive: true)
+        Button(title, action: action).buttonStyle(.plain).font(.system(size: 13, weight: .semibold)).padding(.horizontal, 14).padding(.vertical, 8).liquidGlassCapsule(interactive: true)
     }
 
     private var guardrails: some View {
@@ -106,7 +106,7 @@ struct GuardrailsGroundingView: View {
             HStack {
                 Text("HOUSE RULES · \(presetName.uppercased())").font(.system(size: 11, weight: .bold)).tracking(1.2).foregroundStyle(Color(studio: .guardrails, scheme: colorScheme)).lineLimit(1)
                 Spacer()
-                Button("Edit") { store.showHouseRules() }.font(.system(size: 12, weight: .semibold)).padding(.horizontal, 12).padding(.vertical, 5).liquidGlassCapsule(interactive: true).accessibilityLabel("Edit House Rules")
+                Button("Edit") { store.showHouseRules() }.buttonStyle(.plain).font(.system(size: 12, weight: .semibold)).padding(.horizontal, 12).padding(.vertical, 5).liquidGlassCapsule(interactive: true).accessibilityLabel("Edit House Rules")
             }
             if Self.ruleLines(store.houseRulesText).isEmpty {
                 Text("No House Rules yet.").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
