@@ -6,14 +6,18 @@
 **Planner:** claude. **Reviewer:** codex.
 **Stage:** 3 — settled 2026-10-30 after Codex's pre-mortem (`docs/dialogue/studio-redesign.md`,
 14 findings, all accepted). The S1 and S2 stop reports were settled in §2.6 and §2.8 the same day.
-Phase A may be built. Phase B (Idea Clinic) is blocked, see §6.
+Phase A is being built: **S1, S2, S4 and S5 are merged** into `claude/studio-redesign` (515 tests,
+0 failed, 2 skipped; Xcode Debug build succeeded, verified independently 2026-10-30). S6 is next.
+The stage number stays 3 until Phase A (S1–S7) is fully built, per `BuildGate`'s own Build-light
+rule in §2.6. Phase B (Idea Clinic) is blocked, see §6.
 **Branch:** `claude/studio-redesign`, cut from `main` at `8d2189c` (1.4 (9), in App Review).
-**Who builds (founder, 2026-10-30):** "If the build is happening on Mac Codex has to do it."
-Claude Code on the Mac is out of weekly usage. Codex drives the build on the Mac by §7. Claude
-stays the planner: it reviews every pushed step from a cloud session and merges it.
-**Verified against:** `0bb4582`. No Swift in the cloud container that wrote this plan, so every
-`file:line` was read, not compiled. The driver re-checks each step's cited lines before handing
-it over (§7, step 1).
+**Who builds (founder, 2026-10-30):** "I am tired of copy pasting." Claude Code on the Mac is now
+**planner and build driver** together, per `docs/BUILD-studio-redesign-HANDOFF.md`; Codex is used
+only as the CLI builder for one step at a time (`codex -p build`), and later as the post-mortem
+reviewer — never as a relay between the founder and either tool.
+**Verified against:** `946e28b` (the S5 merge commit). Earlier sections were checked against
+`0bb4582` when no Swift toolchain was available; `file:line` citations from S6 onward are
+re-checked against the tip in use at the time, per §7/the handoff's loop, step 1.
 **Mockup:** claude.ai artifact `JQZD7Bq97CwaX3pFYiemtJ` (sample data).
 
 ## 0. What was asked for
