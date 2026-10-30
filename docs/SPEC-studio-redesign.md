@@ -1,7 +1,8 @@
 # SPEC — Studio redesign
 
 **Intent:** docs/intent/INTENT-009-studio-redesign.md
-**Status:** draft. It is revised once the intent's open questions are answered.
+**Status:** ready for pre-mortem (the intent was approved 2026-10-30). The plan is
+`docs/PLAN-studio-redesign.md`.
 **Verified against:** `8d2189c` (`main`)
 
 The intent says **why** and **what solved looks like**. This spec says **exactly what must be

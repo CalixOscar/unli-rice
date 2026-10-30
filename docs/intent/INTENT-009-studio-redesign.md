@@ -2,10 +2,11 @@
 
 **Date:** 2026-10-30
 **Author:** founder, via Claude
-**Status:** draft — waiting for the founder to answer the open questions
+**Status:** approved 2026-10-30 — the founder chose "approve with drafts": keep macOS 13 with
+the glass fallback, and call the main tab "Studio"
 **Intent read:** not run
-**Spec:** docs/SPEC-studio-redesign.md (draft, 2026-10-30)
-**Plan:** not written. It comes after this intent is approved.
+**Spec:** docs/SPEC-studio-redesign.md (2026-10-30)
+**Plan:** docs/PLAN-studio-redesign.md (stage 2, waiting for Codex's pre-mortem)
 
 ## The problem
 
