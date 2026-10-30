@@ -118,7 +118,9 @@ struct ContentView: View {
                 MapPaneView()
             case .retrospective:
                 RetrospectiveView()
-            case .projects, .repos:
+            case .projects:
+                GardenExpandedView()
+            case .repos:
                 ProjectsPane()
             case .todo:
                 TodoPaneView()

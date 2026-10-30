@@ -12,12 +12,12 @@ struct BuildGateLights: View {
             ForEach(stages, id: \.self) { stage in
                 let light = result?.lights[stage] ?? .unknown("not read yet")
                 VStack(spacing: 2) {
-                    Image(systemName: symbol(for: light))
+                    Image(systemName: Self.symbol(for: light))
                         .font(.system(size: 12))
-                        .foregroundStyle(Color(studio: token(for: light), scheme: colorScheme))
-                        .accessibilityLabel("\(title(for: stage)): \(spoken(for: light))")
+                        .foregroundStyle(Color(studio: Self.token(for: light), scheme: colorScheme))
+                        .accessibilityLabel("\(Self.title(for: stage)): \(Self.spoken(for: light))")
                     if showsLabels {
-                        Text(title(for: stage))
+                        Text(Self.title(for: stage))
                             .font(.system(size: 10))
                             .foregroundStyle(Theme.textSecondary)
                     }
@@ -29,17 +29,20 @@ struct BuildGateLights: View {
     @Environment(\.colorScheme) private var colorScheme
 
     static func nextStep(_ result: BuildGate.Result?) -> String {
-        for stage in BuildGate.Stage.allCases {
-            let light = result?.lights[stage] ?? .unknown("not read yet")
-            switch light {
-            case .done, .notRequired, .skipped: continue
-            default: return "Next: \(title(for: stage))"
-            }
-        }
-        return "All seven lights are in"
+        nextStage(result).map { "Next: \(title(for: $0))" } ?? "All seven lights are in"
     }
 
-    private static func title(for stage: BuildGate.Stage) -> String {
+    static func nextStage(_ result: BuildGate.Result?) -> BuildGate.Stage? {
+        BuildGate.Stage.allCases.first { stage in
+            let light = result?.lights[stage] ?? .unknown("not read yet")
+            switch light {
+            case .done, .notRequired, .skipped: return false
+            default: return true
+            }
+        }
+    }
+
+    static func title(for stage: BuildGate.Stage) -> String {
         switch stage {
         case .idea: return "Idea"
         case .intent: return "Intent"
@@ -51,9 +54,7 @@ struct BuildGateLights: View {
         }
     }
 
-    private func title(for stage: BuildGate.Stage) -> String { Self.title(for: stage) }
-
-    private func symbol(for light: BuildGate.Light) -> String {
+    static func symbol(for light: BuildGate.Light) -> String {
         switch light {
         case .done: return "circle.fill"
         case .draft: return "circle"
@@ -64,7 +65,7 @@ struct BuildGateLights: View {
         }
     }
 
-    private func token(for light: BuildGate.Light) -> StudioPalette.Token {
+    static func token(for light: BuildGate.Light) -> StudioPalette.Token {
         switch light {
         case .done: return .lightDone
         case .draft: return .lightDraft
@@ -73,7 +74,7 @@ struct BuildGateLights: View {
         }
     }
 
-    private func spoken(for light: BuildGate.Light) -> String {
+    static func spoken(for light: BuildGate.Light) -> String {
         switch light {
         case .done: return "done"
         case .draft(let reason), .unknown(let reason): return reason
