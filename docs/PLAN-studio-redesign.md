@@ -720,6 +720,131 @@ Two decks, built only from existing data. The destinations are in §2.3.
   non-empty lines of its text. It sits beside three tiles: Need you, Safety checks and
   Archived. A dashed row reads "Did your AI follow the rules? Coming later" (Phase C).
 
+### 2.7a S7 exact changes (settled before handoff, 2026-10-30)
+
+Checked against `e3d781c`. The layout follows the mockup's `GuardrailsGrounding` artboard, with
+two changes. Both memory-file bars are "coming later", because §2.7 says so and the mockup's
+sample "15" was invented. Every colour comes from `StudioPalette`, where the mockup used tints
+that aren't in it. **No frame, padding, spacing, size or colour other than the ones written
+here.** One file changes: `Studio/GuardrailsGroundingView.swift` replaces S4's placeholder. It
+reads only what `AppStore` already publishes, and adds nothing to `AppStore`.
+
+**Names.** `colorScheme` and `C(token)` are as in §2.5a.
+
+**`struct GuardrailsGroundingView: View`**, with `@EnvironmentObject var store: AppStore` and
+`@State private var mirrorWritten: Date?`.
+- Body: `ScrollView(.vertical) { HStack(alignment: .top, spacing: 20) { grounding; guardrails }
+  .padding(24) }`. Each deck has `.frame(maxWidth: .infinity, alignment: .top)`. The window is
+  at least 960 pt wide, so the two decks always sit side by side.
+- **A deck** (`private struct TabDeck<Content: View>: View`, with `title`, `subtitle`, `accent:
+  StudioPalette.Token` and `@ViewBuilder content`): `VStack(alignment: .leading, spacing: 16) {
+  header; content }`, padding 20, `.background(C(.surface))`,
+  `.clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))`. The header is
+  `HStack(alignment: .firstTextBaseline)`:
+  - the title in uppercase, 13 pt bold, `.tracking(1.5)`, `C(accent)`;
+  - `Spacer()`;
+  - the subtitle, 13 pt, `Theme.textSecondary`.
+
+  This is `StudioDeck`'s look without its expand button, because these decks expand into
+  nothing.
+
+**Grounding** (`TabDeck(title: "Grounding", subtitle: "What your AI knows", accent:
+.grounding)`). Its content is `VStack(alignment: .leading, spacing: 10) { shelf; shelfLine;
+labels; buttons }`.
+- **Shelf:** `HStack(alignment: .bottom, spacing: 12)` of four columns. Each column is
+  `VStack(spacing: 6) { value; bar }` with `.frame(maxWidth: .infinity)`. The shelf's frame is
+  height 230, aligned to the bottom.
+
+  | Column | Value | Bar |
+  |---|---|---|
+  | Your notes | `store.errorMessage == nil ? "\(open)" : "—"`, where `open` is `store.notes.filter { !$0.archived }.count` | height 190, filled `C(.grounding)` |
+  | The folder your AI reads | `GuardrailsGroundingView.age(mirrorWritten, now: Date())` | height 137, filled `C(.grounding).opacity(0.7)` |
+  | Claude Code memory files | "Later" | height 57, dashed |
+  | Codex memory files | "Later" | height 57, dashed |
+
+  - A value is 22 pt bold. It is `Theme.textPrimary` for the first two columns and
+    `Theme.textSecondary` for the two later ones.
+  - A filled bar is `RoundedRectangle(cornerRadius: 8, style: .continuous).fill(…)`. A dashed bar
+    is the same shape, with `.strokeBorder(C(.grounding).opacity(0.6), style:
+    StrokeStyle(lineWidth: 1.5, dash: [6, 4]))`.
+  - Each column is `.accessibilityElement(children: .ignore)`, labelled in order: "Your notes:
+    <value>", "The folder your AI reads: written <value> ago" (or "not written yet" when
+    `mirrorWritten` is nil), "Claude Code memory files: coming later" and "Codex memory files:
+    coming later".
+- **Shelf line:** `Rectangle().fill(Theme.textSecondary.opacity(0.3)).frame(height: 2)`.
+- **Labels:** `HStack(alignment: .top, spacing: 12)` of four `Text`s, the column names above,
+  each 11 pt, `Theme.textSecondary`, `.multilineTextAlignment(.center)`, `.frame(maxWidth:
+  .infinity)` and `.accessibilityHidden(true)`.
+- **Buttons:** `HStack(spacing: 10)` of three buttons. Each has a 13 pt semibold label, 14 pt
+  horizontal and 8 pt vertical padding, and `.liquidGlassCapsule(interactive: true)`:
+  - "Open notes" calls `store.showAllNotes()`;
+  - "Open the folder" calls `store.showAIFolder()` (`AppStore.swift:1261`);
+  - "Details" calls `store.showHome()` (`AppStore.swift:1207`).
+- **The folder's date:** `.task(id: store.exportFolderURL) { … }` sets `mirrorWritten` from a
+  `Task.detached` that reads the `.modificationDate` attribute of `READ ME FIRST.md` inside the
+  mirror folder, or nil when it can't. The mirror folder is `store.exportFolderURL ??
+  URL(fileURLWithPath: NSString(string: "~/Documents/Unli Rice").expandingTildeInPath,
+  isDirectory: true)`, the same as `triggerExportMirror()` (`AppStore.swift:1025-1028`), and it
+  is opened with `startAccessingSecurityScopedResource()` and closed again inside the task.
+  `MirrorExporter` rewrites that file on every export (`MirrorExporter.swift:152`).
+- **`static func age(_ date: Date?, now: Date) -> String`:** nil gives "—". Otherwise, with `s`
+  as `max(0, now.timeIntervalSince(date))`: under 60 gives "now", under 3,600 gives
+  `"\(Int(s / 60))m"`, under 86,400 gives `"\(Int(s / 3600))h"`, and anything older gives
+  `"\(Int(s / 86400))d"`.
+
+**Guardrails** (`TabDeck(title: "Guardrails", subtitle: "What your AI must do", accent:
+.guardrails)`). Its content is `VStack(alignment: .leading, spacing: 14) { houseRules; tiles;
+later }`.
+- **House Rules card:** `VStack(alignment: .leading, spacing: 10)`, padding 18, background
+  `RoundedRectangle(cornerRadius: 18, style: .continuous).fill(C(.background))`, overlaid with
+  the same shape `.stroke(C(.guardrails).opacity(0.35), lineWidth: 1)`.
+  - **Header:** `HStack`:
+    - `Text("HOUSE RULES · \(presetName.uppercased())")`, 11 pt bold, `.tracking(1.2)`,
+      `C(.guardrails)`, `.lineLimit(1)`;
+    - `Spacer()`;
+    - `Button("Edit") { store.showHouseRules() }` (`AppStore.swift:1255`), 12 pt semibold, 12 pt
+      horizontal and 5 pt vertical padding, `.liquidGlassCapsule(interactive: true)`,
+      `.accessibilityLabel("Edit House Rules")`.
+  - **`presetName`:** the `title` of the first preset in `HouseRulesPreset.builtIn +
+    store.customHouseRulesPresets` whose `HouseRulesRevision.normalized(body)` equals
+    `HouseRulesRevision.normalized(store.houseRulesText)`, otherwise "Your own rules". The
+    default text matches "Standard Memory".
+  - **Lines:** `static func ruleLines(_ text: String) -> [String]`. It splits on newlines,
+    trims each line, drops empty lines and lines starting with `#` or `<!--`, removes a leading
+    `- `, `* ` or `• `, removes every `**` and backtick, and keeps the first three. Each line is
+    `Text(verbatim:)`, 14 pt semibold, `Theme.textPrimary`, `.lineLimit(2)`. With no lines:
+    `Text("No House Rules yet.")`, 13 pt, `Theme.textSecondary`.
+- **Tiles:** `HStack(spacing: 12)` of three `Button`s with `.buttonStyle(.plain)`. Each label
+  is `VStack(spacing: 6) { big; caption }`, `.frame(maxWidth: .infinity)`, 20 pt vertical
+  padding, background `RoundedRectangle(cornerRadius: 18, style:
+  .continuous).fill(C(.background))`, overlaid with the same shape
+  `.stroke(Theme.textSecondary.opacity(0.2), lineWidth: 1)`. The caption is 13 pt,
+  `Theme.textPrimary`. Each tile is one accessibility element with the label given.
+
+  | Tile | Big | Caption | Action | Accessibility label |
+  |---|---|---|---|---|
+  | Need you | `Text("\(store.pending.count + store.unreadNoticeCount)")`, 40 pt bold, `C(.notes)` | "Need you" | `store.showNeedsYou()` | "Need you: <n>" |
+  | Safety checks | `Image(systemName:)` at 36 pt, from the table below | from the table below | `store.showTrustCenter()` | the caption |
+  | Archived | `Text("\(store.archivedNotes.count)")`, 40 pt bold, `Theme.textPrimary` | "Archived" | `store.showArchived()` | "Archived: <n>" |
+
+  The Safety checks tile reads `store.trustChecks`, which the launch already fills
+  (`AppStore.swift:681`). This view never calls `refreshTrustCenter()`, because that reads the
+  whole event log on the main thread. The first matching row wins:
+
+  | `store.trustChecks` | Symbol | Colour | Caption |
+  |---|---|---|---|
+  | empty | `shield` | `Theme.textSecondary` | "Not checked yet" |
+  | any `.failed` | `xmark.shield` | `C(.guardrails)` | "Safety checks failed" |
+  | any `.attention` | `exclamationmark.shield` | `C(.notes)` | "Safety checks need a look" |
+  | otherwise | `checkmark.shield` | `C(.garden)` | "Safety checks pass" |
+- **Later row:** `Text("Did your AI follow the rules? Checks are coming later.")`, 13 pt,
+  `Theme.textSecondary`, `.frame(maxWidth: .infinity)`, 14 pt vertical padding, overlaid with
+  `RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.textSecondary.opacity(0.4),
+  style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))`.
+
+**Routing.** Every destination above is a row in §2.3's routing table. `lastTab` is already
+`.guardrailsGrounding` while this tab shows, so S5's "All decks" button brings each one back here.
+
 ### 2.8 Colour and contrast (core: `StudioPalette`, finding 10; settled after the S2 stop report)
 
 ```swift
@@ -802,7 +927,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S4 | build | Navigation shell, exactly as §2.3a (§2.3 is the why). Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/AutomationView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |
 | S5 | build | The Studio tab, exactly as §2.4a. | `Sources/UnliRice/AppStore.swift` (four stored properties only), `Sources/UnliRice/AppStore+Studio.swift` (new), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/StudioColor.swift` (new), `Sources/UnliRice/Studio/BuildGateLights.swift` (new), `Sources/UnliRice/Studio/StudioDeck.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift` (new, placeholder), `Sources/UnliRice/Studio/BranchesDeck.swift` (new), `Sources/UnliRice/Studio/NotesDeck.swift` (new) | A2, A3, A7, A8, B4–B7 | App build; xcodegen and the Xcode build |
 | S6 | build | The Garden crate, exactly as §2.5a (§2.5 is the why). Replace the placeholder. Add `SleeveBackView`, the expanded `.projects` route (the `mainColumn` case changes from `ProjectsPane()` to `GardenExpandedView()`, which holds the List toggle to `ProjectGardenView`), Copy prompt and Reduce Motion | `Sources/UnliRice/Studio/BuildGateLights.swift` (helpers made static, `nextStage` added), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift` (new), `Sources/UnliRice/Studio/GardenExpandedView.swift` (new), `Sources/UnliRice/ContentView.swift` (that one case only) | B1–B3, C10, A10 | App build; Xcode build |
-| S7 | build | The Guardrails & Grounding tab as §2.7, replacing the placeholder | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
+| S7 | build | The Guardrails & Grounding tab, exactly as §2.7a (§2.7 is the why), replacing the placeholder | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8 | planner (the founder or the Codex driver executes it, and Claude reviews the results) | The QA matrix (§4) in an isolated `.app` bundle against a throwaway vault | — | A3–A10 | §4 |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
