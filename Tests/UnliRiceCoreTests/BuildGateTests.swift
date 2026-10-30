@@ -128,14 +128,38 @@ final class BuildGateTests: XCTestCase {
 
     func testIntentLineWithoutPathIsUnknown() throws {
         try plan("x", stage: 4, intent: "approved by founder")
-        XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.intent], .missing)
+        XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.intent], .unknown("no path on the Intent line"))
     }
 
     func testHeaderSearchStopsAt40Lines() throws {
-        var body = (0..<40).map { "line \($0)" }.joined(separator: "\n")
+        // 40 physical lines, half of them blank: a header on line 41 is out of bounds.
+        var body = (0..<40).map { $0 % 2 == 0 ? "" : "line \($0)" }.joined(separator: "\n")
         body += "\n**Intent:** docs/intent/X.md\n**Stage:** 4\n"
         try write(body, to: "docs/PLAN-x.md")
-        if case .unknown("no path on the Intent line") = BuildGate.read(folder: root, slug: "x").lights[.intent] {} else { XCTFail() }
+        try write("**Status:** approved\n", to: "docs/intent/X.md")
+        let result = BuildGate.read(folder: root, slug: "x")
+        XCTAssertEqual(result.lights[.intent], .missing)
+        XCTAssertEqual(result.lights[.build], .unknown("plan stage has no number"))
+    }
+
+    func testFirstHeaderWins() throws {
+        try write("**Stage:** 4\n**Intent:** docs/intent/X.md\n**Intent:** docs/intent/Y.md\n", to: "docs/PLAN-x.md")
+        try write("**Status:** approved\n", to: "docs/intent/X.md")
+        try write("**Status:** draft\n", to: "docs/intent/Y.md")
+        XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.intent], .done)
+    }
+
+    func testDialogueHeaderBeyond40LinesIsIgnored() throws {
+        try plan("x", stage: 4)
+        let padding = Array(repeating: "", count: 40).joined(separator: "\n")
+        try write(padding + "\n**Planner:** claude\n**Reviewer:** codex\n**State:** settled\n## codex — pre-mortem — 2026-10-01\n## claude — settled — 2026-10-01\n", to: "docs/dialogue/x.md")
+        XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.premortem], .unknown("dialogue header has no planner or reviewer"))
+    }
+
+    func testStateWithTrailingNoteCountsAsSettled() throws {
+        try plan("x", stage: 4)
+        try write("**Planner:** claude\n**Reviewer:** codex\n**State:** settled (2026-10-30)\n## codex — pre-mortem — 2026-10-01\n## claude — settled — 2026-10-01\n", to: "docs/dialogue/x.md")
+        XCTAssertEqual(BuildGate.read(folder: root, slug: "x").lights[.premortem], .done)
     }
 
     func testRealHeaderFormatsFromThisRepo() throws {
@@ -162,6 +186,8 @@ final class BuildGateTests: XCTestCase {
         try write(try line("docs/intent/INTENT-006-four-jobs.md", startsWith: "**Status:") + "\n", to: "docs/intent/INTENT-006-four-jobs.md")
         let fourResult = BuildGate.read(folder: root, slug: "four-jobs")
         XCTAssertEqual(fourResult.lights[.intent], .done); XCTAssertEqual(fourResult.lights[.spec], .notRequired("older plan")); XCTAssertEqual(fourResult.lights[.build], .done)
+        XCTAssertFalse(BuildGate.current(folder: root).openPlans.contains("four-jobs"))
+        XCTAssertTrue(BuildGate.current(folder: root).openPlans.contains("studio-redesign"))
 
         try write(try line("docs/PLAN-bridge-hardening.md", startsWith: "**Intent:") + "\n", to: "docs/PLAN-bridge-hardening.md")
         XCTAssertEqual(BuildGate.read(folder: root, slug: "bridge-hardening").lights[.intent], .notRequired("none. This comes from Codex's post-mortem of"))

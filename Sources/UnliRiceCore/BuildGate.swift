@@ -89,28 +89,67 @@ public enum BuildGate {
     }
     private static func preMortemLight(planHeaders: HeaderFile, slug: String, root: URL, issues: inout [String]) -> Light {
         if let declaration = planHeaders.value("Pre-mortem"), declaration.lowercased().hasPrefix("skipped") { return .skipped(skipQuote(declaration)) }
-        switch read(url: root.appendingPathComponent("docs/dialogue/\(slug).md"), root: root) { case .missing: return .missing; case .failure(let reason): return .unknown(reason); case .text(let text): let parsed = dialogue(text, issues: &issues); guard let planner = parsed.planner, let reviewer = parsed.reviewer, planner != reviewer else { return .unknown("reviewer and planner are the same tool") }; guard let review = parsed.turns.lastIndex(where: { ($0.kind == "pre-mortem" || $0.kind == "rebuttal") && $0.author == reviewer }) else { return .missing }; guard let settled = parsed.turns.lastIndex(where: { $0.kind == "settled" && $0.author == planner }) else { return .draft("waiting for the planner to settle") }; return ["settled", "built", "closed"].contains(parsed.state ?? "") && settled > review ? .done : .draft("waiting for the planner to settle") }
+        switch read(url: root.appendingPathComponent("docs/dialogue/\(slug).md"), root: root) { case .missing: return .missing; case .failure(let reason): return .unknown(reason); case .text(let text): let parsed = dialogue(text, issues: &issues); guard let planner = parsed.planner, let reviewer = parsed.reviewer else { return .unknown("dialogue header has no planner or reviewer") }; guard planner != reviewer else { return .unknown("reviewer and planner are the same tool") }; guard let review = parsed.turns.lastIndex(where: { ($0.kind == "pre-mortem" || $0.kind == "rebuttal") && $0.author == reviewer }) else { return .missing }; guard let settled = parsed.turns.lastIndex(where: { $0.kind == "settled" && $0.author == planner }) else { return .draft("waiting for the planner to settle") }; return ["settled", "built", "closed"].contains(parsed.state ?? "") && settled > review ? .done : .draft("waiting for the planner to settle") }
     }
     private static func postMortemLight(slug: String, root: URL) -> Light {
         switch read(url: root.appendingPathComponent("docs/dialogue/\(slug).md"), root: root) { case .missing: return .missing; case .failure(let reason): return .unknown(reason); case .text(let text): var issues: [String] = []; let parsed = dialogue(text, issues: &issues); guard let planner = parsed.planner, let reviewer = parsed.reviewer, planner != reviewer, let settled = parsed.turns.lastIndex(where: { $0.kind == "settled" && $0.author == planner }) else { return .missing }; return parsed.turns.enumerated().contains { $0.offset > settled && $0.element.kind == "post-mortem" && $0.element.author == reviewer } ? .done : .missing }
     }
     private static func buildLight(plan: String) -> Light { guard let stage = firstStage(in: plan) else { return .unknown("plan stage has no number") }; return stage >= 5 ? .done : .missing }
 
+    /// Physical lines, blank ones included, so "the first 40 lines" means what a reader sees.
+    private static func physicalLines(_ text: String) -> [String] {
+        text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
+    }
+
+    /// §2.6 "Reading header lines": the first 40 physical lines only, fenced lines skipped,
+    /// and the first occurrence of a name wins.
     private static func headers(in text: String) -> HeaderFile {
         var values: [String: String] = [:], fenced = false
-        for line in text.split(whereSeparator: \.isNewline).prefix(40) { let raw = String(line); if raw.trimmingCharacters(in: .whitespaces).hasPrefix("```") { fenced.toggle(); continue }; guard !fenced, raw.hasPrefix("**"), let end = raw.range(of: ":**") else { continue }; let name = String(raw[raw.index(raw.startIndex, offsetBy: 2)..<end.lowerBound]); values[name] = String(raw[end.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines) }
+        for raw in physicalLines(text).prefix(40) {
+            if raw.trimmingCharacters(in: .whitespaces).hasPrefix("```") { fenced.toggle(); continue }
+            guard !fenced, raw.hasPrefix("**"), let end = raw.range(of: ":**") else { continue }
+            let name = String(raw[raw.index(raw.startIndex, offsetBy: 2)..<end.lowerBound])
+            guard values[name] == nil else { continue }
+            values[name] = String(raw[end.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         return HeaderFile(values: values)
     }
+
+    /// Header fields come from `headers(in:)`; turns are read from the whole file in line
+    /// order, skipping fenced lines. Line numbers in issues are physical line numbers.
     private static func dialogue(_ text: String, issues: inout [String]) -> Dialogue {
-        var planner: String?, reviewer: String?, state: String?, turns: [Turn] = [], fenced = false
-        for (index, raw) in text.split(whereSeparator: \.isNewline).enumerated() { let line = String(raw); if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") { fenced.toggle(); continue }; guard !fenced else { continue }; if line.hasPrefix("**Planner:**") { planner = firstWord(String(line.dropFirst("**Planner:**".count))) }; if line.hasPrefix("**Reviewer:**") { reviewer = firstWord(String(line.dropFirst("**Reviewer:**".count))) }; if line.hasPrefix("**State:**") { state = String(line.dropFirst("**State:**".count)).trimmingCharacters(in: .whitespaces).lowercased() }; let range = NSRange(line.startIndex..., in: line); guard let match = turnPattern.firstMatch(in: line, range: range) else { continue }; let author = String(line[Range(match.range(at: 1), in: line)!]), kind = String(line[Range(match.range(at: 2), in: line)!]); turns.append(Turn(author: author, kind: kind)); if let planner, let reviewer, author != planner && author != reviewer { issues.append("dialogue turn by \(author) on line \(index + 1) ignored: not the planner or reviewer") } }
+        let header = headers(in: text)
+        let planner = header.value("Planner").map(firstWord).flatMap { $0.isEmpty ? nil : $0 }
+        let reviewer = header.value("Reviewer").map(firstWord).flatMap { $0.isEmpty ? nil : $0 }
+        let state = header.value("State").map(firstWord)
+        var turns: [Turn] = [], fenced = false
+        for (index, line) in physicalLines(text).enumerated() {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") { fenced.toggle(); continue }
+            guard !fenced else { continue }
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = turnPattern.firstMatch(in: line, range: range) else { continue }
+            let author = String(line[Range(match.range(at: 1), in: line)!])
+            let kind = String(line[Range(match.range(at: 2), in: line)!])
+            if let planner, let reviewer, author != planner, author != reviewer {
+                issues.append("dialogue turn by \(author) on line \(index + 1) ignored: not the planner or reviewer")
+                continue
+            }
+            turns.append(Turn(author: author, kind: kind))
+        }
         return Dialogue(planner: planner, reviewer: reviewer, state: state, turns: turns)
     }
     private static func firstWord(_ value: String) -> String { value.trimmingCharacters(in: .whitespacesAndNewlines).split(whereSeparator: { $0 == " " || $0 == "\t" }).first.map { $0.trimmingCharacters(in: .punctuationCharacters).lowercased() } ?? "" }
     private static func firstPath(in value: String) -> String? { let range = NSRange(value.startIndex..., in: value); guard let match = pathPattern.firstMatch(in: value, range: range), let r = Range(match.range, in: value) else { return nil }; return String(value[r]) }
     private static func skipQuote(_ value: String) -> String { value.drop { $0 != "—" && $0 != "-" }.dropFirst().trimmingCharacters(in: .whitespacesAndNewlines) }
     private static func startsApproved(_ value: String) -> Bool { value.lowercased().hasPrefix("approved") }
-    private static func firstStage(in text: String) -> Int? { for line in text.split(whereSeparator: \.isNewline) { let string = String(line), range = NSRange(string.startIndex..., in: string); if let match = stagePattern.firstMatch(in: string, range: range), let value = Int(string[Range(match.range(at: 1), in: string)!]) { return value } }; return nil }
+    /// The stage number is read from the bounded header block like every other header line.
+    private static func firstStage(in text: String) -> Int? {
+        guard let value = headers(in: text).value("Stage") else { return nil }
+        let line = "**Stage:** " + value, range = NSRange(line.startIndex..., in: line)
+        guard let match = stagePattern.firstMatch(in: line, range: range),
+              let numberRange = Range(match.range(at: 1), in: line) else { return nil }
+        return Int(line[numberRange])
+    }
     private static func read(url: URL, root: URL) -> ReadResult {
         guard isSafe(url: url, root: root) else { return .failure("path resolves outside folder") }; guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
         do { let attrs = try FileManager.default.attributesOfItem(atPath: url.path); guard let size = attrs[.size] as? NSNumber, size.intValue <= maxFileSize else { return .failure("file too large to check") }; let data = try Data(contentsOf: url); guard data.count <= maxFileSize else { return .failure("file too large to check") }; guard let text = String(data: data, encoding: .utf8) else { return .failure("could not read file") }; return .text(text) } catch { return .failure("could not read file") }

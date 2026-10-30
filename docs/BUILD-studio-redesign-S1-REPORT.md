@@ -24,3 +24,29 @@ Verbatim assertion messages from `/tmp/unlirice-studio-s1d-driver.log`:
 ```
 
 The line-138 assertion logs only `failed`; it contains no expected/actual text. For line 131, the logged actual is `Optional(UnliRiceCore.BuildGate.Light.unknown("no path on the Intent line"))`; the test's expected value is `Optional(UnliRiceCore.BuildGate.Light.missing)`.
+
+## Planner takeover (claude, 2026-10-30)
+
+After repeated builder failures on a core invariant, the planner took S1 (AGENTS.md circuit
+breaker). The changes to `BuildGate.swift`:
+
+- **The header block** is the first 40 *physical* lines, blank lines included. The first
+  occurrence of a name wins. `firstStage` and the dialogue header now go through the same
+  bounded reader. Turns are still read across the whole file, in physical line order, skipping
+  fenced lines.
+- **Unknown-author turns** are now left out of `turns`, and not only reported in `issues`.
+- **A missing Planner or Reviewer** gives `unknown("dialogue header has no planner or
+  reviewer")`, where it used to give the same-tool message.
+- **State** is the value's first word, so "settled (date)" counts as settled.
+
+The changes to `BuildGateTests.swift`:
+
+- `testIntentLineWithoutPathIsUnknown` now expects `unknown`, as the plan says.
+- `testHeaderSearchStopsAt40Lines` uses blank-line padding and expects `missing` plus a Build
+  light of `unknown`.
+- The four-jobs fixture now asserts that the plan is not open.
+- Three tests were added: `testFirstHeaderWins`, `testDialogueHeaderBeyond40LinesIsIgnored` and
+  `testStateWithTrailingNoteCountsAsSettled`.
+
+These changes were not compiled: the cloud session has no Swift. The driver's test run on the
+Mac is the verification.
