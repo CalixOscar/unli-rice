@@ -197,6 +197,138 @@ other, with the text "Guardrails & Grounding".
   - The list is the five newest titles. Its header names the source of the newest write.
   - An unreadable corpus shows the `CorpusHealth` reason, never 0 (B7).
 
+### 2.4a S5 exact changes (settled before handoff, 2026-10-30)
+
+This changes one thing in §2.4: **`RepoSnapshotLoader` is not extracted**, and `RepoPaneView`
+is not touched. The Branches deck reads the published ancestry itself, in the few lines given
+below. Changing `RepoPaneView` would add risk for no visible gain.
+
+**`AppStore.swift`.** Add three stored properties next to `lastTab`:
+- `@Published var studioSleeves: [GardenCrate.Sleeve] = []`
+- `@Published var studioFrontIndex: Int = 0`
+- `@Published var studioGardenState: StudioGardenState = .loading`
+
+Nothing else in this file changes.
+
+**`AppStore+Studio.swift`** (new):
+- `enum StudioGardenState: Equatable { case loading, loaded, failed(String) }`
+- `extension AppStore`:
+  - `var studioFrontSleeve: GardenCrate.Sleeve?`: the sleeve at `studioFrontIndex` when it is in
+    range, otherwise nil.
+  - `func refreshStudioGarden() async`:
+    - Set `studioGardenState = .loading`, then run **the same detached worker body as
+      `ProjectGardenView.load()` (`ProjectGardenView.swift:249-264`)**. That means: open the
+      corpus folder and the scan roots with security scope, list notes, read the optional
+      published snapshot, and call `ProjectGarden.load`.
+    - On success: `studioSleeves = GardenCrate.sleeves(from: report)`, and
+      `studioFrontIndex = min(studioFrontIndex, max(studioSleeves.count - 1, 0))`, then
+      `studioGardenState = .loaded`.
+    - On an error other than cancellation: `.failed(error.localizedDescription)`.
+  - `@Published` can't go in an extension, so the gate result goes in a fourth stored property
+    in `AppStore.swift`: `@Published var studioFrontGate: BuildGate.Result? = nil`.
+  - `func refreshStudioGate() async`:
+    - Run `BuildGate.current(folder:)` for `studioFrontSleeve?.folderURL` in
+      `Task.detached`, with every scan root opened by security scope (the same open/close pair as
+      above). Assign the result.
+    - Nil when there is no folder.
+
+**`Studio/StudioColor.swift`** (new): `extension Color { init(studio token:
+StudioPalette.Token, scheme: ColorScheme) }`. It parses `StudioPalette.hex(token, scheme == .dark
+? .dark : .light)` as sRGB.
+
+**`Studio/BuildGateLights.swift`** (new): `struct BuildGateLights: View { let result:
+BuildGate.Result?; var showsLabels: Bool }`. It shows the seven stages in `Stage.allCases` order.
+
+| Light | SF Symbol | Palette token | Spoken word |
+|---|---|---|---|
+| `done` | `circle.fill` | `lightDone` | "done" |
+| `draft(r)` | `circle` | `lightDraft` | r |
+| `missing`, `notRecorded` | `circle.dotted` | `lightMissing` | "missing", "not recorded" |
+| `skipped(q)` | `slash.circle` | `lightMissing` | "skipped: q" |
+| `notRequired(r)` | `minus` | `lightMissing` | "not needed: r" |
+| `unknown(r)` | `questionmark.circle.fill` | `lightUnknown` | r |
+
+- A nil result shows all seven as `unknown("not read yet")`.
+- Each symbol is 12 pt. Its `.accessibilityLabel` is `"<Stage title>: <word>"`. The stage
+  titles are Idea, Intent, Spec, Agents, Pre-mortem, Build and Post-mortem.
+- With `showsLabels`, each symbol has its stage title under it in 10 pt `textSecondary`.
+- Add `static func nextStep(_ result: BuildGate.Result?) -> String`. It returns
+  `"Next: <Stage title>"` for the first stage whose light is not `done`, `notRequired` or
+  `skipped`, and "All seven lights are in" when there is none.
+
+**`Studio/StudioDeck.swift`** (new): `struct StudioDeck<Content: View>: View`, with fields
+`title: String`, `accent: StudioPalette.Token`, `shortcut: KeyEquivalent`, `expand: () -> Void`
+and `@ViewBuilder content`.
+- Background: a `RoundedRectangle(cornerRadius: 24, style: .continuous)` filled with `surface`.
+  Padding 20.
+- Header: the title in uppercase, 13 pt bold, `.tracking(1.5)`, in the accent colour. Beside it
+  a `Button(action: expand)` with the symbol `arrow.up.left.and.arrow.down.right`,
+  `.accessibilityLabel("Open \(title)")`, `.keyboardShortcut(shortcut, modifiers: [])` and
+  `.liquidGlassCapsule(interactive: true)`.
+
+**`Studio/StudioView.swift`** (replaces the placeholder):
+- **Top strip** (when `studioFrontSleeve` exists): the sleeve's name (17 pt semibold),
+  `BuildGateLights(result: store.studioFrontGate, showsLabels: true)`,
+  `BuildGateLights.nextStep(…)` and the caption "Lights show which files exist in this repo."
+  (11 pt `textSecondary`).
+- **Decks** in a `GeometryReader`:
+  - At a width of 1080 or more: `HStack(spacing: 20)` of three equal decks.
+  - Below that: `VStack(spacing: 20) { garden; HStack(spacing: 20) { branches; notes } }`.
+  - Padding 24, inside a `ScrollView(.vertical)`, so nothing clips at 960×600 (A7).
+- **The three decks:**
+  - Garden: `GardenCrateView(compact: true)`, accent `garden`, shortcut "1", expand
+    `store.showGarden()`.
+  - Branches: `BranchesDeck()`, accent `branches`, shortcut "2", expand `store.showRepos()`.
+  - Notes: `NotesDeck()`, accent `notes`, shortcut "3", expand `store.showAllNotes()`.
+- **Loading:**
+  - `.task(id: StudioLoadKey(dataPath: store.dataURL.path, roots: store.scanRoots.map(\.path),
+    noteCount: store.notes.count)) { await store.refreshStudioGarden() }`, where `StudioLoadKey`
+    is a private `Equatable` struct in this file.
+  - `.task(id: store.studioFrontSleeve?.id) { await store.refreshStudioGate() }`.
+
+**`Studio/GardenCrateView.swift`** (new, a placeholder until S6): `struct GardenCrateView: View {
+let compact: Bool }`. Its body shows the number of sleeves ("N projects") and
+`store.studioFrontSleeve?.name`. It also handles two states: `.failed(m)` shows m, and an empty
+`.loaded` shows "Plant your first idea" with a `Link` to
+`https://www.calmdownoscar.com/idea-clinic/`.
+
+**`Studio/BranchesDeck.swift`** (new):
+- With no front sleeve, or a sleeve with no `folderURL`: the sentence "Pick a folder with a
+  project in it" and a `Button("Pick a folder") { store.chooseScanRoot() }`.
+- Otherwise, use `.task(id: folderURL)`, detached, with every scan root opened by security
+  scope:
+  - `snapshot = try? GitRepoScanner().scan(repositoryAt: folderURL)`.
+  - The ancestry file, read with the corpus folder (`store.dataURL.deletingLastPathComponent()`)
+    opened by security scope: `try? RepoSnapshotFile.read(fromFolder:)`.
+- With no snapshot: "No git repository in <name>".
+- Otherwise: a header "<snapshot.branches.count> branches" (headline, 28 pt bold), then
+  `BranchGraphView(snapshot:, ancestry: file?.repos.first { $0.name == snapshot.name },
+  ancestryAge: file?.generatedAt, ancestryStale: file?.isStale() ?? false)`, at a fixed height
+  of 320 inside a `ScrollView`.
+
+**`Studio/NotesDeck.swift`** (new):
+- If `store.errorMessage` is set: "Can't read your notes" plus the message, and no number (B7).
+- Otherwise:
+  - `open = store.notes.filter { !$0.archived }`.
+  - **Ring:** 180 pt, made of `Circle().trim` segments. The counts per bucket are by
+    `note.creator`, lowercased: `claude`, `codex`, `human`, `ingest`, and everything else is
+    "other". The colours are the `notes` colour at opacity 1.0, 0.7, 0.45, 0.28 and 0.15, in
+    that order. A text legend beside the ring gives each bucket's name and count.
+  - **Headline:** `open.count`, 34 pt bold, centred in the ring.
+  - **List header:** "<pending.count + unreadNoticeCount> need you · newest by <creator of the
+    newest open note>".
+  - **List:** the five newest open notes by `updatedAt`, as plain `Button`s with the title on
+    one line, calling `store.selectNote(note.id)`.
+
+**`Studio/StudioToolbar.swift`:**
+- Add a leading back button, visible when `store.pane` is not `.studio`,
+  `.guardrailsGrounding` or `.firstRun`, and `store.selectedNoteID == nil`. It reads
+  `Label("All decks", systemImage: "chevron.left")`.
+- Its action: `store.lastTab == .studio ? store.showStudio() : store.showGuardrailsGrounding()`.
+- It takes `.keyboardShortcut(.cancelAction)` and `.liquidGlassCapsule(interactive: true)`.
+- Layout: `HStack { back-or-Spacer; Spacer(); tabs; Spacer(); gear }`. The back slot keeps a
+  fixed width of 110 pt, so the tabs stay centred.
+
 ### 2.5 The Garden crate (core: `GardenCrate`)
 
 ```swift
@@ -468,7 +600,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S2 | build | `GardenCrate` as §2.5, and `StudioPalette` as §2.8, with tests: `testIssuesMeanCantRead`, `testAttentionMeansNeedsYou`, `testNoStatusNoRepoIsNoStatus`, `testRepoWithoutMemoryIsFine`, `testOrderNewestFirstNilLastByName`, `testSubtitleFallbackAndTruncation`, `testStableIndexIsStable`, `testAllTextPairsMeetContrast`, `testEveryTokenHasAValidHexInBothModes` | `Sources/UnliRiceCore/GardenCrate.swift` (new), `Sources/UnliRiceCore/StudioPalette.swift` (new), `Tests/UnliRiceCoreTests/GardenCrateTests.swift` (new), `Tests/UnliRiceCoreTests/StudioPaletteTests.swift` (new) | B1, B2, A6 | Tests; the existing `ProjectGardenTests` (23) still pass |
 | S3 | planner | Review S1 and S2 (on separate branches), merge both into `claude/studio-redesign`, and record the test counts | — | — | Rerun the tests at the merge |
 | S4 | build | Navigation shell, exactly as §2.3a (§2.3 is the why). Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/AutomationView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |
-| S5 | build | The Studio tab as §2.4. Replace the `StudioView` placeholder. Add the Notes and Branches decks. Extract `RepoSnapshotLoader` from `RepoPaneView` with no behaviour change. Add the top strip, the 1080 pt layout switch and the deck expand buttons routing to `.projects`, `.repos` and `.notes`. The Garden deck slot shows `GardenCrateView(compact: true)` from S6, so S5 uses a placeholder `GardenCrateView` in `Studio/GardenCrateView.swift` | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift` (new), `Sources/UnliRice/Studio/BranchesDeck.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift` (new, placeholder), `Sources/UnliRice/RepoSnapshotLoader.swift` (new), `Sources/UnliRice/RepoPaneView.swift` | A2, A3, A7, A8, B4–B7 | App build; Xcode build |
+| S5 | build | The Studio tab, exactly as §2.4a. | `Sources/UnliRice/AppStore.swift` (four stored properties only), `Sources/UnliRice/AppStore+Studio.swift` (new), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/StudioColor.swift` (new), `Sources/UnliRice/Studio/BuildGateLights.swift` (new), `Sources/UnliRice/Studio/StudioDeck.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift` (new, placeholder), `Sources/UnliRice/Studio/BranchesDeck.swift` (new), `Sources/UnliRice/Studio/NotesDeck.swift` (new) | A2, A3, A7, A8, B4–B7 | App build; xcodegen and the Xcode build |
 | S6 | build | The Garden crate as §2.5. Replace the placeholder. Add `SleeveBackView`, the expanded `.projects` route (the `mainColumn` case changes from `ProjectsPane()` to `GardenExpandedView()`, which holds the List toggle to `ProjectGardenView`), Copy prompt and Reduce Motion | `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift` (new), `Sources/UnliRice/Studio/GardenExpandedView.swift` (new), `Sources/UnliRice/ContentView.swift` (that one case only) | B1–B3, C10, A10 | App build; Xcode build |
 | S7 | build | The Guardrails & Grounding tab as §2.7, replacing the placeholder | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8 | planner (the founder or the Codex driver executes it, and Claude reviews the results) | The QA matrix (§4) in an isolated `.app` bundle against a throwaway vault | — | A3–A10 | §4 |
