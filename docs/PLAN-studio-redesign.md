@@ -7,7 +7,8 @@
 **Stage:** 3 — settled 2026-10-30 after Codex's pre-mortem (`docs/dialogue/studio-redesign.md`,
 14 findings, all accepted). The S1 and S2 stop reports were settled in §2.6 and §2.8 the same day.
 Phase A is being built: **S1, S2, S4 and S5 are merged** into `claude/studio-redesign` (515 tests,
-0 failed, 2 skipped; Xcode Debug build succeeded, verified independently 2026-10-30). S6 is next.
+0 failed, 2 skipped; Xcode Debug build succeeded, verified independently 2026-10-30). S6 is next,
+settled in §2.5a.
 The stage number stays 3 until Phase A (S1–S7) is fully built, per `BuildGate`'s own Build-light
 rule in §2.6. Phase B (Idea Clinic) is blocked, see §6.
 **Branch:** `claude/studio-redesign`, cut from `main` at `8d2189c` (1.4 (9), in App Review).
@@ -406,6 +407,194 @@ cantRead → "CAN'T READ".
   - A **List** toggle shows the existing `ProjectGardenView`, unchanged.
 - **Empty state.** One sleeve, "Plant your first idea", with a "Pick a folder" link beside it.
 
+### 2.5a S6 exact changes (settled before handoff, 2026-10-30)
+
+Checked against `946e28b`. **No frame, padding, spacing, minimum or maximum size, and no colour,
+other than the ones written here.** S5's builder added `minHeight`s that no section asked for,
+and those caused two of its stops.
+
+**Shared names used below.**
+- `reduceMotion` is `@Environment(\.accessibilityReduceMotion) private var reduceMotion`.
+- `colorScheme` is `@Environment(\.colorScheme) private var colorScheme`.
+- `C(token)` is short for `Color(studio: token, scheme: colorScheme)` (`StudioColor.swift`).
+- `flip` is the animation `reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.45,
+  dampingFraction: 0.78)`.
+
+**`Studio/BuildGateLights.swift`** (refactor only; its drawing doesn't change). The sleeve back
+reuses its helpers:
+- `title(for:)` (`:42`) stays `static` and loses `private`. Delete the instance wrapper at `:54`.
+  Call sites inside the struct use `Self.title(for:)`.
+- `symbol(for:)` (`:56`), `token(for:)` (`:67`) and `spoken(for:)` (`:76`) become `static func`,
+  with no `private`. Call sites inside the struct use `Self.`.
+- Add `static func nextStage(_ result: BuildGate.Result?) -> BuildGate.Stage?`. It returns the
+  first stage in `Stage.allCases` whose light (nil result: `.unknown("not read yet")`) is not
+  `.done`, `.notRequired` or `.skipped`, and nil when there is none.
+- `nextStep(_:)` (`:31`) becomes `nextStage(result).map { "Next: \(title(for: $0))" } ?? "All
+  seven lights are in"`. Its output doesn't change.
+
+**`Studio/GardenCrateView.swift`** (replaces S5's placeholder; `struct GardenCrateView: View {
+let compact: Bool }` keeps that signature, so `StudioView.swift` is unchanged).
+- `side` (the sleeve's width and height) is `compact ? 200 : 340`. `peek` is `78` (3 × 26).
+- **States.** `store.studioGardenState`:
+  - `.loading`: `ProgressView("Reading your garden…")`, as now.
+  - `.failed(m)`: `Text(m)` in `Theme.textSecondary`, as now.
+  - `.loaded` with no sleeves: the empty state below.
+  - `.loaded` with sleeves: `VStack(alignment: .leading, spacing: 12) { headline; crate;
+    controls }`.
+- **Headline:** `"\(store.studioSleeves.count) projects"`, 28 pt bold, `Theme.textPrimary`. Shown
+  only when `compact`. The expanded header names the Garden itself.
+- **Crate:** `ZStack(alignment: .bottom)`, frame `width: side, height: side + peek`. It draws
+  the sleeves at indices `max(front - 1, 0) ... min(front + 3, count - 1)`, where `front` is
+  `store.studioFrontIndex`, in a `ForEach` keyed by `sleeve.id`. For index `i`, `d = i - front`:
+  - `d == -1` (the flipped sleeve): `.rotation3DEffect(.degrees(-84), axis: (x: 1, y: 0, z: 0),
+    anchor: .bottom, perspective: 0.5)`, `.opacity(0)`, `.zIndex(1)`, and hit testing off. It
+    isn't drawn at all when `reduceMotion` is on.
+  - `d == 0` (the front): no transform, `.zIndex(0)`.
+  - `d` of 1 to 3 (behind): `.scaleEffect(1 - 0.06 * Double(d))`, then `.offset(y: -26 *
+    CGFloat(d))`, then `.zIndex(-Double(d))`. `.onTapGesture { select(i) }` and
+    `.accessibilityAddTraits(.isButton)`.
+  - The whole crate takes `.gesture(DragGesture(minimumDistance: 40).onEnded { v in … })`. When
+    `abs(v.translation.width) > abs(v.translation.height)`, it calls `move(by:)` with `1` for a
+    negative width and `-1` for a positive one; otherwise it does nothing.
+  - With `reduceMotion` on, the crate gets `.id(store.studioFrontIndex)` and
+    `.transition(.opacity)`, so a flip is a fade and nothing moves. With it off, it gets neither.
+- **One sleeve** (`private struct SleeveFront: View { let sleeve: GardenCrate.Sleeve; let side:
+  CGFloat }`):
+  - `RoundedRectangle(cornerRadius: 10, style: .continuous)` filled with `C(cover)`, where
+    `cover` is `[.cover0, .cover1, .cover2, .cover3, .cover4, .cover5, .cover6,
+    .cover7][sleeve.coverIndex]`. Frame `side` × `side`.
+  - `.shadow(color: .black.opacity(0.25), radius: 8, y: 4)`.
+  - Overlaid, `VStack(alignment: .leading, spacing: 6)` with 16 pt padding:
+    - the sticker, top-trailing (see below), then `Spacer(minLength: 0)`;
+    - the name: `side > 200 ? 24 : 17` pt semibold, `C(.coverText)`, `.lineLimit(2)`,
+      `.truncationMode(.tail)`;
+    - the subtitle: `side > 200 ? 14 : 12` pt, `C(.coverSubtext)`, `.lineLimit(2)`.
+  - `.help(sleeve.name)`. `.accessibilityElement(children: .ignore)` with
+    `.accessibilityLabel("\(sleeve.name), \(GardenCrateView.sticker(for: sleeve.state))")`.
+- **Sticker:** `static func sticker(for state: GardenCrate.State) -> String`: `.fine` "FINE",
+  `.needsYou` "NEEDS YOU", `.noStatus` "NO NOTES YET", `.cantRead` "CAN'T READ". Drawn as
+  `Text`, 10 pt bold, `.tracking(1)`, with 8 pt horizontal and 4 pt vertical padding, on a
+  `Capsule()` fill:
+
+  | State | Fill | Text |
+  |---|---|---|
+  | `.fine` | `stickerFineFill` | `stickerDarkText` |
+  | `.needsYou` | `stickerNeedsYouFill` | `stickerDarkText` |
+  | `.noStatus` | `stickerNoStatusFill` | `stickerDarkText` |
+  | `.cantRead` | `stickerCantReadFill` | `stickerLightText` |
+
+  `.cantRead(reason)` also adds `.help(reason)` to the sticker.
+- **Controls:** `HStack(spacing: 12) { previous; indicator; next }`.
+  - Previous: `Button { move(by: -1) } label: { Image(systemName: "chevron.left") }`,
+    `.keyboardShortcut(.leftArrow, modifiers: [])`, `.accessibilityLabel("Previous project")`,
+    `.disabled(front == 0)`, `.liquidGlassCapsule(interactive: true)`.
+  - Next: the same with `chevron.right`, `.rightArrow`, "Next project", and `.disabled(front ==
+    count - 1)`.
+  - Indicator, at 20 sleeves or fewer: `HStack(spacing: 6)` of 6 × 6 `Circle()`s, the front one
+    in `Theme.textPrimary` and the others in `Theme.textSecondary.opacity(0.35)`. Above 20:
+    `Text("\(front + 1) of \(count)")`, 11 pt, `Theme.textSecondary`. Either way, the indicator
+    is one accessibility element labelled `"\(front + 1) of \(count)"`.
+  - The arrow shortcuts exist only while this view is on screen, because they belong to these
+    buttons. Nothing else registers ← or →.
+- **Moving:**
+  - `private func move(by delta: Int) { select(store.studioFrontIndex + delta) }`.
+  - `private func select(_ index: Int) { let target = min(max(index, 0), store.studioSleeves.count
+    - 1); guard target != store.studioFrontIndex else { return }; withAnimation(flip) {
+    store.studioFrontIndex = target } }`.
+- **Empty state** (`.loaded` with no sleeves): a sleeve-sized
+  `RoundedRectangle(cornerRadius: 10, style: .continuous)`, stroked with
+  `Theme.textSecondary.opacity(0.4)` and `StrokeStyle(lineWidth: 1.5, dash: [6, 4])`, frame `side`
+  × `side`. Centred inside it is the existing `Link` to
+  `https://www.calmdownoscar.com/idea-clinic/`, labelled `Label("Plant your first idea",
+  systemImage: "plus.circle")`, 16 pt semibold. Beside it is `Button("Pick a folder") {
+  store.chooseScanRoot() }` (`AppStore+Ingest.swift:103`). "Beside" means `HStack(spacing: 16)`
+  when not compact, and `VStack(alignment: .leading, spacing: 12)` when compact, because a
+  compact deck is too narrow for both.
+- The view keeps `.frame(maxWidth: .infinity, alignment: .topLeading)` and nothing else.
+
+**`Studio/SleeveBackView.swift`** (new): `struct SleeveBackView: View { let sleeve:
+GardenCrate.Sleeve; let result: BuildGate.Result? }`, with `@State private var copied = false`.
+- `VStack(alignment: .leading, spacing: 14)`, in this order:
+  1. The name, 20 pt semibold, `Theme.textPrimary`. The subtitle, 12 pt, `Theme.textSecondary`.
+     When `result?.slug` is set: `Text("Feature: \(slug)")`, 11 pt monospaced,
+     `Theme.textSecondary`.
+  2. **No folder** (`sleeve.folderURL == nil`): `Text("This project has no folder, so it has no
+     lights.")`, 13 pt, `Theme.textSecondary`. Nothing below it is drawn.
+  3. **Side A:** the label "SIDE A", 11 pt bold, `.tracking(1.5)`, `Theme.textSecondary`. Then a
+     row for each of Idea, Intent, Spec, Agents and Pre-mortem, numbered A1 to A5.
+  4. **Side B:** "SIDE B" the same way, then rows for Build (B1) and Post-mortem (B2).
+  5. **Issues:** each of `result?.issues ?? []`, 11 pt, `Theme.textSecondary`.
+  6. **Next step:** `BuildGateLights.nextStep(result)`, 15 pt semibold, `Theme.textPrimary`.
+  7. **Copy prompt**, only when `SleeveBackView.prompt(sleeve:result:)` is non-nil:
+     `Button { … } label: { Label(copied ? "Copied" : "Copy prompt", systemImage: copied ?
+     "checkmark" : "doc.on.doc") }`, `.liquidGlassCapsule(interactive: true)`. Its action is
+     `NSPasteboard.general.clearContents()`, then
+     `NSPasteboard.general.setString(prompt, forType: .string)`, then `copied = true`, and
+     `copied = false` again after 2 seconds (`DispatchQueue.main.asyncAfter`). It writes no file
+     (C10).
+  8. The caption "Lights show which files exist in this repo.", 11 pt, `Theme.textSecondary`.
+- **A track row:** `HStack(spacing: 10)`:
+  - the number ("A1"), 11 pt monospaced, `Theme.textSecondary`, frame width 24, leading;
+  - `Image(systemName: BuildGateLights.symbol(for: light))`, 12 pt, in
+    `C(BuildGateLights.token(for: light))`;
+  - the stage title (`BuildGateLights.title(for:)`), 13 pt, `Theme.textPrimary`;
+  - `Spacer()`;
+  - `BuildGateLights.spoken(for: light)`, 12 pt, `Theme.textSecondary`, `.lineLimit(1)`.
+
+  `light` is `result?.lights[stage] ?? .unknown("not read yet")`. Each row is
+  `.accessibilityElement(children: .ignore)` with `.accessibilityLabel("\(title): \(word)")`.
+- **The prompt:** `static func prompt(sleeve: GardenCrate.Sleeve, result: BuildGate.Result?) ->
+  String?`. It returns nil when `sleeve.folderURL` is nil, when `result` is nil, or when
+  `BuildGateLights.nextStage(result)` is nil. Otherwise it returns these lines joined with `"\n"`:
+  - `Project: <sleeve.name>, in <folderURL.path>.`
+  - With `result.slug == nil`: `This project has no docs/PLAN-*.md yet. Write the intent file for
+    the next feature in docs/intent/, following AGENTS.md § "The order, for every app". Ask me
+    what the feature is before you write anything.` The prompt ends here.
+  - With a slug: `Feature: <slug> (plan: docs/PLAN-<slug>.md).`
+  - `Next stage: <title>. Right now: <spoken word for that stage's light>.`
+  - The stage's line:
+
+    | Stage | Line |
+    |---|---|
+    | Idea | `Write docs/idea/IDEA-<slug>.md. If this feature needs no idea brief, add the line "**Idea:** not needed — <reason>" to the plan's header instead.` |
+    | Intent | `Finish the intent file named on the plan's **Intent:** line. Its **Status:** line says approved only after I approve it.` |
+    | Spec | `Finish the spec file named on the plan's **Spec:** line. Its **Intent:** line must name the same intent file, and its **Status:** line says approved only after I approve it.` |
+    | Agents | `Make AGENTS.md at the repo root current for this work. If there is a CLAUDE.md, it needs a line that is exactly @AGENTS.md.` |
+    | Pre-mortem | `Get the reviewer's pre-mortem of the plan into docs/dialogue/<slug>.md, answer it, and add the planner's settled turn after it.` |
+    | Build | `Build the plan's steps. When they are built, set the plan's **Stage:** line to 5.` |
+    | Post-mortem | `Get the reviewer's post-mortem turn into docs/dialogue/<slug>.md, after the planner's settled turn.` |
+
+  - `Follow AGENTS.md.`
+
+**`Studio/GardenExpandedView.swift`** (new): `struct GardenExpandedView: View`, with
+`@EnvironmentObject var store: AppStore` and `@State private var showsList = false`.
+- `VStack(alignment: .leading, spacing: 16)` with 24 pt padding, on `C(.background)`:
+  - **Header:** `HStack(spacing: 12)`:
+    - `Text("Garden")`, 22 pt bold, `Theme.textPrimary`;
+    - `Spacer()`;
+    - `Button { Task { await store.refreshStudioGarden() } } label: { Label("Refresh",
+      systemImage: "arrow.clockwise") }`, `.liquidGlassCapsule(interactive: true)`;
+    - `Picker("View", selection: $showsList) { Text("Crate").tag(false); Text("List").tag(true)
+      }`, `.pickerStyle(.segmented)`, `.labelsHidden()`, `.frame(width: 160)`.
+  - **Body:**
+    - `showsList`: the existing `ProjectGardenView()`, unchanged.
+    - Otherwise: `HStack(alignment: .top, spacing: 32) { GardenCrateView(compact: false); back
+      }`. `back` is `ScrollView(.vertical) { SleeveBackView(sleeve: front, result:
+      store.studioFrontGate) }` with `.frame(maxWidth: .infinity, alignment: .topLeading)`, and
+      it is shown only when `store.studioFrontSleeve` (`front`) exists.
+- **Loading:**
+  - `.task { if store.studioGardenState == .loading { await store.refreshStudioGarden() } }`.
+    This is needed because `StudioView`'s task is cancelled when the Studio tab disappears, and
+    `refreshStudioGarden()` (`AppStore+Studio.swift:16`) returns without changing state when it
+    is cancelled. Arriving mid-load would otherwise leave the spinner up for good.
+  - `.task(id: store.studioFrontSleeve?.id) { await store.refreshStudioGate() }`, the same as
+    `StudioView.swift:25`, because the expanded crate moves the front sleeve too.
+
+**`ContentView.swift`** (that one case only, `:121-122`): `case .projects, .repos:
+ProjectsPane()` becomes `case .projects: GardenExpandedView()` and `case .repos: ProjectsPane()`.
+`ProjectsPane` (`:282`) is unchanged. Its "Overview" segment calls `store.showGarden()`, which now
+leads to the expanded Garden.
+
 ### 2.6 `BuildGate` (core), bound to one feature (findings 2, 3, 7, 10, 12)
 
 ```swift
@@ -612,7 +801,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S3 | planner | Review S1 and S2 (on separate branches), merge both into `claude/studio-redesign`, and record the test counts | — | — | Rerun the tests at the merge |
 | S4 | build | Navigation shell, exactly as §2.3a (§2.3 is the why). Add the `Pane` cases and `lastTab`. Delete the sidebar code. Add `StudioToolbar` (tabs and gear menu). Make `.studio` the launch pane. Hide `Extra.projects` from Setup › Extras. Add `mainColumn` cases that render `StudioView()` and `GuardrailsGroundingView()` as **placeholder views in the same new files** (a `Text` each), so the switch stays exhaustive | `Sources/UnliRice/AppStore.swift`, `Sources/UnliRice/ContentView.swift`, `Sources/UnliRice/AutomationView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift` (new), `Sources/UnliRice/Studio/StudioView.swift` (new, placeholder), `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` (new, placeholder) | A1, A4, A5, A9 | App build; `xcodegen generate` and the Xcode build |
 | S5 | build | The Studio tab, exactly as §2.4a. | `Sources/UnliRice/AppStore.swift` (four stored properties only), `Sources/UnliRice/AppStore+Studio.swift` (new), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/StudioColor.swift` (new), `Sources/UnliRice/Studio/BuildGateLights.swift` (new), `Sources/UnliRice/Studio/StudioDeck.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift` (new, placeholder), `Sources/UnliRice/Studio/BranchesDeck.swift` (new), `Sources/UnliRice/Studio/NotesDeck.swift` (new) | A2, A3, A7, A8, B4–B7 | App build; xcodegen and the Xcode build |
-| S6 | build | The Garden crate as §2.5. Replace the placeholder. Add `SleeveBackView`, the expanded `.projects` route (the `mainColumn` case changes from `ProjectsPane()` to `GardenExpandedView()`, which holds the List toggle to `ProjectGardenView`), Copy prompt and Reduce Motion | `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift` (new), `Sources/UnliRice/Studio/GardenExpandedView.swift` (new), `Sources/UnliRice/ContentView.swift` (that one case only) | B1–B3, C10, A10 | App build; Xcode build |
+| S6 | build | The Garden crate, exactly as §2.5a (§2.5 is the why). Replace the placeholder. Add `SleeveBackView`, the expanded `.projects` route (the `mainColumn` case changes from `ProjectsPane()` to `GardenExpandedView()`, which holds the List toggle to `ProjectGardenView`), Copy prompt and Reduce Motion | `Sources/UnliRice/Studio/BuildGateLights.swift` (helpers made static, `nextStage` added), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift` (new), `Sources/UnliRice/Studio/GardenExpandedView.swift` (new), `Sources/UnliRice/ContentView.swift` (that one case only) | B1–B3, C10, A10 | App build; Xcode build |
 | S7 | build | The Guardrails & Grounding tab as §2.7, replacing the placeholder | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8 | planner (the founder or the Codex driver executes it, and Claude reviews the results) | The QA matrix (§4) in an isolated `.app` bundle against a throwaway vault | — | A3–A10 | §4 |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
