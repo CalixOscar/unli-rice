@@ -4,7 +4,7 @@
 **Author:** founder, via Claude
 **Status:** approved 2026-10-30 — the founder chose "approve with drafts": keep macOS 13 with
 the glass fallback, and call the main tab "Studio"
-**Intent read:** not run
+**Intent read:** passed 2026-10-30 — Codex attacked the intent first in its pre-mortem (`docs/dialogue/studio-redesign.md`, finding 1)
 **Spec:** docs/SPEC-studio-redesign.md (2026-10-30)
 **Plan:** docs/PLAN-studio-redesign.md (stage 2, waiting for Codex's pre-mortem)
 
@@ -62,6 +62,14 @@ Checked against `8d2189c` (`main`, the 1.4 (9) build now in App Review).
   intent doc.
 
 ## What "solved" looks like
+
+**Amended 2026-10-30 after Codex's pre-mortem** (`docs/dialogue/studio-redesign.md`). The founder's
+rule ("nothing gets built without its paperwork") is a rule that agents are asked to follow. The
+lights report which files exist for one feature. They don't prove that anyone followed the rule,
+and nothing in this intent blocks a build mechanically. The native Idea Clinic is Phase B. It
+waits for a shared clinic data file on the website, so the app and the site can be tested
+against each other. Until then, "Plant your first idea" opens the website clinic. Orca
+integration is out of scope. Read §2 and §3 below in this light.
 
 ### 1. The look: three decks
 

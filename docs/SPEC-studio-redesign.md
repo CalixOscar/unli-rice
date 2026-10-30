@@ -1,8 +1,8 @@
 # SPEC — Studio redesign
 
 **Intent:** docs/intent/INTENT-009-studio-redesign.md
-**Status:** ready for pre-mortem (the intent was approved 2026-10-30). The plan is
-`docs/PLAN-studio-redesign.md`.
+**Status:** approved 2026-10-30, revised after Codex's pre-mortem (`docs/dialogue/studio-redesign.md`).
+The plan is `docs/PLAN-studio-redesign.md`. §D is Phase B and is blocked (plan §6).
 **Verified against:** `8d2189c` (`main`)
 
 The intent says **why** and **what solved looks like**. This spec says **exactly what must be
@@ -18,7 +18,7 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 | Id | Requirement | Check |
 |---|---|---|
 | A1 | The app opens on the **Studio** tab, which shows three decks: Garden, Branches and Notes. A glass tab bar switches to **Guardrails & Grounding**, which shows two decks. There is no text sidebar. | walk |
-| A2 | Each deck shows a picture, plus at most one number and one short label, before you click it. | walk + screenshot |
+| A2 | Each collapsed deck shows one picture, one headline number and at most one short list of up to five items. | walk + screenshot |
 | A3 | Clicking a deck makes it fill the window. Esc, or clicking its title, brings back all three. Keyboard: 1, 2 and 3 open each deck. | walk |
 | A4 | One gear button opens everything that left the main stage: Connect, House Rules, Trust Center, Archived, Extras and Setup. Each is reached in at most two clicks. | walk; a list in the plan of every former `Pane` case and its new route |
 | A5 | Every former `AppStore.Pane` case is still reachable. | test: a new `case` fails to compile until it is routed |
@@ -32,8 +32,8 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 
 | Id | Requirement | Check |
 |---|---|---|
-| B1 | **Garden:** a crate of album sleeves, one per `ProjectGarden.Project` plus one per seed. The front sleeve is full size, and up to three peek out behind it. Each sleeve's sticker reads fine, needs you, can't read, or seed. `needsAttention` decides "needs you". A project with no readable status is "can't read", never "fine". | test (state mapping) + walk |
-| B2 | **Garden:** flip with the arrow buttons, the left and right arrow keys, a trackpad swipe, or a click on a sleeve behind. A row of dots, one per sleeve, jumps straight to a sleeve. The order is most recently active first. With no dates a project goes last, and it is never hidden. | test (ordering) + walk |
+| B1 | **Garden:** a crate of album sleeves, one per `ProjectGarden.Project`. The front sleeve is full size, and up to three peek out behind it. The sticker follows plan §2.5: a project with read issues is "can't read"; `needsAttention` gives "needs you"; no status and no repository gives "no notes yet"; anything else is "fine". A read failure is never "fine". (Seeds are Phase B.) | test (state mapping) + walk |
+| B2 | **Garden:** flip with the arrow buttons, the left and right arrow keys (`.keyboardShortcut`, available on macOS 11+), a trackpad swipe, or a click on a sleeve behind. At 20 sleeves or fewer, a row of dots jumps straight to a sleeve; above 20, "n of N" and the List view. The order is most recently active first. With no dates a project goes last, and it is never hidden. | test (ordering) + walk |
 | B3 | **Garden:** under the crate, the front sleeve's seven lights and its next step. Opening the Garden shows the back of the sleeve: the seven stages as a tracklist (Side A before building, Side B building), with the Copy prompt for the next step. | walk with a 60-repo sample |
 | B4 | **Branches:** shows `BranchGraphView` for the selected Garden project. It reuses the existing drawing and claims, and adds no new git reading. | walk; diff shows `GitRepoScanner` unchanged |
 | B5 | **Branches:** with no ancestry published, it says so in one sentence, as today. It never draws guessed shapes. | walk |
@@ -44,18 +44,18 @@ requirement below has an id, so the plan, the pre-mortem and the post-mortem can
 
 | Id | Requirement | Check |
 |---|---|---|
-| C1 | A pure core type, `BuildGate`, reads a project folder and returns seven states: Idea, Intent, Spec, Agents, Pre-mortem, Build, Post-mortem. Each state is `done`, `skipped`, `missing` or `unknown(reason)`. | test |
+| C1 | A pure core type, `BuildGate`, reads **one feature** (one slug) of a project folder and returns seven lights. Every file it uses comes from paths named in that feature's plan; nothing is combined across features or chosen by modification date. Light states are exactly those in plan §2.6. The app says "Lights show which files exist in this repo": they report files and enforce nothing. | test |
 | C2 | `unknown` is returned when the folder or a file can't be read. `missing` is returned only when the folder was read and the file isn't there. | test, including an unreadable fixture |
-| C3 | Intent is `done` only when an intent doc's `**Status:**` line starts with `approved`. A draft counts as `missing`, shown as "draft". | test |
-| C4 | Spec is `done` when a `docs/SPEC-*.md` names that intent in its `**Intent:**` line. | test |
-| C5 | Agents is `done` when `AGENTS.md` exists at the root. `CLAUDE.md` is optional. If `CLAUDE.md` exists but neither imports (`@AGENTS.md`) nor names `AGENTS.md`, the light is a draft, because Claude Code would then skip `AGENTS.md`. | test |
-| C6 | Pre-mortem is `done` when `docs/dialogue/<slug>.md` has a `## <tool> — pre-mortem —` turn **and** a later `— settled —` turn. A plan header saying the pre-mortem was skipped gives `skipped`. | test, using the dialogue README's format |
+| C3 | Intent is `done` only when the plan's `**Intent:**` file has a `**Status:**` line starting with `approved`. An existing file with another status is `draft`. | test |
+| C4 | Spec is `done` only when the plan's `**Spec:**` file has `**Status:**` starting with `approved` and names the same intent. Another status is `draft`; a different intent is `unknown`. A plan with no `**Spec:**` line is an older plan: `notRequired`. | test |
+| C5 | Agents is `done` when `AGENTS.md` exists at the root. `CLAUDE.md` is optional. If `CLAUDE.md` exists without a line equal to `@AGENTS.md`, the light is `draft`, because Claude Code would then skip `AGENTS.md`. Merely mentioning `AGENTS.md` doesn't count. | test |
+| C6 | Pre-mortem is `done` only when the dialogue header's `State` is settled, built or closed, a pre-mortem turn is by the header's Reviewer, and a settled turn by the header's Planner comes after the reviewer's last pre-mortem or rebuttal. Headings inside code fences don't count. `**Pre-mortem:** skipped — <quote>` in the plan gives `skipped`. | test, using the dialogue README's format |
 | C7 | Build is `done` when the plan's `**Stage:**` line says built or post-mortem. Post-mortem is `done` when a `— post-mortem —` turn exists. | test |
-| C8 | Reading is bounded: at most 200 files per project and 128 KB per file, the same bound as `ProjectGarden.maxMemoryBytes`. Symlinks out of the granted folder are not followed. | test |
+| C8 | Reading is bounded: `docs/` listed at depth 1 with at most 500 entries, and 128 KB per file. Going over either gives `unknown` with the reason, never `missing`. Paths that resolve outside the folder are `unknown`. | test |
 | C9 | `BuildGate` writes nothing and needs no new entitlement. | review: the diff has no write calls; entitlements unchanged |
 | C10 | Clicking a grey or missing light shows one plain sentence on what makes it green, plus a "Copy prompt" button that copies a prompt for the user's AI. The button changes no file. | walk |
 
-## D. Idea Clinic in the app
+## D. Idea Clinic in the app (Phase B: blocked on a shared clinic data file, plan §6)
 
 | Id | Requirement | Check |
 |---|---|---|

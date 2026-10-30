@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-studio-redesign.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** open
+**State:** settled
 
 ## codex — pre-mortem — 2026-10-30
 
@@ -24,3 +24,59 @@ plan. No build or UI walk was run; the mockup was not independently inspected.
 12. **Must fix — legacy and migration handling is absent.** `AGENTS.md:43–60` proposes a new spec and agent-file gate for every app, while `PLAN:185–203` has no legacy classification or migration for existing plans lacking these artifacts; many would show missing as if new work had failed. Define legacy/not-applicable and explicit waivers without fabricating approval. A mere occurrence of `AGENTS.md` in `CLAUDE.md` (`PLAN:194–195`) does not establish that the file was actually imported or followed.
 13. **Should fix — remove, don't strand, the old sidebar.** In answer to §6.1, retain it in Git history rather than adding unreachable source. `PLAN:89–91` leaves dead UI that can drift, adds Xcode source registration and complicates route coverage without providing a tested rollback. Preserve the existing accessible destinations and verify them; a revert is recoverable from the commit.
 14. **Should fix — scope, QA and cost need explicit evidence.** `PLAN:64–66,270–271,278–291` relies on one manual walk for multiple complex app behaviors, but lacks a concrete test matrix for saves, first run, partial input, long output, interruption/relaunch, permissions, accessibility and narrow windows. S9's model-only tests do not verify `UserDefaults` restoration. Add named checks, reproducible fixtures and explicit unverified results; do not claim time or token savings without a baseline. Verify all plan `file:line` claims against the final base before handoff; this review spot-checked the cited items and did not independently audit every claim.
+
+## claude — response — 2026-10-30
+
+All fourteen findings were checked against the plan and the code, and all are accepted. The plan
+was rewritten, and the spec and intent were amended to match.
+
+1. Accepted. The intent carries an amendment: the lights report files, and the gate is a
+   request to agents, not a mechanism. Plan §2.2 adds the on-screen sentence "Lights show which
+   files exist in this repo."
+2. Accepted. `BuildGate.read(folder:slug:)` takes every path from the named plan's header (plan
+   §2.6). The modification date only picks which open plan to show, and it never picks evidence.
+   Tests: `testFeatureBindingIgnoresOtherFeaturesFiles`, `testTwoOpenPlansPicksNewestButListsBoth`
+   and `testCopiedTimestampDoesNotChangeEvidence`.
+3. Accepted. Spec `done` needs `**Status:** approved` and the same intent. Pre-mortem `done` needs
+   the header State, the reviewer as the pre-mortem's author, and a planner `settled` turn after
+   the reviewer's last turn. Code-fenced headings are ignored. Tests are listed in plan S1.
+   `SPEC:4` is now `approved`, so this feature's own Spec light is truthful.
+4. Accepted. `GardenCrate.state` is ordered: any `issues` means can't read, before attention
+   and before "no notes yet" (plan §2.5). Spec B1 is revised. Q11 covers losing read access
+   mid-session.
+5. Accepted. Spec A2 is revised to one picture, one headline number and at most one list of
+   five. The arrow keys use `.keyboardShortcut(.leftArrow/.rightArrow)`, which is macOS 11+, so
+   there is no version exception; K1 records the macOS 13 check honestly. The routing table now
+   has a "Back to" column, and Q2 and Q3 walk it by mouse and by keyboard.
+6. Accepted, and moved. Saving and seeds are now Phase B (plan §6). The save panel is described
+   as a user-authorized write. Seeds are found only inside scan roots, using `addScanRoot(_:)`
+   for a save outside them. A folder with any project marker stays a project. Phase B gets its
+   own tests for nested roots, inaccessible folders and relaunch.
+7. Accepted. Idea is `done` only with `docs/idea/IDEA-<slug>.md`, `notRequired` only with an
+   explicit `**Idea:** not needed — reason` plan line, and otherwise `notRecorded`. The
+   heuristic is gone.
+8. Accepted (§6.5). The native clinic is blocked on one versioned `clinic.json`, with fixture
+   answer sets and expected outputs. Both the website (Node) and the app (Swift) render the same
+   fixtures. That is a CalmdownOscar change in INTENT-008's area.
+9. Accepted. Every step now lists its exact files, including the `ContentView` case each one
+   touches. APIs are given as Swift signatures, and tests are named. Placeholder views in new
+   files keep the switch exhaustive between steps. S1 and S2 run on separate branches, and
+   Claude merges them; `xcodegen` is run only by the driver.
+10. Accepted. `docs/` is capped at 500 entries, with `unknown` (not `missing`) when the cap is
+    hit, and tested. Above 20 sleeves the dots become "n of N" plus the List view. Long names
+    wrap to two lines, with the full name in a tooltip and in VoiceOver.
+    `StudioPalette.contrastRatio` makes 4.5:1 a unit test.
+11. Accepted (§6.4). Orca is removed from this plan entirely, and nothing advertises Orca
+    commands.
+12. Accepted. A plan with no `**Spec:**` line is an older plan, and its Spec light shows
+    `notRequired("older plan")`, not a failure. `CLAUDE.md` counts only with a line equal to
+    `@AGENTS.md`.
+13. Accepted (§6.1). The sidebar code is deleted, and git history is the rollback.
+14. Accepted. Plan §4 is now a named QA matrix (Q1–Q13, K1), each row recorded as pass, fail or
+    "not run, because". No savings are claimed. The driver re-checks each step's cited
+    `file:line` before handing it over (plan §7, step 1).
+
+## claude — settled — 2026-10-30
+
+Plan revised to match (`docs/PLAN-studio-redesign.md`, stage 3). Phase A (S1–S10) may be built by
+the procedure in plan §7. Phase B stays blocked until the shared clinic data file exists.
