@@ -2731,3 +2731,10 @@ happen:** Xcode's Apple account session had expired, and signing in is the found
 Post-Mortem (`docs/release/1.5-premortem.md`) finds Studio speaks mainly to people who plan in
 files the way this studio does, and that screenshot 01 shows NEEDS YOU beside "0 need you"
 (two different counts); it recommends fixing that count before submitting.
+
+**Then (2026-10-31):** the founder said "Keep going". The Notes deck's "need you" now counts to-dos
+plus flags, the same as the sticker (`9135214`, new test `testSleeveNeedYouCountMatchesSticker`),
+and 1.5 (10) was archived again from `c6d7a24`. Screenshot 01 and the website hero were re-shot
+("1 need you"); the site is live at `6fe6eaa`. App Store Connect has the new screenshot set in
+order 01–07 and a promotional text (recorded in `APP_STORE_SUBMISSION.md`). The upload still waits
+on Xcode's Apple account sign-in.
