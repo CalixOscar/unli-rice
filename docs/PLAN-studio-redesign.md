@@ -1193,6 +1193,23 @@ caption, count and list to that project's notes (checked against the same projec
 projects" restores today's Notes deck and lists the repos in Branches, and a repo row brings that
 project to the front in "This project".
 
+**S8h — repo rows click anywhere; "1 branch" (build-light; found in S8g's QA, 2026-10-31).**
+
+In the QA app the "All projects" repo rows only respond on the name or the count text: the
+`Spacer()` between them is not hit-testable under `.buttonStyle(.plain)`. Both the row count and
+the "This project" headline also read "1 branches".
+
+1. **`Sources/UnliRice/Studio/BranchesDeck.swift`**, the `.all` row label: add
+   `.contentShape(Rectangle())` to the `HStack` (after its closing brace, before `} label:` ends).
+2. Same file, both count texts: `Text("\(repo.branches) branches")` becomes
+   `Text(repo.branches == 1 ? "1 branch" : "\(repo.branches) branches")`, and
+   `Text("\(snapshot.branches.count) branches")` becomes
+   `Text(snapshot.branches.count == 1 ? "1 branch" : "\(snapshot.branches.count) branches")`.
+   Nothing else changes.
+
+Acceptance: clicking the middle of a repo row brings that project to the front; tide-clock reads
+"1 branch".
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1216,6 +1233,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8e | build | Sideways sleeves, and this file's two copy changes, exactly as §2.9 | `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | App build; Xcode build |
 | S8f | build-light | "Garden" becomes "Projects" in the other four files, exactly as §2.9 | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/GardenExpandedView.swift`, `Sources/UnliRice/ProjectGardenView.swift`, `Sources/UnliRice/AppStore.swift` | A2, B1 | App build; Xcode build |
 | S8g | build | The decks follow the front project, with a "This project / All projects" switch, exactly as §2.9 | `Sources/UnliRiceCore/GardenCrate.swift`, `Tests/UnliRiceCoreTests/GardenCrateTests.swift`, `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift`, `Sources/UnliRice/Studio/BranchesDeck.swift` | A2, A3, B4–B7 | Tests; app build; Xcode build |
+| S8h | build-light | Repo rows click anywhere; "1 branch", exactly as §2.9 | `Sources/UnliRice/Studio/BranchesDeck.swift` | B4 | App build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
