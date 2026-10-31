@@ -1434,6 +1434,67 @@ is now an item in the gear menu.
    becomes `case .capturePromo: return "Adds the free iPhone app's card to the gear menu."`.
    Nothing else changes.
 
+**S11 — the post-mortem's four confirmed gaps (build; founder chose "fix, then merge", 2026-10-31).**
+
+From `docs/dialogue/studio-redesign.md` (Codex post-mortem items 1, 3, 4, 5; each confirmed by
+Claude against `91096db`). Mac 1.4 is live, so `main` may take this branch after S11. Tier 1: no
+persistence, no dependency. Scan roots are always user-chosen (default `[]`,
+`AppStore.swift:412`), so a root shown as CAN'T READ can't appear on a fresh install.
+
+1. **Refresh re-reads the lights and branches.**
+   - `Sources/UnliRice/AppStore.swift`, one line after `studioIcons`:
+     `@Published var studioRefreshCount: Int = 0`.
+   - `Sources/UnliRice/AppStore+Studio.swift`: add
+     `struct StudioGateKey: Equatable { let sleeveID: String?; let refresh: Int }` beside
+     `StudioScope`. In `refreshStudioGarden()`, right after `studioGardenState = .loaded`, add
+     `studioRefreshCount &+= 1` (before `await loadStudioIcons()`).
+   - `Sources/UnliRice/Studio/GardenExpandedView.swift:51` and
+     `Sources/UnliRice/Studio/StudioView.swift:25`: `.task(id: store.studioFrontSleeve?.id)`
+     becomes
+     `.task(id: StudioGateKey(sleeveID: store.studioFrontSleeve?.id, refresh: store.studioRefreshCount))`.
+   - `Sources/UnliRice/Studio/BranchesDeck.swift`: `LoadKey` gains `let refresh: Int`, passed
+     `store.studioRefreshCount`. Add `@State private var snapshotFolder: URL?`. In `load()`'s
+     project path set `snapshotFolder = folder` on the same line group as `snapshot = loaded.0`;
+     where it sets `snapshot = nil; ancestry = nil` for no folder, also set `snapshotFolder = nil`.
+     In `body`'s project branch, `if let snapshot {` becomes
+     `if let snapshot, snapshotFolder == folder {`, and its `} else {` (the "No git repository"
+     text) becomes `} else if snapshotFolder == folder {`, followed by a new
+     `} else { ProgressView().controlSize(.small) }`. So an old project's branches are never
+     shown under a new one.
+2. **An unreadable plan is unknown, not "no plan" (C2).** `Sources/UnliRiceCore/BuildGate.swift`,
+   `current(folder:)`: while collecting plans, record the slug of every `PLAN-*.md` whose
+   `read(url:root:)` is not `.text`. If no open plan remains and that list is non-empty, return
+   `unknownResult(slug: nil, reason: "could not read docs/PLAN-<first slug, sorted>.md")`. If an
+   open plan is chosen and the list is non-empty, append `"could not read docs/PLAN-<slug>.md"`
+   for each (sorted) to `issues` after the "other open plans" issue.
+   `Tests/UnliRiceCoreTests/BuildGateTests.swift`, with the file's `plan` helper and
+   `FileManager.default.setAttributes([.posixPermissions: …])` restored to `0o644` in a `defer`:
+   - `testUnreadablePlanIsUnknownNotNoPlan`: one plan at stage 2, made `000` → every light is
+     `.unknown("could not read docs/PLAN-<slug>.md")`.
+   - `testUnreadablePlanBesideAnOpenPlanIsAnIssue`: one readable stage-2 plan and one `000` plan
+     → the readable one is chosen and `issues` contains the "could not read" line.
+3. **A scan root that can't be opened shows as a CAN'T READ sleeve.**
+   `Sources/UnliRiceCore/ProjectGarden.swift`: add
+   `static let unreadableRootIssue = "Unli Rice can't open this folder. If it moved or lost permission, choose it again in Setup › Folders."`.
+   In `discover`, at `depth == 0` only: where the root fails the `fileExists`/is-directory check,
+   and where its `contentsOfDirectory` fails, append
+   `Candidate(url: url, name: url.lastPathComponent, issues: [unreadableRootIssue])` and return,
+   instead of the global issue. Deeper folders keep S8m's behaviour.
+   `Tests/UnliRiceCoreTests/ProjectGardenTests.swift`: `testUnreadableRootStaysAGlobalIssue`
+   becomes `testUnreadableRootIsACantReadProject` (a `000` root → one project named after it whose
+   `issues.first` is `ProjectGarden.unreadableRootIssue`), and add
+   `testMissingRootIsACantReadProject` (a root path that doesn't exist → the same). Fix any other
+   existing test that expected the old global issue for a missing root, and report which.
+4. **The icon size is checked before reading.** `Sources/UnliRice/AppStore+Studio.swift`,
+   `loadStudioIcons()`: read the file only when
+   `(try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { $0 <= 5_000_000 } == true`;
+   keep the `data.count <= 5_000_000` check after the read.
+
+Acceptance: `swift test` gains three tests and passes. In the QA app: in the enlarged Projects
+view, changing the front project's intent status from draft to approved and pressing Refresh turns
+its Intent light to done without flipping; a scan root set to `000` shows one CAN'T READ sleeve
+named after it, and Refresh after restoring it brings its projects back.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1466,6 +1527,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S9a | build-light | The iPhone Capture Extra's description, exactly as §2.9 | `Sources/UnliRice/Extras.swift` | E4 | App build |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
+| S11 | build | The post-mortem's four confirmed gaps, exactly as §2.9 | `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/Studio/GardenExpandedView.swift`, `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/BranchesDeck.swift`, `Sources/UnliRiceCore/BuildGate.swift`, `Tests/UnliRiceCoreTests/BuildGateTests.swift`, `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift` | C2, B1, B4 | Tests; app build; Xcode build |
 
 - **Order.** S1 and S2 may run in parallel on separate branches. S4 to S7 are sequential, and
   each is cut from the tip after Claude has merged the step before it.
