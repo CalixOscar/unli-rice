@@ -1291,6 +1291,51 @@ Acceptance: `swift test` gains six tests and passes. In the QA app, a fixture pr
 clear of the sticker and the name; a project without one looks as before; and a project's sleeve
 picks up an icon added to its folder after Refresh.
 
+**S8j — what VoiceOver hears (build-light; found in Q7, 2026-10-31).**
+
+Read from the Accessibility tree of the QA app at the S8i merge (the attributes VoiceOver speaks):
+the tabs are `AXButton` ("Studio, selected, button"); the gear reads its symbol name ("Gear
+shape"), because its `.accessibilityLabel` sits outside the `Menu`'s own label; the front sleeve
+and the page counter are `AXUnknown` (no role, so VoiceOver may skip them); each light is read as
+"Intent: done" and then again as the caption "Intent"; and every `AutomationToggleRow` switch
+(Setup › Extras, Automation) has no name, which is also true in 1.4. SwiftUI has no "tab" role on
+macOS 13; a segmented `Picker` is what AppKit exposes for a one-of-N page switcher (a radio group,
+"Studio, selected, radio button, 1 of 2"), so the tabs get that as their accessibility
+representation. Visuals, keyboard shortcuts and tab order don't change.
+
+1. **`Sources/UnliRice/Studio/StudioToolbar.swift`.**
+   - On the `HStack(spacing: 4)` in `tabs`, after `.liquidGlassCapsule()`, add:
+     ```swift
+     .accessibilityRepresentation {
+         Picker("Page", selection: Binding<Int>(
+             get: { store.lastTab == .guardrailsGrounding ? 1 : 0 },
+             set: { $0 == 0 ? store.showStudio() : store.showGuardrailsGrounding() }
+         )) {
+             Text("Studio").tag(0)
+             Text("Guardrails & Grounding").tag(1)
+         }
+         .pickerStyle(.segmented)
+     }
+     ```
+   - In `gear`, the menu label becomes
+     `Image(systemName: "gearshape").accessibilityLabel("Settings and more").frame(width: 44, height: 44)`.
+     The existing outer `.accessibilityLabel("Settings and more")` stays.
+2. **`Sources/UnliRice/Studio/GardenCrateView.swift`.**
+   - In `crate`, `.accessibilityAddTraits(distance > 0 ? .isButton : [])` becomes
+     `.accessibilityAddTraits(distance > 0 ? .isButton : .isStaticText)`.
+   - In `controls`, after each of the two `.accessibilityLabel("\(front + 1) of \(count)")` lines,
+     add `.accessibilityAddTraits(.isStaticText)`.
+3. **`Sources/UnliRice/Studio/BuildGateLights.swift`.** The caption `Text(Self.title(for: stage))`
+   inside `if showsLabels` gains `.accessibilityHidden(true)` after its `.foregroundStyle`.
+4. **`Sources/UnliRice/AutomationView.swift`**, `AutomationToggleRow`: `Toggle("", isOn: isOn)`
+   becomes `Toggle(title, isOn: isOn)` (it stays `.labelsHidden()`, so nothing changes on screen).
+
+Acceptance: in the Accessibility tree the tabs are a radio group of "Studio" / "Guardrails &
+Grounding" with the open one selected, and choosing one switches the page; the gear is
+"Settings and more"; the front sleeve and the counter are static text with their labels; each
+light is read once; each Extras switch carries its row's title. ⌘1/⌘2 still switch tabs, and the
+screen looks the same.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1316,6 +1361,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8g | build | The decks follow the front project, with a "This project / All projects" switch, exactly as §2.9 | `Sources/UnliRiceCore/GardenCrate.swift`, `Tests/UnliRiceCoreTests/GardenCrateTests.swift`, `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift`, `Sources/UnliRice/Studio/BranchesDeck.swift` | A2, A3, B4–B7 | Tests; app build; Xcode build |
 | S8h | build-light | Repo rows click anywhere; "1 branch", exactly as §2.9 | `Sources/UnliRice/Studio/BranchesDeck.swift` | B4 | App build; Xcode build |
 | S8i | build | Project icons centred on the sleeves, exactly as §2.9 | `Sources/UnliRiceCore/ProjectIcon.swift` (new), `Tests/UnliRiceCoreTests/ProjectIconTests.swift` (new), `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | Tests; app build; xcodegen and the Xcode build |
+| S8j | build-light | What VoiceOver hears: tabs, gear, front sleeve, counter, light captions, Extras switches, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/BuildGateLights.swift`, `Sources/UnliRice/AutomationView.swift` | A7, A8 | App build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
