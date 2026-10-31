@@ -14,8 +14,7 @@ struct NotesDeck: View {
     }
     private var needYou: Int {
         guard let scoped else { return store.pending.count + store.unreadNoticeCount }
-        let ids = Set(scoped.noteIDs)
-        return store.pending.filter { ids.contains($0.note.id) }.count
+        return scoped.needYouCount
     }
     private var newest: [Note] { Array(open.sorted { $0.updatedAt > $1.updatedAt }.prefix(5)) }
     private var buckets: [(String, Int)] {
