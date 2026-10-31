@@ -1,6 +1,8 @@
 import Foundation
 import UnliRiceCore
 
+enum StudioScope: Equatable { case project, all }
+
 enum StudioGardenState: Equatable {
     case loading
     case loaded

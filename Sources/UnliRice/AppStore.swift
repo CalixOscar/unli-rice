@@ -81,6 +81,7 @@ final class AppStore: ObservableObject {
     @Published var studioFrontIndex: Int = 0
     @Published var studioGardenState: StudioGardenState = .loading
     @Published var studioFrontGate: BuildGate.Result? = nil
+    @Published var studioScope: StudioScope = .project
     /// Which tab Setup shows. Every entry into Setup sets it explicitly.
     @Published var setupTab: SetupView.Tab = .connect
     @Published var moreDestination: MoreDestination = .setup

@@ -60,7 +60,17 @@ struct StudioView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
             }
-            BuildGateLights(result: store.studioFrontGate, showsLabels: true)
+            HStack(alignment: .center) {
+                BuildGateLights(result: store.studioFrontGate, showsLabels: true)
+                Spacer()
+                Picker("Show branches and notes for", selection: $store.studioScope) {
+                    Text("This project").tag(StudioScope.project)
+                    Text("All projects").tag(StudioScope.all)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 220)
+            }
             Text("Lights show which files exist in this repo.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary)
