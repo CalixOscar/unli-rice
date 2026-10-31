@@ -65,7 +65,27 @@ fi
 ditto --noextattr --norsrc "Config/LaunchAgents/com.calmdownoscar.unlirice.agent.plist" "$LAUNCHAGENTS/com.calmdownoscar.unlirice.agent.plist"
 ditto --noextattr --norsrc "Sources/UnliRice/Resources/PrivacyInfo.xcprivacy" "$RESOURCES/PrivacyInfo.xcprivacy"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+# Version numbers come from project.yml (the source of truth), read from the
+# macOS "UnliRice:" app target under "targets:" — not the first match, because
+# the iPhone capture targets carry different values.
+project_setting() {
+    awk -v key="$1" '
+        /^targets:/ { in_targets = 1; next }
+        /^[^ #]/ { in_targets = 0 }
+        in_targets && /^  [A-Za-z0-9_]+:/ { in_app = ($1 == "UnliRice:") }
+        in_targets && in_app && $1 == key ":" {
+            v = $2; gsub(/"/, "", v); print v; exit
+        }
+    ' project.yml
+}
+APP_VERSION="$(project_setting MARKETING_VERSION)"
+APP_BUILD="$(project_setting CURRENT_PROJECT_VERSION)"
+if [ -z "$APP_VERSION" ] || [ -z "$APP_BUILD" ]; then
+    echo "ERROR: could not read MARKETING_VERSION / CURRENT_PROJECT_VERSION for the UnliRice target in project.yml" >&2
+    exit 1
+fi
+
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -81,9 +101,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>${APP_BUILD}</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>

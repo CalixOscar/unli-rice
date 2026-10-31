@@ -2738,3 +2738,10 @@ and 1.5 (10) was archived again from `c6d7a24`. Screenshot 01 and the website he
 ("1 need you"); the site is live at `6fe6eaa`. App Store Connect has the new screenshot set in
 order 01–07 and a promotional text (recorded in `APP_STORE_SUBMISSION.md`). The upload still waits
 on Xcode's Apple account sign-in.
+
+**Submitted (2026-10-31):** the founder signed in and uploaded build 10 from Xcode's Organizer (the
+command-line upload still could not use the account), then said "Submit for review". 1.5 (10) is
+Waiting for Review. The website sweep replaced the 1.3 To Do screenshot on the home and About the
+apps pages and the old Connect crop on How I work, and removed unused 1.3 images (site `a4b7432`).
+GitHub got its first release, `v1.5`, and the README now explains building it while the App Store
+catches up; `Scripts/make-app.sh` reads its version from `project.yml` instead of saying 1.0.

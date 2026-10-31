@@ -233,8 +233,10 @@ folders you chose in **Setup → Folders** that holds a `.git` folder, a
   approved yet shows as a draft. "Next:" names the next step.
 - **Branches** and **Notes** follow the front project: its git branches, and
   the notes that belong to it (a note tagged with the project's folder name
-  counts). Switch to **All projects** at the top right to see every repo and
-  every note instead; clicking a repo there brings that project to the front.
+  counts). The Notes deck's "need you" count matches the sticker: the
+  project's to-dos plus its flagged notes. Switch to **All projects** at the
+  top right to see every repo and every note instead; clicking a repo there
+  brings that project to the front.
 - **Expand** any deck with the button in its corner. The enlarged Projects
   view adds Refresh, a list view, each step's details and **Copy prompt**,
   which copies a ready-made instruction for your AI tool about the next

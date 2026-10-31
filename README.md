@@ -23,31 +23,33 @@ the system comes from whatever agent you connect over MCP.
 
 ## Screenshots
 
-**Projects.** A native project overview, under Projects in the sidebar. Search project cards, read recorded status and next steps with their sources, filter open to-do/review notes, and open related notes. It reads the folders already selected in the app and notes titled `Project: <name>`; saved repository details carry their own dates, and missing data stays unknown. Manage its folders in **Setup › Folders**.
+**Studio.** Your projects as a stack of cards. Each card shows the project's icon and whether it needs you; seven lights show how far its plan has come, from Idea to Post-mortem; and the Branches and Notes decks follow the project in front.
 
-**Setup & Tools → AI Tools.** One row per tool, each showing the config file its block goes in, a Copy Configuration button, and when that tool last checked in. Unli Rice never opens or edits those files — you paste the block yourself. The path at the top is the folder route for tools that read local files rather than speaking MCP; note that it is the sandbox container path, not your own `~/Documents`.
+![Studio: the recipe-box project card marked NEEDS YOU, its seven lights, its branches and its notes](Screenshots/AppStore-Mac-2026-10-31/01-studio.png)
 
-![The Connect screen, listing Claude Code, Claude Desktop, Cursor, Antigravity and Codex with their config files](Screenshots/connect-screen.png)
+**Guardrails & Grounding.** What your AI knows (your notes and the folder it can read) beside the rules it follows (your House Rules), and what is waiting on your decision.
 
-**To do.** Every item is derived from something real: a branch tip that is on no remote this machine has fetched, a `**Next step:**` line in a project's `memory.md`, or a note an agent tagged `todo`. Derived items have no checkbox — they disappear when the state that made them true does.
+![The Guardrails & Grounding tab](Screenshots/AppStore-Mac-2026-10-31/03-guardrails-grounding.png)
 
-![The To do pane, listing derived work across eight repositories](Screenshots/AppStore-Mac-2026-09-03/08-todo.png)
+**Setup › AI Tools.** One row per tool, each showing the config file its block goes in, a Copy Configuration button, and when that tool last checked in. Unli Rice never opens or edits those files — you paste the block yourself. The path at the top is the folder route for tools that read local files rather than speaking MCP.
 
-**Repos.** The branch graph. It compares each branch tip against the remote refs this clone has already fetched, and deliberately shows no ahead/behind counts: those need a walk over commit objects, and the App Sandbox forbids shelling out to `git` to do it.
-
-![The Repos branch graph, showing branch lifetimes against trunk](Screenshots/AppStore-Mac-2026-09-03/03-map.png)
+![Setup › AI Tools, listing Claude Code, Claude Desktop, Cursor and Antigravity with their config files](Screenshots/AppStore-Mac-2026-10-31/07-ai-tools.png)
 
 More, including the iPhone capture app, in [`Screenshots/`](Screenshots/).
 
 ## Quick start
 
-Download directly from the **[Mac App Store](https://apps.apple.com/app/unli-rice)**.
+Download from the **[Mac App Store](https://apps.apple.com/app/unli-rice/id6792837485)**.
 
-Alternatively, build a local app bundle:
+The App Store can lag behind GitHub while a new version is in review. To run the newest version now, build it from the [latest release](https://github.com/CalixOscar/unli-rice/releases/latest). You need a Mac with Xcode installed:
 
 ```sh
+git clone --branch v1.5 https://github.com/CalixOscar/unli-rice.git
+cd unli-rice
 ./Scripts/make-app.sh         # builds dist/Unli Rice.app — then just open it
 ```
+
+A build made this way is signed only for your own Mac. Don't run it alongside the App Store copy: quit one before opening the other.
 
 Or from source:
 
@@ -69,13 +71,14 @@ source of truth for the generated project.
 ## Running itself
 
 The app is meant to be ignorable. The **Keep working with the window closed**
-toggle registers its bundled LaunchAgent so ingestion and the janitor keep
-running after the window closes; anything that needs a human decision waits in
-the notification centre instead of interrupting, and **Your Review** reads a
-month or a year back to you from notes you already have. Nothing that runs
-unattended can do more than the buttons can — the janitor may only tag and flag,
-ingest may only create and append, and there is no delete anywhere in the
-codebase.
+toggle (Setup › What runs on its own) registers its bundled LaunchAgent so
+ingestion and the janitor keep running after the window closes; anything that
+needs a human decision waits in the notification centre instead of
+interrupting, and **Your year so far** (an extra you can turn on in
+Setup › Extras) reads a month or a year back to you from notes you already
+have. Nothing that runs unattended can do more than the buttons can — the
+janitor may only tag and flag, ingest may only create and append, and there
+is no delete anywhere in the codebase.
 
 ## Ongoing development
 
