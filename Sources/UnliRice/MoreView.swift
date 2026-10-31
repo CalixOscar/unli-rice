@@ -52,13 +52,16 @@ struct MoreView: View {
                                 .font(.system(size: 18, weight: .bold))
                                 .foregroundStyle(Theme.textPrimary)
 
-                            Text("Standing instructions read by every connected assistant at session start.")
+                            Text("Conventions saved as a note for connected assistants to find. One that searches your notes at the start of a session picks them up.")
                                 .font(.system(size: 12.5))
                                 .foregroundStyle(Theme.textSecondary)
 
-                            HouseRulesPresetGalleryView {
+                            HouseRulesPresetGalleryView(onUseDraft: {
                                 store.reload()
-                            }
+                                store.showSetup()
+                            }, onDone: {
+                                store.showGuardrailsGrounding()
+                            })
                         }
                         .padding(20)
                     }
