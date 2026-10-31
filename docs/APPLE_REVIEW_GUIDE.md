@@ -56,8 +56,8 @@ Unli Rice is a standalone native macOS productivity application that manages a p
 Names below are the buttons in Unli Rice 1.5. The window has two tabs, Studio and Guardrails & Grounding, and a gear menu at the top right.
 1. Open **Unli Rice.app**. On the first screen, click **Use Unli Rice without connecting**.
 2. Click the **Studio** tab, then **Pick a folder**, and choose a folder that contains one or more git repositories. Each repository becomes a card with its branches and notes; the expand button in the deck's corner shows its steps and **Copy prompt**.
-3. Click the **Guardrails & Grounding** tab, then **Open notes**. Click **New Note**, add a title and text, save, then search for it.
-4. On the same tab, click **Edit** beside House Rules, then **Choose Template…**, pick *Engineering Guardrails*, click **Use as Draft**, then **Save to notes**.
+3. Click the **Guardrails & Grounding** tab, then **Open notes**. Type a title in the **New note title…** field and some text in the box under it, click **Add**, then search for the note.
+4. Back on the **Guardrails & Grounding** tab, click **Edit** beside House Rules, select *Engineering Guardrails* and click **Use as Draft**. Setup opens on **AI Tools**; scroll down to **House Rules** and click **Save to notes**.
 5. Click the gear, then **Trust Center**, then **Run checks**.
 6. Click the gear, then **Setup**, then **Extras**, and turn on **Map**; Map appears in the gear menu.
 

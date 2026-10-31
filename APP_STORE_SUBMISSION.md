@@ -94,13 +94,15 @@ Permanently hosted reviewer guide and sample configuration files:
 ### App Review Notes Copy-Paste Text for App Store Connect (1.5)
 
 ```text
+No demo account is needed — Unli Rice has no sign-in or account system.
+
 Unli Rice 1.5 replaces the sidebar with two tabs, Studio and Guardrails & Grounding, and a gear menu at the top right. Nothing is removed from the app.
 
 Unli Rice works on its own without any AI tool or account. To try it without an MCP client:
 1. Open Unli Rice.app. On the first screen, click "Use Unli Rice without connecting".
 2. Click the Studio tab, then Pick a folder, and choose a folder that contains one or more git repositories. Each repository becomes a card with its branches and notes; the expand button in the deck's corner shows its steps and Copy prompt.
-3. Click the Guardrails & Grounding tab, then Open notes. Click New Note, add a title and text, save, then search for it.
-4. On the same tab, click Edit beside House Rules, then Choose Template…, pick Engineering Guardrails, click Use as Draft, then Save to notes.
+3. Click the Guardrails & Grounding tab, then Open notes. Type a title in the "New note title…" field and some text in the box under it, click Add, then search for the note.
+4. Back on the Guardrails & Grounding tab, click Edit beside House Rules, select Engineering Guardrails and click Use as Draft. Setup opens on AI Tools; scroll down to House Rules and click Save to notes.
 5. Click the gear, then Trust Center, then Run checks.
 6. Click the gear, then Setup, then Extras, and turn on Map; Map appears in the gear menu.
 
