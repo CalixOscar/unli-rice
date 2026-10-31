@@ -297,6 +297,31 @@ final class ProjectGardenTests: XCTestCase {
         XCTAssertTrue(ProjectGarden.load(roots: [target], notes: []).projects.isEmpty)
     }
 
+    func testUnreadableFolderInsideARootIsACantReadProject() throws {
+        let root = temporary.appendingPathComponent("root")
+        let locked = root.appendingPathComponent("locked")
+        try mkdir(locked)
+        try "".write(to: locked.appendingPathComponent("memory.md"), atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+
+        let report = ProjectGarden.load(roots: [root], notes: [])
+        let project = try XCTUnwrap(report.projects.first { $0.name == "locked" })
+        XCTAssertEqual(project.issues.first, ProjectGarden.unreadableFolderIssue)
+        XCTAssertEqual(GardenCrate.state(of: project), .cantRead(ProjectGarden.unreadableFolderIssue))
+    }
+
+    func testUnreadableRootStaysAGlobalIssue() throws {
+        let root = temporary.appendingPathComponent("root")
+        try mkdir(root)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: root.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path) }
+
+        let report = ProjectGarden.load(roots: [root], notes: [])
+        XCTAssertTrue(report.projects.isEmpty)
+        XCTAssertTrue(report.issues.contains { $0.hasPrefix("Project discovery could not") })
+    }
+
     func testDiscoveryDepthAndProjectCapAreReported() throws {
         let depthRoot = temporary.appendingPathComponent("Depth")
         for suffix in ["a/b/c/Near", "d/e/f/g/TooDeep"] {
