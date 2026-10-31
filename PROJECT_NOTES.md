@@ -2692,3 +2692,31 @@ refresh, old-result clearing) and a same-ID fixture; test read errors at discove
 set IO limits before reading; split accessibility acceptance into roles, frames, keyboard, real
 VoiceOver and each OS, and record a partial pass as partial; amend the spec whenever the plan
 amends a requirement.
+
+## Mac 1.5 (10) prepared for release (2026-10-31)
+
+**Done at the founder's request** ("update the public guide on calmdownoscar.com add new screenshots
+and archive build 1.5 in xcode then add the text needed in app store"): version bumped to 1.5 (10)
+for the Mac app and widget (Capture stays 1.3/8); archived in Xcode; macOS version 1.5 created in
+App Store Connect with What's New, Description and App Review Notes saved. **Not uploaded, no build
+attached, not submitted**: each needs the founder's own words. Plan `docs/PLAN-release-1.5.md`;
+pre- and post-mortem by Codex in `docs/dialogue/release-1.5.md` (closed).
+
+**Fix found while taking screenshots:** the House Rules template gallery, now embedded in the main
+window, called `dismiss()` on Done and Use as Draft, which closed the whole window. It takes an
+`onDone` closure when embedded and dismisses only as a sheet (`1a971b4`).
+
+**Screenshots** (`Screenshots/AppStore-Mac-2026-10-31/`) come from a demo vault and five invented
+git projects, driven through a separate wrapper app with its own bundle id so no real note, path or
+name appears. 2560x1600 (an accepted Mac size), Dark, no alpha. The review steps were walked on an
+empty vault before pasting; steps 3 and 4 as first written did not match the app (New Note creates a
+permanent "Untitled Note"; Use as Draft opens Setup on AI Tools). Lesson: review steps are walked in
+the app before they go anywhere.
+
+**Website:** branch `claude/unlirice-1.5` in the site repo carries the never-published 1.4 guide
+commits plus the 1.5 text and images. Not merged, because merging deploys. Post-mortem fixes there:
+the House Rules caption no longer says every assistant reads it first, and the guide names the
+`@AGENTS.md` import behind the Agents light.
+
+**Left for the founder:** the app's "Lights show which files exist in this repo." understates what
+the lights read; it is in the archive and screenshots 01–02.
