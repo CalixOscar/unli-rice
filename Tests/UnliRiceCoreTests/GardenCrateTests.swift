@@ -61,6 +61,17 @@ final class GardenCrateTests: XCTestCase {
         XCTAssertEqual(GardenCrate.sleeves(from: report).first?.noteIDs, notes.map(\.id))
     }
 
+    func testSleeveNeedYouCountMatchesSticker() {
+        let notes = [
+            Note(id: UUID(), title: "Fix servings", body: "", tags: ["todo"], createdAt: .now, updatedAt: .now),
+            Note(id: UUID(), title: "Plain", body: "", createdAt: .now, updatedAt: .now)
+        ]
+        let project = ProjectGarden.Project(id: "one", name: "One", notes: notes)
+        let sleeve = GardenCrate.sleeves(from: ProjectGarden.Report(projects: [project], scannedAt: .now)).first
+        XCTAssertEqual(sleeve?.state, .needsYou)
+        XCTAssertEqual(sleeve?.needYouCount, 1)
+    }
+
     func testStableIndexIsStable() {
         XCTAssertEqual(GardenCrate.stableIndex("folder:/Projects/Unli Rice", modulo: 8),
                        GardenCrate.stableIndex("folder:/Projects/Unli Rice", modulo: 8))

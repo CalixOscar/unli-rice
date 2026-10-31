@@ -17,9 +17,10 @@ public enum GardenCrate {
         public let folderURL: URL?
         public let coverIndex: Int
         public let noteIDs: [UUID]
+        public let needYouCount: Int
 
         public init(id: String, name: String, subtitle: String, state: State,
-                    lastActivity: Date?, folderURL: URL?, coverIndex: Int, noteIDs: [UUID] = []) {
+                    lastActivity: Date?, folderURL: URL?, coverIndex: Int, noteIDs: [UUID] = [], needYouCount: Int = 0) {
             self.id = id
             self.name = name
             self.subtitle = subtitle
@@ -28,6 +29,7 @@ public enum GardenCrate {
             self.folderURL = folderURL
             self.coverIndex = coverIndex
             self.noteIDs = noteIDs
+            self.needYouCount = needYouCount
         }
     }
 
@@ -45,7 +47,8 @@ public enum GardenCrate {
             return Sleeve(id: project.id, name: project.name, subtitle: subtitle,
                           state: state(of: project), lastActivity: activity,
                           folderURL: project.folderURL, coverIndex: stableIndex(project.id, modulo: 8),
-                          noteIDs: project.notes.map(\.id))
+                          noteIDs: project.notes.map(\.id),
+                          needYouCount: project.todoCount + project.reviewCount)
         }.sorted { lhs, rhs in
             switch (lhs.lastActivity, rhs.lastActivity) {
             case let (left?, right?) where left != right:
