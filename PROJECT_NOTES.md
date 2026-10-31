@@ -2677,3 +2677,18 @@ separate change and was not touched.
 At `aa8fd25`: 536 tests, 0 failures, 2 skipped (verified: swift test 2026-10-31); Xcode Debug
 build succeeded (verified: xcodebuild 2026-10-31). Builders were Codex CLI (`build` =
 gpt-6.1-terra, `build-light` = gpt-6-luna), each run's model line checked before commit.
+
+## Studio redesign post-mortem (2026-10-31)
+
+Codex's post-mortem is in `docs/dialogue/studio-redesign.md`; Claude checked each code claim
+against `91096db`. Confirmed gaps, none fixed yet: Refresh doesn't re-read the lights or branches
+when the front project stays the same; an unreadable plan file reads as "not recorded" instead of
+unknown (C2); an unreadable scan root looks empty in the Studio; the icon size cap is checked
+after the file is read. Spec C10 (click a grey light for an explanation) was replaced in the plan
+by the expanded tracklist's next step and Copy prompt, and the spec was never amended.
+
+Lessons for the next plan: give every async view an invalidation rule (data change, explicit
+refresh, old-result clearing) and a same-ID fixture; test read errors at discovery *and* display;
+set IO limits before reading; split accessibility acceptance into roles, frames, keyboard, real
+VoiceOver and each OS, and record a partial pass as partial; amend the spec whenever the plan
+amends a requirement.
