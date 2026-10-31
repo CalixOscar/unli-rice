@@ -93,6 +93,7 @@ struct SleeveBackView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(BuildGateLights.title(for: stage)): \(word)")
+        .accessibilityAddTraits(.isStaticText)
     }
 
     static func prompt(sleeve: GardenCrate.Sleeve, result: BuildGate.Result?) -> String? {

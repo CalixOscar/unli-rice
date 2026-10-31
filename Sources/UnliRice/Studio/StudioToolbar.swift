@@ -49,16 +49,9 @@ struct StudioToolbar: View {
         }
         .padding(4)
         .liquidGlassCapsule()
-        .accessibilityRepresentation {
-            Picker("Page", selection: Binding<Int>(
-                get: { store.lastTab == .guardrailsGrounding ? 1 : 0 },
-                set: { $0 == 0 ? store.showStudio() : store.showGuardrailsGrounding() }
-            )) {
-                Text("Studio").tag(0)
-                Text("Guardrails & Grounding").tag(1)
-            }
-            .pickerStyle(.segmented)
-        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Pages")
+        .modifier(TabBarTrait())
     }
 
     private func tab(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -117,5 +110,11 @@ struct StudioToolbar: View {
         .liquidGlassCapsule(interactive: true)
         .accessibilityLabel("Settings and more")
         .frame(width: 110, alignment: .trailing)
+    }
+}
+
+private struct TabBarTrait: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 14.0, *) { content.accessibilityAddTraits(.isTabBar) } else { content }
     }
 }

@@ -60,6 +60,7 @@ struct GuardrailsGroundingView: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(.isStaticText)
     }
 
     private func filledBar(height: CGFloat, opacity: Double) -> some View {
