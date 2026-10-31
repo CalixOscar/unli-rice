@@ -1060,6 +1060,64 @@ Acceptance: at 20 sleeves the back sleeves stop below the headline; with one sle
 the crate at 960×600 that still scrolls the page. The swoosh is checked by ear with UI sounds on and
 off.
 
+**S8e and S8f — sideways sleeves; "Garden" becomes "Projects" (founder, 2026-10-31, after Q5).**
+
+> "can we make the sleeves move sideways instead, it feels more natural to move sideways when the
+> animation follows. Also we need the same animation when the garden window is enlarged. Lastly
+> maybe change the name to something more fitting than Garden."
+
+Founder's answers: the name is **Projects** (it matches Branches and Notes, which are named for what
+they hold); the motion is **slide on release**, not a sleeve that tracks the fingers. The enlarged
+view (`GardenExpandedView`) renders the same `GardenCrateView(compact: false)`, so it gets the new
+motion with no change of its own. Code identifiers (`Garden*`, `.projects`, `showGarden`) keep
+their names; only user-facing text changes.
+
+**S8e (build) — `Sources/UnliRice/Studio/GardenCrateView.swift`, and nothing else.**
+1. Sleeves behind the front one peek out to the **right**, and a flip slides the front sleeve off
+   to the **left** (fading and shrinking slightly) while the next slides in from the right. Going
+   back reverses it. Swipe, drag, arrow and button directions are unchanged, so the motion now
+   follows a left swipe. Replace `SleeveMotion` with:
+   ```swift
+   private struct SleeveMotion: ViewModifier {
+       let distance: Int
+       let side: CGFloat
+       let reduceMotion: Bool
+
+       // One unconditional chain, so a sleeve keeps its identity as it changes
+       // place and the spring animates the change instead of crossfading.
+       func body(content: Content) -> some View {
+           let behind = max(distance, 0)
+           let gone = distance == -1
+           content
+               .scaleEffect(gone ? 0.94 : 1 - 0.06 * Double(behind))
+               .offset(x: gone && !reduceMotion ? -side * 0.6 : 26 * CGFloat(behind))
+               .opacity(gone ? 0 : 1)
+       }
+   }
+   ```
+   and pass `side: side` where `crate` applies it.
+2. In `crate`, `ZStack(alignment: .bottom)` becomes `ZStack(alignment: .leading)`, and
+   `.frame(width: side, height: side + peek, alignment: .bottom)` becomes
+   `.frame(width: side + peek, height: side, alignment: .leading)`. Nothing else in `crate` changes
+   (indices, `zIndex`, hit testing, tap, the swipe catcher, the drag, `ReduceMotionCrate`).
+3. Copy in this file: `ProgressView("Reading your garden…")` → `ProgressView("Reading your projects…")`;
+   `Label("Plant your first idea", systemImage: "plus.circle")` →
+   `Label("Start your first project", systemImage: "plus.circle")`.
+
+**S8f (build-light) — the rest of the rename, exact strings only:**
+- `Sources/UnliRice/Studio/StudioView.swift`: `StudioDeck(title: "Garden"` → `StudioDeck(title: "Projects"`
+  (its expand button's label becomes "Open Projects" through `StudioDeck`).
+- `Sources/UnliRice/Studio/GardenExpandedView.swift`: `Text("Garden")` → `Text("Projects")`.
+- `Sources/UnliRice/ProjectGardenView.swift`: `Text("Project Garden")` → `Text("Projects")`;
+  `"Garden could not refresh"` → `"Projects could not refresh"`;
+  `"Start your project garden"` → `"No projects yet"`.
+- `Sources/UnliRice/AppStore.swift`: `"Garden — a quiet overview of your projects and their notes."`
+  → `"Projects — a quiet overview of each project and its notes."`
+
+Acceptance: Q5 re-run (every flip method; mid-animation captures show sideways motion in the deck
+and the enlarged view); Q4's 20-sleeve and long-name captures re-taken; no "Garden" left on screen
+in either tab, the enlarged view, its List mode or the empty state.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1080,6 +1138,8 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8b | build | Two-finger trackpad swipe and flip swoosh, exactly as §2.9 | `Sources/UnliRiceCore/TrackpadSwipe.swift` (new), `Sources/UnliRiceCore/FlipSwoosh.swift` (new), `Sources/UnliRice/Studio/TrackpadSwipeCatcher.swift` (new), `Sources/UnliRice/Studio/FlipSound.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Tests/UnliRiceCoreTests/TrackpadSwipeTests.swift` (new), `Tests/UnliRiceCoreTests/FlipSwooshTests.swift` (new) | B1–B3 | Tests; app build; xcodegen and the Xcode build |
 | S8c | build-light | Guardrails tiles keep their button role, exactly as §2.9 | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8d | build-light | Crate sits on its frame's bottom; "1 project", exactly as §2.9 | `Sources/UnliRice/Studio/GardenCrateView.swift` | B1, B2 | App build; Xcode build |
+| S8e | build | Sideways sleeves, and this file's two copy changes, exactly as §2.9 | `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | App build; Xcode build |
+| S8f | build-light | "Garden" becomes "Projects" in the other four files, exactly as §2.9 | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/GardenExpandedView.swift`, `Sources/UnliRice/ProjectGardenView.swift`, `Sources/UnliRice/AppStore.swift` | A2, B1 | App build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
@@ -1098,6 +1158,7 @@ Each row is recorded as pass, fail or "not run, because …". Nothing is left im
 | Q2 | Every row of §2.3's routing table works, there and back, using the mouse only |
 | Q3 | The same, using the keyboard only: ⌘1, ⌘2, Tab focus, Esc |
 | Q4 | Crate with 0, 1, 5, 20 and 60 sleeves. Dots show at 20 sleeves or fewer, and "n of N" above that. A long name (60 characters) wraps to two lines, and its tooltip shows the full name |
+| Q5 | **pass** on the original up-and-over motion (2026-10-31); re-run after S8e below | Claude, with real mouse and key events at `cc3f38d`: the ‹ › buttons, ← and →, a click on the visible strip of a sleeve behind (recipe-box → 2 of 3, tide-clock → 3 of 3) and a mouse drag left/right all flip; a mouse wheel over the crate does not. The founder, on the trackpad: a two-finger swipe left/right flips one sleeve per swipe; a vertical two-finger scroll over the crate at 960×600 scrolls the page without flipping; the swoosh plays on each flip and is silent with "Play user interface sound effects" off. The founder then asked for the sideways motion and the rename (S8e, S8f) |
 | Q5 | Flipping works with the buttons, the ← and → keys, a click on a sleeve behind, and a swipe |
 | Q6 | Reduce Motion: flips become fades. Reduce Transparency: the glass turns solid |
 | Q7 | VoiceOver reads each sleeve as "<name>, <sticker>", the lights as "<stage>: <word>", and the tabs as tabs |
