@@ -23,7 +23,7 @@ struct GardenCrateView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 12) {
                         if compact {
-                            Text("\(store.studioSleeves.count) projects")
+                            Text(store.studioSleeves.count == 1 ? "1 project" : "\(store.studioSleeves.count) projects")
                                 .font(.system(size: 28, weight: .bold))
                                 .foregroundStyle(Theme.textPrimary)
                         }
@@ -53,7 +53,7 @@ struct GardenCrateView: View {
                     .accessibilityAddTraits(distance > 0 ? .isButton : [])
             }
         }
-        .frame(width: side, height: side + peek)
+        .frame(width: side, height: side + peek, alignment: .bottom)
         .background(TrackpadSwipeCatcher { move(by: $0) })
         .gesture(DragGesture(minimumDistance: 40).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) else { return }
