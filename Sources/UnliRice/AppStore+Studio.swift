@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import UnliRiceCore
 
@@ -49,12 +50,41 @@ extension AppStore {
             studioSleeves = GardenCrate.sleeves(from: report)
             studioFrontIndex = min(studioFrontIndex, max(studioSleeves.count - 1, 0))
             studioGardenState = .loaded
+            await loadStudioIcons()
         } catch is CancellationError {
             return
         } catch {
             guard !Task.isCancelled else { return }
             studioGardenState = .failed(error.localizedDescription)
         }
+    }
+
+    func loadStudioIcons() async {
+        let projects = studioSleeves.compactMap { sleeve in
+            sleeve.folderURL.map { (sleeve.id, $0) }
+        }
+        let roots = scanRoots
+        let worker = Task.detached(priority: .utility) {
+            let openedRoots = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
+            defer { for (root, opened) in openedRoots where opened { root.stopAccessingSecurityScopedResource() } }
+            var icons: [String: Data] = [:]
+            for (id, folder) in projects {
+                guard !Task.isCancelled else { break }
+                if let url = ProjectIcon.find(in: folder), let data = try? Data(contentsOf: url), data.count <= 5_000_000 {
+                    icons[id] = data
+                }
+            }
+            return icons
+        }
+        let data = await withTaskCancellationHandler(operation: {
+            await worker.value
+        }, onCancel: { worker.cancel() })
+        guard !Task.isCancelled else { return }
+        var icons: [String: NSImage] = [:]
+        for (id, imageData) in data {
+            if let image = NSImage(data: imageData), image.isValid { icons[id] = image }
+        }
+        studioIcons = icons
     }
 
     func refreshStudioGate() async {
