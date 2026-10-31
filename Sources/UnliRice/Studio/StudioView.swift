@@ -71,7 +71,7 @@ struct StudioView: View {
                 .labelsHidden()
                 .frame(width: 220)
             }
-            Text("Lights show which files exist in this repo.")
+            Text("Lights read this repo's plan, approvals and reviews.")
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.textSecondary)
         }
