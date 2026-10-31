@@ -139,10 +139,13 @@ privacy/property-list validation. The current cached development profile is the
 team wildcard profile and does not grant the App Group, so complete identifiers
 1–2 above before attempting App Store Connect validation.
 
-1. Increment `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in
+1. Run `sh Scripts/check-template-drift.sh`. If it reports drift, the studio
+   guardrails changed after the built-in Engineering Guardrails template was last
+   refreshed: bring the template up to date (the script says how) before archiving.
+2. Increment `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in
    `project.yml`, then regenerate the project.
-2. In Xcode, choose **Any Mac (Apple Silicon, Intel)** and **Product → Archive**.
-3. In Organizer, run **Validate App**, resolve every entitlement or privacy
+3. In Xcode, choose **Any Mac (Apple Silicon, Intel)** and **Product → Archive**.
+4. In Organizer, run **Validate App**, resolve every entitlement or privacy
    warning, then choose **Distribute App → App Store Connect**.
-4. Test the exact uploaded build through TestFlight before submitting it for
+5. Test the exact uploaded build through TestFlight before submitting it for
    review.

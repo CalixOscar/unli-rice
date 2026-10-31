@@ -116,6 +116,10 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Check claims against current evidence; mark what you couldn't check as unverified.
     """
 
+    // guardrails-refreshed-from: 7cf36bd
+    // The studio guardrails commit this text was last distilled from, in generic
+    // words. Scripts/check-template-drift.sh compares it with the guardrails
+    // history before a release; move it forward whenever the text is refreshed.
     private static let engineeringGuardrailsBody = """
     Instructions for any coding assistant working in a repository and connected to these notes over the `unlirice` MCP server.
 
@@ -127,15 +131,17 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`. Never leave one at the repository root. Start the work on a fresh branch off the main branch, not on top of unrelated commits.
 
-    **A claim carries its evidence or says it is unverified.** "Tests pass" names the command and the result. Anything you could not check is marked unverified rather than stated as fact.
+    **Sort work by risk, not size.** A plan, a review and the full process are for a new app or foundation, servers, auth, secrets or payments, anything persisted, release submission, AI features or a new dependency. Everything else is a branch, a reviewed diff and a real build and test run. Unsure, or the change grows into that list? Use the full process.
 
-    **Look for drift early.** A branch far behind its base, commits that exist only locally, and uncommitted files in a worktree are one lost machine away from gone. Say so when you see them.
+    **Plan high, build low.** Plan on your most capable model, in steps labelled as a full build or a small, fully specified edit. Your own cheaper models build them; a builder never makes a design call and stops on any ambiguity.
 
-    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file; don't wait for the end. Whoever planned the work does this, never the builder. A session can end without warning.
+    **A second tool only reviews.** The assistant that did not plan writes a pre-mortem before the build and a post-mortem after, in `docs/dialogue/<slug>.md`, append-only. Plans and builds never cross between tools. A point still disputed after one rebuttal each goes to the user.
 
-    **Plan high, build low.** Plan on the most capable model you have. Break the plan into build steps small enough for a cheaper, faster model, and label each step with the tier it needs: a full build step, or a small, fully specified edit. Hand the build to that model, then review its diff and run the tests on the capable model before anything is committed. A builder never makes a design call: on an ambiguity it stops and reports back.
+    **Evidence or "unverified".** "Tests pass" names the command and result. A check proves only the setup it ran against. After two failed attempts at a fix, write down the diagnosis; try once more only with a new hypothesis, otherwise hand back.
 
-    **A second tool reviews.** When more than one assistant works on a project, whichever one did not write a plan reviews it, with a pre-mortem before the build and a post-mortem after. Both go in `docs/dialogue/<slug>.md`: one file per plan, append-only, each turn headed with the tool, the kind of turn, and the date. Neither side edits the other's turns. A point still disputed after one rebuttal each way goes to the user.
+    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file. Whoever planned the work does this, never the builder. Flag drift: stale branches, local-only commits, uncommitted worktrees.
+
+    **Stay in bounds.** Work only in this project's folder. Never upload a build, submit for review or change pricing unless the user asks in this session, in their own words. Keep secrets out of the repository; a leaked one must be rotated.
 
     **Exception Guardrail.** If the user asks for something that contradicts these rules, ask whether it's a one-time exception or whether the rule should change. One-time → note the exception in the session; change → update the rules.
     """

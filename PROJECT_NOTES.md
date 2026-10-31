@@ -2745,3 +2745,16 @@ Waiting for Review. The website sweep replaced the 1.3 To Do screenshot on the h
 apps pages and the old Connect crop on How I work, and removed unused 1.3 images (site `a4b7432`).
 GitHub got its first release, `v1.5`, and the README now explains building it while the App Store
 catches up; `Scripts/make-app.sh` reads its version from `project.yml` instead of saying 1.0.
+
+
+## Engineering Guardrails template follows the studio guardrails (2026-10-31)
+
+The founder wants the app's built-in rules to evolve with the studio's own. The vault's
+guardrails are not copied in: the repository is public, and much of that file is personal. The
+Engineering Guardrails template is instead distilled from it in generic words, under the existing
+1,000-token test cap, and carries a `guardrails-refreshed-from` stamp naming the guardrails commit it
+reflects (`7cf36bd`). `Scripts/check-template-drift.sh`, now step 1 of the archive checklist in
+`APP_STORE_SUBMISSION.md`, fails when the guardrails have changed since that stamp and skips on
+machines without the vault. This refresh adds the two tiers, builds staying in one tool's house,
+the two-failure circuit breaker, scope, shipping only on the user's word, and secrets. Tier 1;
+branch `claude/guardrails-template-refresh`.
