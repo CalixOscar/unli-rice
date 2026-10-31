@@ -1042,6 +1042,20 @@ and nothing else: on each of the three tile `Button`s in `tiles`, delete
 Acceptance: each tile reports `AXButton` with its label, and Tab reaches it with Keyboard
 navigation on.
 
+**S8d — crate sits on its frame's bottom; "1 project" (build-light; Q4 failures, 2026-10-31).**
+§2.5a gave the crate `.frame(width: side, height: side + peek)` with the default centre alignment.
+The `ZStack` is only one sleeve tall, so the frame centres it and the whole stack sits `peek / 2`
+(39 pt) higher than intended: with three sleeves behind the front one (4+ projects), the top one
+rises 21 pt above the crate and covers the bottom of the "N projects" headline, and the front
+sleeve leaves 39 pt of empty space above the controls. §2.5a's headline also said "1 projects".
+In `Sources/UnliRice/Studio/GardenCrateView.swift`, and nothing else:
+1. In `crate`, change `.frame(width: side, height: side + peek)` to
+   `.frame(width: side, height: side + peek, alignment: .bottom)`.
+2. In `body`, change `Text("\(store.studioSleeves.count) projects")` to
+   `Text(store.studioSleeves.count == 1 ? "1 project" : "\(store.studioSleeves.count) projects")`.
+Acceptance: at 20 sleeves the back sleeves stop below the headline; with one sleeve it reads
+"1 project".
+
 **QA.** Q5 now includes a two-finger swipe on the trackpad, and a vertical two-finger scroll over
 the crate at 960×600 that still scrolls the page. The swoosh is checked by ear with UI sounds on and
 off.
@@ -1065,6 +1079,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8a | build-light | Guardrails tiles share one height; captions centred, exactly as §2.9 | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8b | build | Two-finger trackpad swipe and flip swoosh, exactly as §2.9 | `Sources/UnliRiceCore/TrackpadSwipe.swift` (new), `Sources/UnliRiceCore/FlipSwoosh.swift` (new), `Sources/UnliRice/Studio/TrackpadSwipeCatcher.swift` (new), `Sources/UnliRice/Studio/FlipSound.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Tests/UnliRiceCoreTests/TrackpadSwipeTests.swift` (new), `Tests/UnliRiceCoreTests/FlipSwooshTests.swift` (new) | B1–B3 | Tests; app build; xcodegen and the Xcode build |
 | S8c | build-light | Guardrails tiles keep their button role, exactly as §2.9 | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
+| S8d | build-light | Crate sits on its frame's bottom; "1 project", exactly as §2.9 | `Sources/UnliRice/Studio/GardenCrateView.swift` | B1, B2 | App build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
@@ -1106,6 +1121,7 @@ the minimum content size (a 960×628 window).
 | Q1 | **pass** (2026-10-31) | Studio: three decks in one row at 1440×900; at 960×600 Garden spans the width with Branches and Notes beneath, and scrolling reaches the bottom of Notes with its padding intact. Guardrails & Grounding: both decks side by side at both sizes, no scroll needed. Checked in light and dark. Sleeves stay dark in light mode by design (§2.8). Seen, not a failure: at 960 the "Safety checks need a look" tile is slightly taller than its neighbours and its two-line label is left-aligned (fixed by S8a, `02d7563`, and seen on screen) |
 | Q2 | **pass**, except `.whyNotTextFile`: **not run, because no route to it exists** (nothing sets that pane, here or in 1.4 at `8d2189c`; a pre-existing orphan, not a regression) (2026-10-31) | Real mouse clicks (CGEvent) at Accessibility positions, at `3090c37`. Studio: Garden, Branches and Notes expand buttons → their panes → "All decks" → Studio. Tab 2: Open notes, Details (`.home`), Open the folder, Edit House Rules, the Need you tile (and its "All messages" → `.notices`), Safety checks tile (`.trustCenter`), Archived tile → each → "All decks" → tab 2. Gear: Setup, Trust Center, Archived notes, To do, and with those Extras switched on for the check, Map and Your year so far; Setup › Separate memories → Profile Builder. "Back" always returns to the tab it was opened from (`lastTab`, as §2.3 says), so the table's Tab 1 / Tab 2 column describes the usual tab of origin. Found on the way: the three Guardrails tiles are exposed as `AXUnknown`, not buttons (for Q7); Setup › Extras switches have no accessibility labels (for Q7); the iPhone Capture Extra's copy still says "in the sidebar" (for S9) |
 | Q3 | **pass** after S8c (2026-10-31). First run **failed**: the three Guardrails tiles never took keyboard focus | With System Settings › Keyboard › "Keyboard navigation" on (it is off by default; turned on for the check and off after). ⌘1/⌘2 switch tabs; plain 1/2/3 expand Garden/Branches/Notes and Esc returns to Studio; ← → flip the crate. Tab order on Studio: Guardrails & Grounding tab, gear, the three expand buttons, the note rows and Next project, then the Studio tab (Previous project is skipped while disabled). Space opens, and Esc closes, Open Garden/Branches/Notes, Edit House Rules, Open notes, Open the folder and Details. Gear by keyboard: Tab to it, Space, ↓, Return opens Setup, Trust Center, Archived notes and To do, and Esc returns. The tiles: 25 Tabs never focused any of them (`AXUnknown`, see S8c). Re-run at the S8c merge: each tile reports `AXButton` with its label, and Tab, Space and Esc open Needs You, Trust Center and Archived Notes and return to tab 2 |
+| Q4 | **fail** (2026-10-31): back sleeves cover the headline at 4+ sleeves, and one sleeve reads "1 projects". Fixed by S8d; re-run below | Fixture gardens of 0, 1, 5, 20 and 60 folders with a `memory.md` each (the 5-folder set has a 60-character name, newest). 0: dashed sleeve, "Plant your first idea", "Pick a folder". 20: twenty dots. 60: "1 of 60" in place of dots. The 60-character name wraps to two lines and ends in "…"; hovering the sleeve shows the full name in its tooltip |
 
 ## 5. Risks and gotchas
 
