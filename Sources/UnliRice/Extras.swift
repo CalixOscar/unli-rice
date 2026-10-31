@@ -31,7 +31,7 @@ enum Extra: String, CaseIterable, Identifiable {
         case .yearSoFar: return "A look back over a month or a year of your notes."
         case .profiles: return "Keep more than one memory, each with its own notes."
         case .extraExports: return "Adds PDF and ZIP to File › Export."
-        case .capturePromo: return "Shows the card for the free iPhone app in the sidebar."
+        case .capturePromo: return "Adds the free iPhone app's card to the gear menu."
         }
     }
 }
