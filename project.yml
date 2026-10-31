@@ -211,8 +211,8 @@ targets:
         INFOPLIST_FILE: UnliRiceWidget-Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         # An embedded extension's versions must match its app's, or upload is refused.
-        MARKETING_VERSION: "1.4"
-        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "1.5"
+        CURRENT_PROJECT_VERSION: "10"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
 
   UnliRice:
@@ -249,8 +249,8 @@ targets:
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        MARKETING_VERSION: "1.4"
-        CURRENT_PROJECT_VERSION: "9"
+        MARKETING_VERSION: "1.5"
+        CURRENT_PROJECT_VERSION: "10"
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 calmdownoscar. All rights reserved.
