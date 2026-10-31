@@ -53,13 +53,13 @@ Unli Rice is a standalone native macOS productivity application that manages a p
 ## 3. Review Verification Steps
 
 ### Option A: Standalone Verification (No External Client Required)
-Names below are the buttons in Unli Rice 1.4. The sidebar has two sections, Grounding and Guardrails, with Setup at the bottom.
-1. Install and launch **Unli Rice.app**. Home opens.
-2. **Notes:** Click **Notes** in the sidebar. A new vault starts with two guide notes, "Welcome to Unli Rice" and "How tags and the janitor work". Click **New Note**, enter a title and content, save it, then find it with the search field.
-3. **House Rules:** Click **What your AI should always do**. Select a template (for example *Engineering Guardrails*) and click **Use as Draft**. Then open **Setup → AI Tools**, scroll to **House Rules** and click **Save to notes**. The rules appear as a note in **Notes**.
-4. **Mirror export:** Click **The folder your AI can read**, then **Export Now** and **Open in Finder** to inspect the plain-Markdown copy.
-5. **Trust Center:** Click **Trust Center**, then **Run checks**, to see vault integrity and connection diagnostics.
-6. **Optional features:** Open **Setup → Extras**. Projects, To do, Map, Your year so far, Separate memories (with the Profile Builder), PDF and ZIP export and the iPhone Capture card are off by default for a new install. Turning one on adds it to the sidebar (or the File menu); turning it off only hides it. For example, turn on **Map** and click **Map** in the sidebar to see the note graph.
+Names below are the buttons in Unli Rice 1.5. The window has two tabs, Studio and Guardrails & Grounding, and a gear menu at the top right.
+1. Open **Unli Rice.app**. On the first screen, click **Use Unli Rice without connecting**.
+2. Click the **Studio** tab, then **Pick a folder**, and choose a folder that contains one or more git repositories. Each repository becomes a card with its branches and notes; the expand button in the deck's corner shows its steps and **Copy prompt**.
+3. Click the **Guardrails & Grounding** tab, then **Open notes**. Click **New Note**, add a title and text, save, then search for it.
+4. On the same tab, click **Edit** beside House Rules, then **Choose Template…**, pick *Engineering Guardrails*, click **Use as Draft**, then **Save to notes**.
+5. Click the gear, then **Trust Center**, then **Run checks**.
+6. Click the gear, then **Setup**, then **Extras**, and turn on **Map**; Map appears in the gear menu.
 
 ### Option B: Verification with an MCP Client (e.g., Claude Desktop or MCP Inspector)
 1. Install **Unli Rice.app** into `/Applications`.
@@ -67,7 +67,7 @@ Names below are the buttons in Unli Rice 1.4. The sidebar has two sections, Grou
 3. Add the `unlirice` server entry from the sample configuration above.
 4. Launch/restart the MCP client.
 5. Ask the AI assistant to read or write a note (e.g., *"Save a note in Unli Rice titled Test Note"*).
-6. Switch back to **Unli Rice.app** and open the **Notes** tab to verify that the note was created and attributed to the connected client.
+6. Switch back to **Unli Rice.app**, click the **Guardrails & Grounding** tab, then **Open notes**, to verify that the note was created and attributed to the connected client.
 7. Alternatively, test the binary using the open-source MCP inspector tool:
    ```bash
    npx @modelcontextprotocol/inspector /Applications/Unli\ Rice.app/Contents/MacOS/unlirice-mcp

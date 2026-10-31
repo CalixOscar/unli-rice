@@ -34,7 +34,7 @@ items require the owner's Apple Developer and App Store Connect accounts.
 - Encryption: the app does not implement non-exempt encryption;
   `ITSAppUsesNonExemptEncryption` is `false`.
 
-## App Store description (2026-10-29, for 1.4)
+## App Store description (2026-10-31, for 1.5)
 
 Kept here so it's versioned with the rest of the submission, not only pasted
 into App Store Connect. Update this section whenever the description changes;
@@ -45,17 +45,20 @@ below and drift if renamed).
 ```
 Unli Rice gives the AI tools you use one place on your Mac for what they should know and the rules they should follow. Connect Claude, ChatGPT, Codex, Cursor or your own local tools over MCP so they read and write the same notes, instead of you re-explaining yourself to every new session.
 
+STUDIO: WHERE YOUR PROJECTS STAND
+Pick the folders that hold your projects and Studio shows them as a stack of cards: which ones need you, their branches, the notes that belong to each, and how far each plan has come from idea to post-mortem. Copy prompt hands your AI tool the next step.
+
 GROUNDING: WHAT YOUR AI KNOWS
-Home shows what's happening right now and which assistant last checked in. Notes holds everything your assistants and you have written, each change attributed and dated. The folder your AI can read keeps a plain-Markdown copy for tools that can't use MCP.
+Notes holds everything your assistants and you have written, each change attributed and dated. The folder your AI can read keeps a plain-Markdown copy for tools that can't use MCP. Details shows whether memory is working and which assistant last checked in.
 
 GUARDRAILS: WHAT YOUR AI SHOULD ALWAYS DO
-House Rules are standing instructions every connected assistant reads at the start of a session: what to read first, what's worth remembering, how to attribute its work, and when to stop and ask you. Start from a built-in template, including Engineering Guardrails for coding assistants, or import your own. Needs You collects only what's waiting on your decision. The Trust Center checks that your memory is readable and writable, shows which assistants have connected, and makes verified recovery points before big changes.
+House Rules are your standing instructions, saved as a note your assistants find when they check your notes at the start of a session: what to read first, what's worth remembering, how to attribute their work, and when to stop and ask you. Start from a built-in template, including Engineering Guardrails for coding assistants, or import your own. Need you collects only what's waiting on your decision. The Trust Center checks that your memory is readable and writable, shows which assistants have connected, and makes verified recovery points before big changes.
 
 A PERMANENT, ATTRIBUTED RECORD
 Every change is an append-only event. Connected assistants can append and create; they cannot rewrite history or permanently delete anything. Archiving is reversible.
 
 EXTRAS, WHEN YOU WANT THEM
-Setup › Extras turns on Projects (where each project stands and what comes next), To do, the note Map, Your year so far, separate memories, PDF and ZIP export and more. Each is off until you turn it on, and turning one off never deletes anything.
+The gear menu holds Setup, the Trust Center and archived notes. Setup › Extras turns on To do, the note Map, Your year so far, separate memories, PDF and ZIP export and more. Each is off until you turn it on, and turning one off never deletes anything.
 
 STAYS OUT OF YOUR WAY
 Background work is off unless you turn it on, and each background job has its own switch. Nothing running unattended can exceed the app's own limits: it may only tag and flag, imports may only create and append, and every structural question is yours to answer.
@@ -88,16 +91,18 @@ Permanently hosted reviewer guide and sample configuration files:
 - Sample JSON Config: `https://raw.githubusercontent.com/CalixOscar/unli-rice/main/docs/sample_configs/claude_desktop_config.json`
 - Sample TOML Config: `https://raw.githubusercontent.com/CalixOscar/unli-rice/main/docs/sample_configs/config.toml`
 
-### App Review Notes Copy-Paste Text for App Store Connect (1.4)
+### App Review Notes Copy-Paste Text for App Store Connect (1.5)
 
 ```text
-Unli Rice 1.4 reorganises the sidebar into two sections, Grounding and Guardrails. Features that were in the sidebar before (Projects, To do, Map, Your year so far, Separate memories / Profile Builder, PDF and ZIP export) are now optional and off by default for a new install; turn any of them on in Setup → Extras. Each switch only shows or hides a feature. Nothing is removed from the app.
+Unli Rice 1.5 replaces the sidebar with two tabs, Studio and Guardrails & Grounding, and a gear menu at the top right. Nothing is removed from the app.
 
 Unli Rice works on its own without any AI tool or account. To try it without an MCP client:
-1. Open Unli Rice.app. Click Notes in the sidebar, click New Note, add a title and text, save, then search for it.
-2. Click "What your AI should always do", pick a template such as Engineering Guardrails, click Use as Draft, then in Setup → AI Tools → House Rules click Save to notes.
-3. Click Trust Center, then Run checks.
-4. Open Setup → Extras and turn on Map; Map appears in the sidebar.
+1. Open Unli Rice.app. On the first screen, click "Use Unli Rice without connecting".
+2. Click the Studio tab, then Pick a folder, and choose a folder that contains one or more git repositories. Each repository becomes a card with its branches and notes; the expand button in the deck's corner shows its steps and Copy prompt.
+3. Click the Guardrails & Grounding tab, then Open notes. Click New Note, add a title and text, save, then search for it.
+4. On the same tab, click Edit beside House Rules, then Choose Template…, pick Engineering Guardrails, click Use as Draft, then Save to notes.
+5. Click the gear, then Trust Center, then Run checks.
+6. Click the gear, then Setup, then Extras, and turn on Map; Map appears in the gear menu.
 
 To try the optional MCP helper (/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp), add this to an MCP client such as Claude Desktop, restart the client, and ask it to save a note in Unli Rice:
 {
