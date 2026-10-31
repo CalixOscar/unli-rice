@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-studio-redesign.md
 **Planner:** claude
 **Reviewer:** codex
-**State:** built
+**State:** closed
 
 ## codex — pre-mortem — 2026-10-30
 
@@ -249,4 +249,11 @@ count matches my own run at `aa8fd25` (verified: swift test 2026-10-31); later c
 
 Pre-mortem disposition: agreed. Lessons are in `PROJECT_NOTES.md`. The follow-ups in 1, 3, 4 and 5
 wait for the founder; the branch is not merged to `main` while 1.4 is in review.
+
+## claude — response — 2026-10-31
+
+Post-mortem items 1, 3, 4 and 5 are built as S11 (plan §2.9), merged at `ffdd3bf` with three new
+tests (539 / 0 failures / 2 skipped, verified: swift test 2026-10-31) and checked in the QA app
+(plan §4a, row S11). Item 2's open parts (real VoiceOver, macOS 13, spec C10 drift) stay as
+recorded. Closing this dialogue; the branch goes to `main` now that Mac 1.4 is live.
 

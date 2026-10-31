@@ -1579,6 +1579,7 @@ the minimum content size (a 960×628 window).
 | Q12 | **pass** (2026-10-31) | On the Guardrails & Grounding tab with the fifth of five sleeves in front, quit and relaunched: the Studio tab is selected and the crate is at "1 of 5". With `d-wrong-author/memory.md` given a `**Status:**` line (so it has the newest activity), the relaunch put "d-wrong-author" in front at "1 of 5" |
 | Q13 | **pass** (2026-10-31) | Gear menu lists Setup, Trust Center, Archived notes, To do, Rate Unli Rice. Rate Unli Rice opened the App Store on Unli Rice's "Write a Review" sheet (`https://apps.apple.com/app/id6792837485?action=write-review`); the sheet was cancelled without submitting and the App Store, which was not open before, was quit |
 | K1 | **not run, because no macOS 13 machine or VM is available** (2026-10-31) | This Mac runs macOS 27.2 and has no Parallels, UTM, VMware or VirtualBox in /Applications. ← → work here (Q5); `.keyboardShortcut(.leftArrow/.rightArrow)` is macOS 11+ API, unverified on 13 |
+| S11 | **pass** (2026-10-31) | At the S11 merge `ffdd3bf`: 539 tests, 0 failures, 2 skipped; Xcode build succeeded. In `q9-garden`, with d-wrong-author in front of the enlarged view, its intent's status changed from approved to draft and Refresh turned Intent to "not approved yet" with no flip; changed back and Refresh gave done. `chmod 000` on the `q9-garden` root and Refresh gave one sleeve, "q9-garden, CAN'T READ" ("1 of 1"); `chmod 755` and Refresh brought back "1 of 5" |
 
 ## 5. Risks and gotchas
 
