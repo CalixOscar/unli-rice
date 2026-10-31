@@ -1118,6 +1118,81 @@ Acceptance: Q5 re-run (every flip method; mid-animation captures show sideways m
 and the enlarged view); Q4's 20-sleeve and long-name captures re-taken; no "Garden" left on screen
 in either tab, the enlarged view, its List mode or the empty state.
 
+**S8g — the decks follow the front project, with a "This project | All projects" switch (build;
+founder, 2026-10-31).**
+
+> "are the tiles interacting with each other like a dashboard? … when a project is flipped does the
+> git repo tile and the notes tile also swap to the same project? If not lets implement that and
+> add a show all button to show all project repos and notes"
+
+Checked at `b361df1`: Branches already follows the front sleeve (`BranchesDeck.swift:13,38`); Notes
+always shows every open note (`NotesDeck.swift:8`). Which notes belong to a project is already
+decided by `ProjectGarden.relatedNotes` (explicit source path inside the folder, a "Project: <name>"
+registration note, or a tag equal to the folder name when that name is unique); the sleeves just
+don't carry it. Nothing is persisted: the switch resets to "This project" at launch.
+
+1. **`Sources/UnliRiceCore/GardenCrate.swift`.** `Sleeve` gains `public let noteIDs: [UUID]`, added
+   as the last `init` parameter with default `[]`. `sleeves(from:)` passes
+   `noteIDs: project.notes.map(\.id)`.
+2. **`Tests/UnliRiceCoreTests/GardenCrateTests.swift`.** Add `testSleeveCarriesProjectNoteIDs`:
+   a report whose project has two notes gives a sleeve whose `noteIDs` equal those notes' ids in
+   the project's order. Build the report the way the file's existing tests do.
+3. **`Sources/UnliRice/AppStore+Studio.swift`.** Beside `StudioGardenState`, add
+   `enum StudioScope: Equatable { case project, all }`.
+4. **`Sources/UnliRice/AppStore.swift`**, one line after `studioFrontGate`:
+   `@Published var studioScope: StudioScope = .project`.
+5. **`Sources/UnliRice/Studio/StudioView.swift`**, in `topStrip` only: replace the line
+   `BuildGateLights(result: store.studioFrontGate, showsLabels: true)` with
+   ```swift
+   HStack(alignment: .center) {
+       BuildGateLights(result: store.studioFrontGate, showsLabels: true)
+       Spacer()
+       Picker("Show branches and notes for", selection: $store.studioScope) {
+           Text("This project").tag(StudioScope.project)
+           Text("All projects").tag(StudioScope.all)
+       }
+       .pickerStyle(.segmented)
+       .labelsHidden()
+       .frame(width: 220)
+   }
+   ```
+6. **`Sources/UnliRice/Studio/NotesDeck.swift`.**
+   - `private var scoped: GardenCrate.Sleeve? { store.studioScope == .project ? store.studioFrontSleeve : nil }`.
+   - `open` keeps its filter on `!$0.archived` and, when `scoped` is non-nil, also keeps only notes
+     whose `id` is in `Set(scoped.noteIDs)`. `newest`, `buckets` and the ring already derive from
+     `open`.
+   - The "need you" number: `store.pending.count + store.unreadNoticeCount` when `scoped` is nil;
+     otherwise `store.pending.filter { ids.contains($0.note.id) }.count` (notices belong to no
+     project).
+   - First child of the non-error `VStack`: `Text(scoped.map { "For \($0.name)" } ?? "All projects")`,
+     11 pt semibold, `Theme.textSecondary`, `.lineLimit(1)`.
+   - When `scoped` is non-nil and `open` is empty, show, after that caption and in place of the ring,
+     legend, need-you line and list:
+     `Text("No notes for \(scoped.name) yet. A note tagged \(scoped.name) shows up here.")`, 12 pt,
+     `Theme.textSecondary`.
+7. **`Sources/UnliRice/Studio/BranchesDeck.swift`.** When `store.studioScope == .all`:
+   - `load()` scans every sleeve in `store.studioSleeves` that has a `folderURL`, with
+     `try? GitRepoScanner().scan(repositoryAt:)` inside the same scan-root access block it uses now,
+     and keeps `(index, name, branches.count)` for each that succeeds, in sleeve order. A new
+     `@State private var allRepos: [(index: Int, name: String, branches: Int)] = []` holds it.
+     The `.task(id:)` key becomes a small `Equatable` struct of `store.studioScope`, the front
+     sleeve's `folderURL` and `store.studioSleeves.map(\.id)`.
+   - The view shows `Text("\(allRepos.count) repos")` (same font and colour as "N branches"), then
+     `ScrollView(.vertical) { VStack(alignment: .leading, spacing: 8) { rows } }.frame(maxHeight: 320)`.
+     Each row is a `Button` with `.buttonStyle(.plain)` whose label is
+     `HStack { Text(name).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).lineLimit(1); Spacer(); Text("\(branches) branches").font(.system(size: 11)).foregroundStyle(Theme.textSecondary) }`.
+     Its action: if `index != store.studioFrontIndex`, call `FlipSound.play()`; then, inside
+     `withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 0.78))`,
+     set `store.studioFrontIndex = index` and `store.studioScope = .project`. `reduceMotion` is
+     `@Environment(\.accessibilityReduceMotion)`.
+   - With no repos: `Text("No git repositories in your projects")`, `Theme.textSecondary`.
+   - `.project` keeps today's behaviour exactly.
+
+Acceptance: `swift test` gains one test and passes; in the QA app, flipping changes the Notes deck's
+caption, count and list to that project's notes (checked against the same project's notes in the enlarged view's List mode), "All
+projects" restores today's Notes deck and lists the repos in Branches, and a repo row brings that
+project to the front in "This project".
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1140,6 +1215,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8d | build-light | Crate sits on its frame's bottom; "1 project", exactly as §2.9 | `Sources/UnliRice/Studio/GardenCrateView.swift` | B1, B2 | App build; Xcode build |
 | S8e | build | Sideways sleeves, and this file's two copy changes, exactly as §2.9 | `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | App build; Xcode build |
 | S8f | build-light | "Garden" becomes "Projects" in the other four files, exactly as §2.9 | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/GardenExpandedView.swift`, `Sources/UnliRice/ProjectGardenView.swift`, `Sources/UnliRice/AppStore.swift` | A2, B1 | App build; Xcode build |
+| S8g | build | The decks follow the front project, with a "This project / All projects" switch, exactly as §2.9 | `Sources/UnliRiceCore/GardenCrate.swift`, `Tests/UnliRiceCoreTests/GardenCrateTests.swift`, `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift`, `Sources/UnliRice/Studio/BranchesDeck.swift` | A2, A3, B4–B7 | Tests; app build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
