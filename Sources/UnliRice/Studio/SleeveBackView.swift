@@ -57,7 +57,7 @@ struct SleeveBackView: View {
                     .padding(.vertical, 6)
                     .liquidGlassCapsule(interactive: true)
                 }
-                Text("Lights show which files exist in this repo.")
+                Text("Lights read this repo's plan, approvals and reviews.")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textSecondary)
             }

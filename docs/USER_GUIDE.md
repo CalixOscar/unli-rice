@@ -226,8 +226,11 @@ folders you chose in **Setup → Folders** that holds a `.git` folder, a
   Rice can't open the folder (hover over the sticker to see why).
 - **The seven lights** above the decks show how far the front project has
   come: Idea, Intent, Spec, Agents, Pre-mortem, Build and Post-mortem. They
-  only reflect which files exist in that project's `docs/` folder. "Next:"
-  names the next step.
+  are read from the project's plan: whether the intent and spec are approved,
+  whether `AGENTS.md` is there (and imported by `CLAUDE.md` with an
+  `@AGENTS.md` line, if there is a `CLAUDE.md`), and whether the review in
+  `docs/dialogue/` is answered and settled. A file that exists but isn't
+  approved yet shows as a draft. "Next:" names the next step.
 - **Branches** and **Notes** follow the front project: its git branches, and
   the notes that belong to it (a note tagged with the project's folder name
   counts). Switch to **All projects** at the top right to see every repo and
