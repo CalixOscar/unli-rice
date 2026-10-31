@@ -50,7 +50,7 @@ struct GardenCrateView: View {
                     .zIndex(distance == -1 ? 1 : distance == 0 ? 0 : -Double(distance))
                     .allowsHitTesting(distance != -1)
                     .onTapGesture { if distance > 0 { select(index) } }
-                    .accessibilityAddTraits(distance > 0 ? .isButton : [])
+                    .accessibilityAddTraits(distance > 0 ? .isButton : .isStaticText)
             }
         }
         .frame(width: side + peek, height: side, alignment: .leading)
@@ -83,12 +83,14 @@ struct GardenCrateView: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(front + 1) of \(count)")
+                .accessibilityAddTraits(.isStaticText)
             } else {
                 Text("\(front + 1) of \(count)")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textSecondary)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(front + 1) of \(count)")
+                    .accessibilityAddTraits(.isStaticText)
             }
             Button { move(by: 1) } label: { Image(systemName: "chevron.right") }
                 .keyboardShortcut(.rightArrow, modifiers: [])
