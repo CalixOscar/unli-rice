@@ -11,6 +11,10 @@ struct HouseRulesPresetGalleryView: View {
     @State private var pendingDelete: HouseRulesPreset?
 
     let onUseDraft: () -> Void
+    /// Set when the gallery is a page in the main window rather than a sheet.
+    /// There, `dismiss()` closes the window itself, so Done calls this instead
+    /// and Use as Draft leaves navigation to `onUseDraft`.
+    var onDone: (() -> Void)? = nil
 
     private var selectedPreset: HouseRulesPreset? {
         allPresets.first { $0.id == selectedPresetID }
@@ -18,6 +22,10 @@ struct HouseRulesPresetGalleryView: View {
 
     private var allPresets: [HouseRulesPreset] {
         HouseRulesPreset.builtIn + store.customHouseRulesPresets
+    }
+
+    private func close() {
+        if let onDone { onDone() } else { dismiss() }
     }
 
     var body: some View {
@@ -32,7 +40,7 @@ struct HouseRulesPresetGalleryView: View {
                         .foregroundStyle(Theme.textSecondary)
                 }
                 Spacer()
-                Button("Done") { dismiss() }
+                Button("Done") { close() }
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -205,7 +213,7 @@ struct HouseRulesPresetGalleryView: View {
                     Button("Use as Draft") {
                         store.useHouseRulesPresetAsDraft(preset)
                         onUseDraft()
-                        dismiss()
+                        if onDone == nil { dismiss() }
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .semibold))
