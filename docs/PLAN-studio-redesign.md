@@ -1391,6 +1391,40 @@ and "Guardrails & Grounding" at their drawn frames with the open one selected; a
 either tab's Accessibility centre switches the page; the tracklist rows and Grounding columns
 are static text with their labels.
 
+**S8m — an unreadable project shows "CAN'T READ" instead of vanishing (build; found in Q11, 2026-10-31).**
+
+Q11 at `27825e3`: `chmod 000` on `q9-garden/c-settled`, then Refresh. The sleeve didn't turn
+"CAN'T READ"; it disappeared ("4 of 4"). Cause, `ProjectGarden.discover` (unchanged since
+`96d5a94`, so 1.4's Project Garden list does the same): it can't see the folder's markers
+(`.git`, `memory.md`, `PROJECT_NOTES.md`) without read permission, tries to list it as a plain
+folder, fails, appends the global issue "Project discovery could not enumerate …", and drops it.
+Nothing in the Studio shows global issues. A folder directly or indirectly inside a scan root that
+can't be listed is far more likely a project that lost its permission than anything else, so it
+becomes a candidate carrying the issue, which `GardenCrate.state` already turns into
+"CAN'T READ" with the issue as the sticker's tooltip. An unreadable scan root itself stays a
+global issue (there is no project to name). No persistence; no other behaviour changes.
+
+1. **`Sources/UnliRiceCore/ProjectGarden.swift`.**
+   - Add `static let unreadableFolderIssue = "Unli Rice can't open this folder. In Finder, select it, choose File › Get Info, and check Sharing & Permissions."`
+     inside `ProjectGarden`.
+   - In `discover`'s `catch` after `contentsOfDirectory`: when `depth > 0`, append
+     `Candidate(url: url, name: url.lastPathComponent, issues: [unreadableFolderIssue])` to
+     `result` and return; when `depth == 0`, keep today's global issue and return.
+2. **`Tests/UnliRiceCoreTests/ProjectGardenTests.swift`.** Using the file's existing `temporary`
+   folder and `mkdir` helper; set permissions with
+   `FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath:)` and restore
+   `0o755` in a `defer` so tear-down can delete it.
+   - `testUnreadableFolderInsideARootIsACantReadProject`: `root/locked/memory.md` exists, then
+     `locked` is set to `000`. `ProjectGarden.load(roots: [root], notes: [])` has a project named
+     "locked" whose `issues.first` is `ProjectGarden.unreadableFolderIssue`, and
+     `GardenCrate.state(of:)` for it is `.cantRead` with that text.
+   - `testUnreadableRootStaysAGlobalIssue`: a root set to `000` gives no projects and a report
+     issue that starts with "Project discovery could not".
+
+Acceptance: `swift test` gains two tests and passes; in the QA app, a fixture folder set to
+`000` mid-session shows "CAN'T READ" after Refresh, with the tooltip text above, and returns to
+normal after its permission is restored and Refresh is pressed again.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1419,6 +1453,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8j | build-light | What VoiceOver hears: tabs, gear, front sleeve, counter, light captions, Extras switches, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/BuildGateLights.swift`, `Sources/UnliRice/AutomationView.swift` | A7, A8 | App build; Xcode build |
 | S8k | build-light | The gear's spoken name, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift` | A7 | App build |
 | S8l | build-light | Tab positions; tracklist rows and Grounding columns get a role, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift`, `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A7 | App build; Xcode build |
+| S8m | build | An unreadable project shows "CAN'T READ" instead of vanishing, exactly as §2.9 | `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift` | B1 | Tests; app build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
