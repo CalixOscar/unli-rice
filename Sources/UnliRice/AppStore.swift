@@ -1223,7 +1223,7 @@ final class AppStore: ObservableObject {
 
     func showGarden() {
         pane = .projects
-        statusMessage = "Garden — a quiet overview of your projects and their notes."
+        statusMessage = "Projects — a quiet overview of each project and its notes."
     }
 
     func showGardenFolders() {

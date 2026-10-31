@@ -84,7 +84,7 @@ struct ProjectGardenView: View {
                 .foregroundStyle(Theme.emerald)
                 .padding(.top, 3)
             VStack(alignment: .leading, spacing: 5) {
-                Text("Project Garden")
+                Text("Projects")
                     .font(.system(size: 25, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Text("Your projects, where you left them, and what comes next.")
@@ -195,10 +195,10 @@ struct ProjectGardenView: View {
                 Text("Reading notes and granted project folders…").font(.system(size: 13)).foregroundStyle(Theme.textSecondary)
             }.frame(maxWidth: .infinity).padding(54)
         } else if report == nil {
-            emptyState(title: "Garden could not refresh", message: "Try Refresh again. Your notes and selected folders stay available in their usual places.")
+            emptyState(title: "Projects could not refresh", message: "Try Refresh again. Your notes and selected folders stay available in their usual places.")
         } else if visibleProjects.isEmpty {
             if report?.projects.isEmpty == true {
-                emptyState(title: "Start your project garden", message: "Add a project folder in Setup › Folders. A note titled “Project: Your project” appears here without a folder, too.")
+                emptyState(title: "No projects yet", message: "Add a project folder in Setup › Folders. A note titled “Project: Your project” appears here without a folder, too.")
             } else {
                 VStack(spacing: 10) {
                     Text("No projects match this view.").foregroundStyle(Theme.textSecondary)

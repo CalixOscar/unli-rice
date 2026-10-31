@@ -29,7 +29,7 @@ struct StudioView: View {
 
     @ViewBuilder
     private func deckLayout(width: CGFloat) -> some View {
-        let garden = StudioDeck(title: "Garden", accent: .garden, shortcut: "1", expand: store.showGarden) {
+        let garden = StudioDeck(title: "Projects", accent: .garden, shortcut: "1", expand: store.showGarden) {
             GardenCrateView(compact: true)
         }.frame(maxWidth: .infinity, alignment: .top)
         let branches = StudioDeck(title: "Branches", accent: .branches, shortcut: "2", expand: store.showRepos) {

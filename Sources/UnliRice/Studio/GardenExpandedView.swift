@@ -9,7 +9,7 @@ struct GardenExpandedView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Text("Garden")
+                Text("Projects")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
                 Spacer()
