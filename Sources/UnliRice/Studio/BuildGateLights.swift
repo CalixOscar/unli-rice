@@ -20,6 +20,7 @@ struct BuildGateLights: View {
                         Text(Self.title(for: stage))
                             .font(.system(size: 10))
                             .foregroundStyle(Theme.textSecondary)
+                            .accessibilityHidden(true)
                     }
                 }
             }

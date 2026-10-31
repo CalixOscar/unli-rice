@@ -49,6 +49,16 @@ struct StudioToolbar: View {
         }
         .padding(4)
         .liquidGlassCapsule()
+        .accessibilityRepresentation {
+            Picker("Page", selection: Binding<Int>(
+                get: { store.lastTab == .guardrailsGrounding ? 1 : 0 },
+                set: { $0 == 0 ? store.showStudio() : store.showGuardrailsGrounding() }
+            )) {
+                Text("Studio").tag(0)
+                Text("Guardrails & Grounding").tag(1)
+            }
+            .pickerStyle(.segmented)
+        }
     }
 
     private func tab(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -96,8 +106,7 @@ struct StudioToolbar: View {
                 NSWorkspace.shared.open(AppStore.writeReviewURL)
             }
         } label: {
-            Image(systemName: "gearshape")
-                .frame(width: 44, height: 44)
+            Image(systemName: "gearshape").accessibilityLabel("Settings and more").frame(width: 44, height: 44)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
