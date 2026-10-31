@@ -912,6 +912,130 @@ Sleeve covers and stickers are the same in both modes, because a sleeve is artwo
 **Use.** The app builds its `Color`s from these values in S5–S7. `GardenCrate.Sleeve.coverIndex`
 selects `cover<n>`.
 
+### 2.9 Changes asked for during S8 (founder, 2026-10-31; settled before handoff)
+
+> "fix the tile, but also make the garden cards swipeable with two fingers using track pad maybe
+> even add some swoosh sounds like when flipping cards"
+
+Tier 1 (UI only: nothing persisted, no new dependency; AudioToolbox and AppKit are system
+frameworks). Two steps on separate branches, because they touch different files.
+
+**S8a — tile (build-light).** In `Sources/UnliRice/Studio/GuardrailsGroundingView.swift`, and
+nothing else:
+1. In `tiles`, append `.fixedSize(horizontal: false, vertical: true)` to the `HStack(spacing: 12) { … }`.
+2. In `tileLabel`, add `.multilineTextAlignment(.center)` to the caption `Text`, and change
+   `.frame(maxWidth: .infinity)` to `.frame(maxWidth: .infinity, maxHeight: .infinity)`.
+The three tiles then share the tallest tile's height, and a two-line caption is centred.
+
+**S8b — two-finger swipe and flip sound (build).** Why each choice:
+- The existing `DragGesture` is a click-and-drag. A trackpad two-finger swipe arrives as
+  scroll-wheel events with phases, which SwiftUI gestures don't see, so an AppKit monitor reads them.
+- One flip per swipe, after 50 pt of horizontal finger travel. A gesture that starts vertical stays
+  vertical, so the Studio tab's `ScrollView` still scrolls. Momentum after a horizontal swipe is
+  swallowed so it doesn't scroll the page. A mouse wheel (no precise deltas) is ignored.
+- Fingers moving left flip to the next (older) sleeve, the same as the drag. The direction follows
+  the fingers whatever the user's natural-scrolling setting.
+- The swoosh is generated in code, so no audio file ships and nothing needs a licence. It plays as
+  a macOS UI sound, so it is silent when System Settings › Sound › "Play user interface sound
+  effects" is off. No new setting. It plays on every flip that changes the front sleeve (buttons,
+  ← →, a click on a sleeve behind, drag, swipe) and on nothing else.
+
+Exact changes:
+
+1. **`Sources/UnliRiceCore/TrackpadSwipe.swift` (new).** No AppKit import.
+   ```swift
+   public struct TrackpadSwipe {
+       public enum Phase: Equatable { case began, changed, ended, momentum, other }
+       public static let threshold: Double = 50
+       public static let decideAfter: Double = 4
+       public init() {}
+       /// fingerDX: horizontal finger travel in points for this event, negative = fingers moved left.
+       /// Returns whether the event should be consumed, and +1 (next) / -1 (previous) when a flip fires.
+       public mutating func handle(phase: Phase, fingerDX: Double, dy: Double) -> (consume: Bool, flip: Int?)
+   }
+   ```
+   State: `active`, `axis` (undecided / horizontal / vertical), `absX`, `absY`, `total`, `fired`,
+   `lastWasHorizontal`. Rules:
+   - `.began`: reset every field (so `lastWasHorizontal = false`), set `active = true`, then
+     handle the event's deltas exactly like `.changed`.
+   - `.changed`: if not `active`, return `(false, nil)`. Add `fingerDX` to `total`, `|fingerDX|` to
+     `absX`, `|dy|` to `absY`. If the axis is undecided and `absX + absY >= decideAfter`, it becomes
+     horizontal when `absX > absY`, else vertical. If horizontal: when not `fired` and
+     `|total| >= threshold`, set `fired` and flip `total < 0 ? +1 : -1`; return `(true, flip)`.
+     Otherwise return `(false, nil)`.
+   - `.ended`: `lastWasHorizontal = (axis == horizontal)`; return `(lastWasHorizontal, nil)`; then
+     `active = false` and the axis is undecided again.
+   - `.momentum`: return `(lastWasHorizontal, nil)`.
+   - `.other`: return `(false, nil)`.
+2. **`Sources/UnliRiceCore/FlipSwoosh.swift` (new).**
+   ```swift
+   public enum FlipSwoosh {
+       public static let sampleRate = 44_100
+       public static let duration = 0.22
+       public static let peak = 0.25
+       public static func samples() -> [Int16]
+       public static func wav() -> Data   // 44-byte RIFF/WAVE header: PCM, mono, 16-bit, little-endian; then samples()
+   }
+   ```
+   `samples()`, exactly (filtered noise whose brightness rises and falls, under a sin² envelope):
+   ```swift
+   let n = Int(Double(sampleRate) * duration)            // 9702
+   var seed: UInt32 = 0x2545F491
+   var y1 = 0.0, y2 = 0.0
+   var raw = [Double](repeating: 0, count: n)
+   for i in 0..<n {
+       let t = Double(i) / Double(n - 1)
+       seed = seed &* 1_664_525 &+ 1_013_904_223
+       let x = Double(seed) / Double(UInt32.max) * 2 - 1
+       let cutoff = 400 + 3200 * sin(.pi * t)
+       let a = exp(-2 * .pi * cutoff / Double(sampleRate))
+       y1 = (1 - a) * x + a * y1
+       y2 = (1 - a) * y1 + a * y2
+       raw[i] = y2 * pow(sin(.pi * t), 2)
+   }
+   let maxAbs = raw.map(abs).max() ?? 0
+   let scale = maxAbs > 0 ? peak / maxAbs : 0
+   return raw.map { Int16(($0 * scale * 32767).rounded()) }
+   ```
+3. **`Sources/UnliRice/Studio/TrackpadSwipeCatcher.swift` (new).** `struct TrackpadSwipeCatcher:
+   NSViewRepresentable` with `let onFlip: (Int) -> Void`, backed by an `NSView` subclass that:
+   - returns `nil` from `hitTest(_:)`, so clicks, taps and the drag still reach the sleeves;
+   - in `viewDidMoveToWindow()` removes any monitor, then, when `window != nil`, installs
+     `NSEvent.addLocalMonitorForEvents(matching: .scrollWheel)`; `updateNSView` refreshes `onFlip`;
+   - in the monitor: returns the event untouched unless `event.window === window`; maps the event to a
+     phase (`.other` unless `hasPreciseScrollingDeltas`; `.momentum` if `momentumPhase` is non-empty;
+     else `.began` / `.changed` / `.ended` for `phase` containing `.began` / `.changed` /
+     `.ended` or `.cancelled`; else `.other`); on `.began` with the location outside `bounds`
+     (`convert(event.locationInWindow, from: nil)`), resets the tracker to `TrackpadSwipe()` and
+     returns the event; otherwise calls `tracker.handle(phase:fingerDX:dy:)` with
+     `fingerDX = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX`
+     and `dy = event.scrollingDeltaY`, calls `onFlip` with any flip, and returns `nil` when `consume`
+     is true, else the event.
+4. **`Sources/UnliRice/Studio/FlipSound.swift` (new).** `@MainActor enum FlipSound { static func play() }`.
+   On the first call: write `FlipSwoosh.wav()` to
+   `FileManager.default.temporaryDirectory/unlirice-flip-swoosh.wav`, create a `SystemSoundID` with
+   `AudioServicesCreateSystemSoundID`, and set `kAudioServicesPropertyIsUISound` to `UInt32(1)` on it.
+   If any of that fails, remember the failure and stay silent from then on, with no UI and no log.
+   `play()` does nothing if the last play was under 0.08 s ago (`ProcessInfo.processInfo.systemUptime`);
+   otherwise `AudioServicesPlaySystemSound(id)`.
+5. **`Sources/UnliRice/Studio/GardenCrateView.swift`**, two edits only: in `crate`, add
+   `.background(TrackpadSwipeCatcher { move(by: $0) })` directly after
+   `.frame(width: side, height: side + peek)`; in `select(_:)`, call `FlipSound.play()` directly
+   after the `guard`. The `DragGesture` stays.
+6. **Tests** (`Tests/UnliRiceCoreTests/TrackpadSwipeTests.swift`, `FlipSwooshTests.swift`, new):
+   `testSwipeLeftFlipsNextOnce` (began, then ten `changed(-10, 0)`: exactly one flip, +1, and every
+   event consumed), `testSwipeRightFlipsPrevious`, `testBelowThresholdDoesNotFlip` (total −40),
+   `testVerticalGestureNeverFlipsOrConsumes` (starts `changed(-1, -20)`, then sixty `changed(-10, 0)`),
+   `testMomentumAfterHorizontalIsConsumed`, `testMomentumAfterVerticalPassesThrough`,
+   `testOtherPhasePassesThrough`, `testNextGestureFlipsAgain`;
+   `testSampleCountAndPeak` (9702 samples, first and last are 0, largest magnitude 8192),
+   `testSamplesAreDeterministic`, `testWavHeader` (44 + 19,404 bytes, `RIFF`/`WAVE`/`fmt `/`data`,
+   1 channel, 44,100 Hz, 16 bits, data size 19,404).
+
+**QA.** Q5 now includes a two-finger swipe on the trackpad, and a vertical two-finger scroll over
+the crate at 960×600 that still scrolls the page. The swoosh is checked by ear with UI sounds on and
+off.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -928,6 +1052,8 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S6 | build | The Garden crate, exactly as §2.5a (§2.5 is the why). Replace the placeholder. Add `SleeveBackView`, the expanded `.projects` route (the `mainColumn` case changes from `ProjectsPane()` to `GardenExpandedView()`, which holds the List toggle to `ProjectGardenView`), Copy prompt and Reduce Motion | `Sources/UnliRice/Studio/BuildGateLights.swift` (helpers made static, `nextStage` added), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift` (new), `Sources/UnliRice/Studio/GardenExpandedView.swift` (new), `Sources/UnliRice/ContentView.swift` (that one case only) | B1–B3, C10, A10 | App build; Xcode build |
 | S7 | build | The Guardrails & Grounding tab, exactly as §2.7a (§2.7 is the why), replacing the placeholder | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8 | planner (the founder or the Codex driver executes it, and Claude reviews the results) | The QA matrix (§4) in an isolated `.app` bundle against a throwaway vault | — | A3–A10 | §4 |
+| S8a | build-light | Guardrails tiles share one height; captions centred, exactly as §2.9 | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
+| S8b | build | Two-finger trackpad swipe and flip swoosh, exactly as §2.9 | `Sources/UnliRiceCore/TrackpadSwipe.swift` (new), `Sources/UnliRiceCore/FlipSwoosh.swift` (new), `Sources/UnliRice/Studio/TrackpadSwipeCatcher.swift` (new), `Sources/UnliRice/Studio/FlipSound.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Tests/UnliRiceCoreTests/TrackpadSwipeTests.swift` (new), `Tests/UnliRiceCoreTests/FlipSwooshTests.swift` (new) | B1–B3 | Tests; app build; xcodegen and the Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
@@ -956,6 +1082,17 @@ Each row is recorded as pass, fail or "not run, because …". Nothing is left im
 | Q12 | Quit and relaunch: the app opens on the Studio tab, and the crate position is back to the newest sleeve |
 | Q13 | Rate Unli Rice is in the gear menu and opens the review URL |
 | K1 | The ← and → shortcuts on macOS 13, if a macOS 13 machine or VM is available. Otherwise "not run" |
+
+### 4a. S8 results
+
+Run in the QA wrapper (`com.calmdownoscar.unlirice.studio-qa`, unsigned debug binary built from
+`b439ab3`, throwaway vault, three-project fixture garden) on macOS 27.2. Driven by Claude through
+Accessibility and screenshots, and walked with the founder. Sizes are window sizes; 960×600 is
+the minimum content size (a 960×628 window).
+
+| Id | Result | Evidence |
+|---|---|---|
+| Q1 | **pass** (2026-10-31) | Studio: three decks in one row at 1440×900; at 960×600 Garden spans the width with Branches and Notes beneath, and scrolling reaches the bottom of Notes with its padding intact. Guardrails & Grounding: both decks side by side at both sizes, no scroll needed. Checked in light and dark. Sleeves stay dark in light mode by design (§2.8). Seen, not a failure: at 960 the "Safety checks need a look" tile is slightly taller than its neighbours and its two-line label is left-aligned |
 
 ## 5. Risks and gotchas
 
