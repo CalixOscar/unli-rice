@@ -3,6 +3,7 @@ import Foundation
 import UnliRiceCore
 
 enum StudioScope: Equatable { case project, all }
+struct StudioGateKey: Equatable { let sleeveID: String?; let refresh: Int }
 
 enum StudioGardenState: Equatable {
     case loading
@@ -50,6 +51,7 @@ extension AppStore {
             studioSleeves = GardenCrate.sleeves(from: report)
             studioFrontIndex = min(studioFrontIndex, max(studioSleeves.count - 1, 0))
             studioGardenState = .loaded
+            studioRefreshCount &+= 1
             await loadStudioIcons()
         } catch is CancellationError {
             return
@@ -70,7 +72,9 @@ extension AppStore {
             var icons: [String: Data] = [:]
             for (id, folder) in projects {
                 guard !Task.isCancelled else { break }
-                if let url = ProjectIcon.find(in: folder), let data = try? Data(contentsOf: url), data.count <= 5_000_000 {
+                if let url = ProjectIcon.find(in: folder),
+                   (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map({ $0 <= 5_000_000 }) == true,
+                   let data = try? Data(contentsOf: url), data.count <= 5_000_000 {
                     icons[id] = data
                 }
             }

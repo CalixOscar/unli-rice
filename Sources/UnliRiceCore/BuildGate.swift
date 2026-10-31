@@ -24,19 +24,26 @@ public enum BuildGate {
         catch CocoaError.fileReadNoSuchFile, CocoaError.fileNoSuchFile { return noPlanResult(folder: root) }
         catch { return unknownResult(slug: nil, reason: "could not read docs/") }
         guard entries.count <= 500 else { return unknownResult(slug: nil, reason: "too many files in docs/") }
+        var unreadableSlugs: [String] = []
         let plans = entries.compactMap { url -> (slug: String, date: Date, stage: Int?)? in
             let name = url.lastPathComponent
             guard name.hasPrefix("PLAN-"), name.hasSuffix(".md") else { return nil }
             let slug = String(name.dropFirst(5).dropLast(3)); guard !slug.isEmpty else { return nil }
-            let stage: Int?; if case let .text(text) = read(url: url, root: root) { stage = firstStage(in: text) } else { stage = nil }
+            let stage: Int?; if case let .text(text) = read(url: url, root: root) { stage = firstStage(in: text) } else { stage = nil; unreadableSlugs.append(slug) }
             let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
             return (slug, date, stage)
         }
-        let open = plans.filter { $0.stage != nil && $0.stage! <= 4 }; guard !open.isEmpty else { return noPlanResult(folder: root) }
+        unreadableSlugs.sort()
+        let open = plans.filter { $0.stage != nil && $0.stage! <= 4 }
+        guard !open.isEmpty else {
+            if let slug = unreadableSlugs.first { return unknownResult(slug: nil, reason: "could not read docs/PLAN-\(slug).md") }
+            return noPlanResult(folder: root)
+        }
         let chosen = open.sorted { $0.date != $1.date ? $0.date > $1.date : $0.slug.localizedCaseInsensitiveCompare($1.slug) == .orderedAscending }.first!
         let openSlugs = open.map(\.slug).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
         let result = read(folder: root, slug: chosen.slug); var issues = result.issues
         let others = openSlugs.filter { $0 != chosen.slug }; if !others.isEmpty { issues.append("\(others.count) other open plans: \(others.joined(separator: ", "))") }
+        issues.append(contentsOf: unreadableSlugs.map { "could not read docs/PLAN-\($0).md" })
         return Result(slug: result.slug, openPlans: openSlugs, lights: result.lights, issues: issues)
     }
 

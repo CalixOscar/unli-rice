@@ -48,6 +48,6 @@ struct GardenExpandedView: View {
         .task {
             if store.studioGardenState == .loading { await store.refreshStudioGarden() }
         }
-        .task(id: store.studioFrontSleeve?.id) { await store.refreshStudioGate() }
+        .task(id: StudioGateKey(sleeveID: store.studioFrontSleeve?.id, refresh: store.studioRefreshCount)) { await store.refreshStudioGate() }
     }
 }

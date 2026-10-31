@@ -29,6 +29,28 @@ final class BuildGateTests: XCTestCase {
         XCTAssertEqual(result.slug, "new"); XCTAssertEqual(result.openPlans, ["new", "old"])
     }
 
+    func testUnreadablePlanIsUnknownNotNoPlan() throws {
+        try plan("locked", stage: 2)
+        let file = root.appendingPathComponent("docs/PLAN-locked.md")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        let result = BuildGate.current(folder: root)
+        for stage in BuildGate.Stage.allCases {
+            XCTAssertEqual(result.lights[stage], .unknown("could not read docs/PLAN-locked.md"))
+        }
+    }
+
+    func testUnreadablePlanBesideAnOpenPlanIsAnIssue() throws {
+        try plan("open", stage: 2)
+        try plan("locked", stage: 2)
+        let file = root.appendingPathComponent("docs/PLAN-locked.md")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path) }
+        let result = BuildGate.current(folder: root)
+        XCTAssertEqual(result.slug, "open")
+        XCTAssertTrue(result.issues.contains("could not read docs/PLAN-locked.md"))
+    }
+
     func testCopiedTimestampDoesNotChangeEvidence() throws {
         try plan("x", stage: 4, intent: "docs/intent/X.md")
         try write("**Status:** approved\n", to: "docs/intent/X.md")

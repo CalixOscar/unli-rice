@@ -83,6 +83,7 @@ final class AppStore: ObservableObject {
     @Published var studioFrontGate: BuildGate.Result? = nil
     @Published var studioScope: StudioScope = .project
     @Published var studioIcons: [String: NSImage] = [:]
+    @Published var studioRefreshCount: Int = 0
     /// Which tab Setup shows. Every entry into Setup sets it explicitly.
     @Published var setupTab: SetupView.Tab = .connect
     @Published var moreDestination: MoreDestination = .setup

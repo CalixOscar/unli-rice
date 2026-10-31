@@ -6,6 +6,7 @@ struct BranchesDeck: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var allRepos: [(index: Int, name: String, branches: Int)] = []
     @State private var snapshot: GitRepoScanner.Snapshot?
+    @State private var snapshotFolder: URL?
     @State private var ancestry: RepoSnapshotFile.Repo?
     @State private var ancestryAge: Date?
     @State private var ancestryStale = false
@@ -46,7 +47,7 @@ struct BranchesDeck: View {
                     }
                 }
             } else if let folder = store.studioFrontSleeve?.folderURL {
-                if let snapshot {
+                if let snapshot, snapshotFolder == folder {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(snapshot.branches.count == 1 ? "1 branch" : "\(snapshot.branches.count) branches")
                             .font(.system(size: 28, weight: .bold))
@@ -57,9 +58,11 @@ struct BranchesDeck: View {
                         }
                         .frame(height: 320)
                     }
-                } else {
+                } else if snapshotFolder == folder {
                     Text("No git repository in \(folder.lastPathComponent)")
                         .foregroundStyle(Theme.textSecondary)
+                } else {
+                    ProgressView().controlSize(.small)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -71,7 +74,7 @@ struct BranchesDeck: View {
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .task(id: LoadKey(scope: store.studioScope, folderURL: store.studioFrontSleeve?.folderURL,
-                          sleeveIDs: store.studioSleeves.map(\.id))) {
+                          sleeveIDs: store.studioSleeves.map(\.id), refresh: store.studioRefreshCount)) {
             await load()
         }
     }
@@ -94,7 +97,7 @@ struct BranchesDeck: View {
             return
         }
         guard let folder = store.studioFrontSleeve?.folderURL else {
-            snapshot = nil; ancestry = nil; return
+            snapshot = nil; snapshotFolder = nil; ancestry = nil; return
         }
         let roots = store.scanRoots
         let corpusFolder = store.dataURL.deletingLastPathComponent()
@@ -112,6 +115,7 @@ struct BranchesDeck: View {
         }.value
         guard !Task.isCancelled else { return }
         snapshot = loaded.0
+        snapshotFolder = folder
         ancestry = loaded.1
         ancestryAge = loaded.2
         ancestryStale = loaded.3
@@ -122,4 +126,5 @@ private struct LoadKey: Equatable {
     let scope: StudioScope
     let folderURL: URL?
     let sleeveIDs: [String]
+    let refresh: Int
 }
