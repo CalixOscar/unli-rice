@@ -124,11 +124,11 @@ struct GuardrailsGroundingView: View {
     private var tiles: some View {
         HStack(spacing: 12) {
             Button { store.showNeedsYou() } label: { tileLabel(Text("\(store.pending.count + store.unreadNoticeCount)").font(.system(size: 40, weight: .bold)).foregroundStyle(Color(studio: .notes, scheme: colorScheme)), caption: "Need you") }
-                .buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel("Need you: \(store.pending.count + store.unreadNoticeCount)")
+                .buttonStyle(.plain).accessibilityLabel("Need you: \(store.pending.count + store.unreadNoticeCount)")
             Button { store.showTrustCenter() } label: { tileLabel(Image(systemName: safetySymbol).font(.system(size: 36)).foregroundStyle(safetyColor), caption: safetyCaption) }
-                .buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel(safetyCaption)
+                .buttonStyle(.plain).accessibilityLabel(safetyCaption)
             Button { store.showArchived() } label: { tileLabel(Text("\(store.archivedNotes.count)").font(.system(size: 40, weight: .bold)).foregroundStyle(Theme.textPrimary), caption: "Archived") }
-                .buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel("Archived: \(store.archivedNotes.count)")
+                .buttonStyle(.plain).accessibilityLabel("Archived: \(store.archivedNotes.count)")
         }
         .fixedSize(horizontal: false, vertical: true)
     }
