@@ -2720,3 +2720,14 @@ the House Rules caption no longer says every assistant reads it first, and the g
 
 **Left for the founder:** the app's "Lights show which files exist in this repo." understates what
 the lights read; it is in the archive and screenshots 01–02.
+
+**Later the same day (2026-10-31):** the founder asked to fix the lights sentence, upload 1.5 (10),
+see the post-mortem, publish the site if the new build is open source on GitHub, and upload the
+screenshots. The caption now reads "Lights read this repo's plan, approvals and reviews."
+(`ce64749`); 1.5 (10) was re-archived from `40f69de` and screenshots 01–02 re-shot. The website
+went live (site `main` `b171064`) once the archived source was confirmed on public GitHub `main`.
+The seven screenshots replaced the 1.4 set in App Store Connect, in order. **The upload did not
+happen:** Xcode's Apple account session had expired, and signing in is the founder's. The 6-Month
+Post-Mortem (`docs/release/1.5-premortem.md`) finds Studio speaks mainly to people who plan in
+files the way this studio does, and that screenshot 01 shows NEEDS YOU beside "0 need you"
+(two different counts); it recommends fixing that count before submitting.
