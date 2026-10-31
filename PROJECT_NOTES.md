@@ -2758,3 +2758,9 @@ reflects (`7cf36bd`). `Scripts/check-template-drift.sh`, now step 1 of the archi
 machines without the vault. This refresh adds the two tiers, builds staying in one tool's house,
 the two-failure circuit breaker, scope, shipping only on the user's word, and secrets. Tier 1;
 branch `claude/guardrails-template-refresh`.
+
+**Then (2026-10-31, evening):** the founder chose to ship the template refresh in 1.5 rather than wait
+("Reject 10 and add a new screenshot and upload build 11"). Claude cancelled the 1.5 (10) submission,
+archived 1.5 (11), re-shot screenshot 05 (only its token and character counter changed) and replaced
+the App Store set; the founder uploaded build 11 from Organizer and said "Submit". 1.5 (11) is Waiting
+for Review. The tier-2 pipeline was waived by the founder for this release work.
