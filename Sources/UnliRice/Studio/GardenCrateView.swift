@@ -45,7 +45,7 @@ struct GardenCrateView: View {
             ForEach(indices, id: \.self) { index in
                 let sleeve = store.studioSleeves[index]
                 let distance = index - front
-                SleeveFront(sleeve: sleeve, side: side)
+                SleeveFront(sleeve: sleeve, side: side, icon: store.studioIcons[sleeve.id])
                     .modifier(SleeveMotion(distance: distance, side: side, reduceMotion: reduceMotion))
                     .zIndex(distance == -1 ? 1 : distance == 0 ? 0 : -Double(distance))
                     .allowsHitTesting(distance != -1)
@@ -158,6 +158,7 @@ private struct ReduceMotionCrate: ViewModifier {
 private struct SleeveFront: View {
     let sleeve: GardenCrate.Sleeve
     let side: CGFloat
+    let icon: NSImage?
     @Environment(\.colorScheme) private var colorScheme
 
     private var cover: StudioPalette.Token {
@@ -169,6 +170,19 @@ private struct SleeveFront: View {
             .fill(Color(studio: cover, scheme: colorScheme))
             .frame(width: side, height: side)
             .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+            .overlay(alignment: .top) {
+                if let icon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .interpolation(.high)
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: side * 0.32, height: side * 0.32)
+                        .clipShape(RoundedRectangle(cornerRadius: side * 0.32 * 0.2237, style: .continuous))
+                        .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
+                        .padding(.top, side * 0.22)
+                        .accessibilityHidden(true)
+                }
+            }
             .overlay {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack { Spacer(minLength: 0); sticker }
