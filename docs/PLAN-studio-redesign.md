@@ -1210,6 +1210,87 @@ the "This project" headline also read "1 branches".
 Acceptance: clicking the middle of a repo row brings that project to the front; tide-clock reads
 "1 branch".
 
+**S8i — project icons on the sleeves (build; founder, 2026-10-31).**
+
+> "how about also adding icon or images to the sleeves based on the repo/project if they are available?"
+
+Founder chose "icon centred" over full-cover art and a corner badge (AskUserQuestion, 2026-10-31).
+Tier 1: it only reads files inside folders the app already has access to, stores nothing, and adds
+no dependency. Surveyed at `~/Documents/Projects` (2026-10-31): 9 of 26 projects have one: Xcode
+`AppIcon.appiconset` PNGs (deepest at depth 6), `.icns` files, and website `logo.png` /
+`favicon.ico`; a folder walk with the skips below visits at most about 2,700 entries per project.
+A sleeve with no icon looks exactly as it does today.
+
+1. **`Sources/UnliRiceCore/ProjectIcon.swift` (new).**
+   `public enum ProjectIcon` with
+   `public static func find(in folder: URL, fileManager: FileManager = .default, maxDepth: Int = 6, maxEntries: Int = 10_000) -> URL?`.
+   - Walk `folder` breadth-first with `contentsOfDirectory(at:includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: [])`.
+     A directory's direct children are depth 1. Never follow symbolic links. Never descend into a
+     directory whose name starts with `.`, is one of `node_modules`, `build`, `Build`,
+     `DerivedData`, `Pods`, `Carthage`, `dist`, `vendor`, `_archive`, or whose extension is `app`
+     or `xcarchive`. Don't descend below `maxDepth`. Stop walking once `maxEntries` entries have
+     been seen, and rank what was found so far. An unreadable directory is skipped silently.
+   - Candidate files and their rank (lower wins), names compared case-insensitively:
+     0 — a `.png` whose parent directory is named `AppIcon.appiconset`;
+     1 — a `.icns` file;
+     2 — `icon.png`, `logo.png`, `apple-touch-icon.png`, `favicon.png`;
+     3 — `favicon.ico`.
+   - Order: rank, then depth (shallower first), then for rank 0 the PNG's pixel width (wider
+     first; read big-endian bytes 16–19 of the file, which is the IHDR width; a file shorter than
+     24 bytes or without the PNG signature counts as width 0), then `path` ascending. Return the
+     first, or `nil`.
+2. **`Tests/UnliRiceCoreTests/ProjectIconTests.swift` (new).** Each test builds a fixture under a
+   fresh temporary directory and removes it after. A PNG fixture is the 8-byte PNG signature, a
+   4-byte length, `IHDR`, then the width and height as big-endian `UInt32`s.
+   - `testNoIconReturnsNil` — files but no candidates → `nil`.
+   - `testAppIconSetBeatsShallowerLogo` — `logo.png` at depth 1 and
+     `App/Assets.xcassets/AppIcon.appiconset/a.png` → the appiconset file.
+   - `testWidestAppIconPNGWins` — one appiconset holding 64- and 1024-wide PNGs → the 1024 one.
+   - `testSkipsHiddenAndBuildFolders` — `icon.png` only inside `.git/`, `node_modules/` and
+     `build/` → `nil`.
+   - `testShallowerWinsWithinARank` — `logo.png` at depth 1 and at depth 3 → depth 1.
+   - `testRespectsMaxDepth` — `a/b/c/d/e/f/icon.png` (depth 7) → `nil`; the same at depth 6 →
+     found.
+3. **`Sources/UnliRice/AppStore.swift`**, one line after `studioScope`:
+   `@Published var studioIcons: [String: NSImage] = [:]` (keyed by `Sleeve.id`).
+4. **`Sources/UnliRice/AppStore+Studio.swift`.**
+   - Add `func loadStudioIcons() async`. It takes `(id, folderURL)` for each sleeve in
+     `studioSleeves` that has a `folderURL`, and in one `Task.detached(priority: .utility)` that
+     opens the scan roots exactly as `refreshStudioGate()` does, runs `ProjectIcon.find(in:)` for
+     each and reads the file with `try? Data(contentsOf:)`, keeping it only when it is at most
+     5,000,000 bytes. It returns `[String: Data]` and checks `Task.isCancelled` between projects.
+     Back on the main actor, after `guard !Task.isCancelled else { return }`, it builds
+     `NSImage(data:)` for each, keeps the ones whose `isValid` is true, and assigns the whole
+     dictionary to `studioIcons` (so icons of vanished projects go away).
+   - In `refreshStudioGarden()`, call `await loadStudioIcons()` right after
+     `studioGardenState = .loaded`.
+5. **`Sources/UnliRice/Studio/GardenCrateView.swift`.**
+   - `SleeveFront` gains `let icon: NSImage?`; the one call site passes
+     `icon: store.studioIcons[sleeve.id]`.
+   - In `SleeveFront.body`, add a second `.overlay(alignment: .top)` right after `.shadow(…)` and
+     before the existing `.overlay { VStack … }`:
+     ```swift
+     .overlay(alignment: .top) {
+         if let icon {
+             Image(nsImage: icon)
+                 .resizable()
+                 .interpolation(.high)
+                 .aspectRatio(contentMode: .fit)
+                 .frame(width: side * 0.32, height: side * 0.32)
+                 .clipShape(RoundedRectangle(cornerRadius: side * 0.32 * 0.2237, style: .continuous))
+                 .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
+                 .padding(.top, side * 0.22)
+                 .accessibilityHidden(true)
+         }
+     }
+     ```
+   - Nothing else in the file changes. The sleeve's accessibility label stays as it is.
+
+Acceptance: `swift test` gains six tests and passes. In the QA app, a fixture project holding an
+`AppIcon.appiconset` shows its icon centred on the sleeve in the deck and in the enlarged view,
+clear of the sticker and the name; a project without one looks as before; and a project's sleeve
+picks up an icon added to its folder after Refresh.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1234,6 +1315,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8f | build-light | "Garden" becomes "Projects" in the other four files, exactly as §2.9 | `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/GardenExpandedView.swift`, `Sources/UnliRice/ProjectGardenView.swift`, `Sources/UnliRice/AppStore.swift` | A2, B1 | App build; Xcode build |
 | S8g | build | The decks follow the front project, with a "This project / All projects" switch, exactly as §2.9 | `Sources/UnliRiceCore/GardenCrate.swift`, `Tests/UnliRiceCoreTests/GardenCrateTests.swift`, `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/Studio/StudioView.swift`, `Sources/UnliRice/Studio/NotesDeck.swift`, `Sources/UnliRice/Studio/BranchesDeck.swift` | A2, A3, B4–B7 | Tests; app build; Xcode build |
 | S8h | build-light | Repo rows click anywhere; "1 branch", exactly as §2.9 | `Sources/UnliRice/Studio/BranchesDeck.swift` | B4 | App build; Xcode build |
+| S8i | build | Project icons centred on the sleeves, exactly as §2.9 | `Sources/UnliRiceCore/ProjectIcon.swift` (new), `Tests/UnliRiceCoreTests/ProjectIconTests.swift` (new), `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | Tests; app build; xcodegen and the Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
