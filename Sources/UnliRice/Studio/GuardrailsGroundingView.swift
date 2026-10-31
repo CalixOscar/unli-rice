@@ -130,11 +130,12 @@ struct GuardrailsGroundingView: View {
             Button { store.showArchived() } label: { tileLabel(Text("\(store.archivedNotes.count)").font(.system(size: 40, weight: .bold)).foregroundStyle(Theme.textPrimary), caption: "Archived") }
                 .buttonStyle(.plain).accessibilityElement(children: .ignore).accessibilityLabel("Archived: \(store.archivedNotes.count)")
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func tileLabel<Content: View>(_ big: Content, caption: String) -> some View {
-        VStack(spacing: 6) { big; Text(caption).font(.system(size: 13)).foregroundStyle(Theme.textPrimary) }
-            .frame(maxWidth: .infinity).padding(.vertical, 20)
+        VStack(spacing: 6) { big; Text(caption).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).multilineTextAlignment(.center) }
+            .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.vertical, 20)
             .background { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(studio: .background, scheme: colorScheme)) }
             .overlay { RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.textSecondary.opacity(0.2), lineWidth: 1) }
     }
