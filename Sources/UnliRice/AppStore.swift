@@ -72,10 +72,18 @@ final class AppStore: ObservableObject {
     enum Pane: Equatable {
         case home, notes, aiFolder, houseRules, todo, needsYou, notices, trustCenter
         case archived, projects, repos, setup, firstRun, profileBuilder, map
-        case retrospective, whyNotTextFile
+        case retrospective, whyNotTextFile, studio, guardrailsGrounding
     }
 
     @Published var pane: Pane = .notes
+    @Published var lastTab: Pane = .studio
+    @Published var studioSleeves: [GardenCrate.Sleeve] = []
+    @Published var studioFrontIndex: Int = 0
+    @Published var studioGardenState: StudioGardenState = .loading
+    @Published var studioFrontGate: BuildGate.Result? = nil
+    @Published var studioScope: StudioScope = .project
+    @Published var studioIcons: [String: NSImage] = [:]
+    @Published var studioRefreshCount: Int = 0
     /// Which tab Setup shows. Every entry into Setup sets it explicitly.
     @Published var setupTab: SetupView.Tab = .connect
     @Published var moreDestination: MoreDestination = .setup
@@ -680,7 +688,7 @@ final class AppStore: ObservableObject {
         if corpusLoaded && !hasUserAuthoredNotes {
             pane = .firstRun
         } else {
-            pane = .home
+            pane = .studio
         }
 
         // After the corpus is loaded and the opening pane is decided, so the note count
@@ -942,7 +950,7 @@ final class AppStore: ObservableObject {
         retrospectivePeriodID = nil
         switch pane {
         case .retrospective, .projects, .repos, .notices, .trustCenter:
-            pane = .notes
+            pane = .studio
         default:
             break
         }
@@ -1204,9 +1212,21 @@ final class AppStore: ObservableObject {
         statusMessage = "Home — What Unli Rice is doing for you right now."
     }
 
+    func showStudio() {
+        selectNote(nil)
+        pane = .studio
+        lastTab = .studio
+    }
+
+    func showGuardrailsGrounding() {
+        selectNote(nil)
+        pane = .guardrailsGrounding
+        lastTab = .guardrailsGrounding
+    }
+
     func showGarden() {
         pane = .projects
-        statusMessage = "Garden — a quiet overview of your projects and their notes."
+        statusMessage = "Projects — a quiet overview of each project and its notes."
     }
 
     func showGardenFolders() {

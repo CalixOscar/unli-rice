@@ -157,7 +157,7 @@ struct ExtrasView: View {
                     icon: "square.grid.2x2"
                 ) {
                     VStack(alignment: .leading, spacing: 14) {
-                        ForEach(Array(Extra.allCases.enumerated()), id: \.element.id) { index, extra in
+                        ForEach(Array(Extra.allCases.filter { $0 != .projects }.enumerated()), id: \.element.id) { index, extra in
                             if index > 0 {
                                 Divider().overlay(Theme.borderLight)
                             }
@@ -230,7 +230,7 @@ struct AutomationToggleRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
-            Toggle("", isOn: isOn)
+            Toggle(title, isOn: isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .tint(Theme.accentColor)

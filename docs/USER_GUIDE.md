@@ -48,8 +48,8 @@ store nothing is connected to isn't doing anything yet.
 
 ## 2. First-run setup
 
-Everything you configure lives in one place: **Setup** in the sidebar, with
-five tabs.
+Everything you configure lives in one place: **Setup**, in the gear menu at
+the top right, with five tabs.
 
 ### 2.1 AI Tools — connect your assistants
 
@@ -106,8 +106,7 @@ Two switches and a slider, all off/conservative by default:
 
 The Profile Builder generates the document set that makes any LLM instantly
 useful about *you* — the thing you'd otherwise have to explain in every new
-chat. Launch it from **Home → Build Profile** or **Setup → Who You Are &
-Profiles**.
+chat. Launch it from **Setup → Separate memories** (Setup is in the gear menu).
 
 It's a six-step form:
 
@@ -208,36 +207,51 @@ capsule.
 
 ---
 
-## 6. Everyday use — the sidebar
+## 6. Everyday use — two tabs and a gear
 
-**Home** — the answer to "what is this app doing for me?" A status banner
-(green: memory is working, with note count and recorded client activity;
-amber: nothing connected yet), a callout if anything needs your decision,
-your profile status, and the last few notices.
+The window has two tabs at the top, **Studio** (⌘1) and **Guardrails &
+Grounding** (⌘2), and a gear button at the top right. The app always opens
+on Studio.
 
-**Needs you** — the one screen for everything waiting on your judgment:
-tidying proposals (possible duplicates, contradictions) and actionable
-notices, with a badge showing the count. Duplicate clusters show every note
-with a "Keep this one" button — pick the keeper and the others' contents are
-appended to it before they're archived, so nothing is lost. You can also
-trigger **Preview Tidying** (shows what would happen, changes nothing) or
-**Run Tidying Now** from here.
+**Studio** — your projects at a glance. A project is any folder under the
+folders you chose in **Setup → Folders** that holds a `.git` folder, a
+`memory.md` or a `PROJECT_NOTES.md`.
 
-**Notes** — the corpus itself. Search, browse by date, read a note's full
-body, tags, history, links and backlinks (`[[Title]]` wiki-links work in any
-note body), and see exactly which tools wrote each part.
+- **Projects** — a stack of cards, one per project, newest activity first.
+  Flip through it with the ‹ › buttons, the ← → keys, a two-finger swipe on
+  the trackpad, a drag, or a click on a card behind; each flip plays a soft
+  swoosh unless your Mac's interface sounds are off. If the project folder
+  has an app icon or logo, it appears in the middle of its card. The sticker
+  says **FINE**, **NEEDS YOU**, **NO NOTES YET**, or **CAN'T READ** when Unli
+  Rice can't open the folder (hover over the sticker to see why).
+- **The seven lights** above the decks show how far the front project has
+  come: Idea, Intent, Spec, Agents, Pre-mortem, Build and Post-mortem. They
+  only reflect which files exist in that project's `docs/` folder. "Next:"
+  names the next step.
+- **Branches** and **Notes** follow the front project: its git branches, and
+  the notes that belong to it (a note tagged with the project's folder name
+  counts). Switch to **All projects** at the top right to see every repo and
+  every note instead; clicking a repo there brings that project to the front.
+- **Expand** any deck with the button in its corner. The enlarged Projects
+  view adds Refresh, a list view, each step's details and **Copy prompt**,
+  which copies a ready-made instruction for your AI tool about the next
+  step. **All decks** (or Esc) returns.
 
-**Setup** — everything in section 2.
+**Guardrails & Grounding** — what your AI knows, and what it must do.
 
-**Looking back** — a monthly/yearly retrospective built from your notes:
-what you worked on, what got referenced most. It only ever announces a
-period that has ended, once.
+- **Grounding** shows your notes and the folder your AI reads, with **Open
+  notes**, **Open the folder**, and **Details** (the status overview: whether
+  memory is working, recorded client activity, your profile, recent notices).
+- **Guardrails** shows your House Rules (**Edit House Rules**) and three
+  tiles: **Need you** (tidying proposals and notices waiting on your
+  decision, such as duplicates with a "Keep this one" button), **Safety
+  checks** (the Trust Center) and **Archived** (everything soft-archived,
+  restorable with one click).
 
-Turning on **advanced mode** adds: **Trust Center** (proof the connection
-works — client activity log, vault health, snapshots and recovery),
-**Notifications** (the full notice history), and **Archived** (everything
-soft-archived, restorable with one click; permanent removal exists only
-here, only for you, behind a confirmation, with an automatic backup).
+**The gear menu** — **Setup** (everything in section 2), **Trust Center**,
+**Archived notes**, and, when switched on in **Setup → Extras**, **To do**,
+**Map**, **Your year so far** and **iPhone Capture**. **Rate Unli Rice** opens
+the App Store review page.
 
 ---
 
@@ -253,14 +267,14 @@ the whole product working.
 If you enabled routines, ingestion starts indexing your Claude sessions and
 nominated folders (gradually — 40 notes per run, on purpose), and the
 Friday tidying pass starts proposing tags and flagging lookalikes. Expect
-the "Needs you" badge to show small numbers, not floods: proposals are
+the **Need you** tile to show small numbers, not floods: proposals are
 budgeted per run precisely so the queue stays worth reading.
 
 **Ongoing.** Mostly, you don't open the app — that's the design. Your tools
 keep reading and writing memory; routines keep it tidy; a notice appears
 when something actually needs you or a month is worth looking back on. When
-you do open it, Home tells you in one glance whether memory is working and
-whether anything is waiting.
+you do open it, Studio shows where your projects stand and Guardrails &
+Grounding shows whether memory is working and whether anything is waiting.
 
 **What will never happen:**
 

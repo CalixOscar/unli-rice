@@ -40,6 +40,25 @@ when it is working in this repo.
 - Older plans say "the swarm builds it". Read that as "the planner's builder
   models build it".
 
+### The order, for every app
+
+1. **Idea**, for a new app only: an Idea Clinic brief in `docs/idea/IDEA-<slug>.md`.
+2. **Intent**: `docs/intent/INTENT-00N-<slug>.md`, approved by the founder.
+3. **Spec**: `docs/SPEC-<slug>.md`, numbered requirements, each with how it is checked.
+4. **Agent files**: `AGENTS.md` at the target repo's root, current for this work. Claude Code
+   reads `AGENTS.md` by itself when there is no `CLAUDE.md`. A `CLAUDE.md` is optional, for
+   Claude-only instructions, and it must import (`@AGENTS.md`) or name `AGENTS.md`. Otherwise
+   Claude Code reads only the `CLAUDE.md`.
+5. **Plan**: `docs/PLAN-<slug>.md`, tracing to the intent and the spec ids.
+6. **Pre-mortem through the bridge**: the other planner's turn in `docs/dialogue/<slug>.md`,
+   answered, then a `settled` turn.
+7. **Build**, by the builder models, one step per handoff.
+8. **Post-mortem** in the same dialogue file.
+
+**No `build` or `build-light` step is handed over until 2–6 exist.** The founder may skip a
+stage. The plan header then says which one and quotes the founder, so the skip stays visible.
+Unli Rice's Garden reads these files and shows one light per stage.
+
 ## Builder contract
 
 This applies whenever a handoff starts with `Role: builder`: Claude's `builder` /
@@ -51,6 +70,8 @@ A handoff carries these fields, all required:
 
 ```text
 Role: builder
+Intent: docs/intent/INTENT-00N-<slug>.md
+Spec: docs/SPEC-<slug>.md (requirement ids this step serves)
 Plan: docs/PLAN-<slug>.md
 Step: <step id and title, exactly as in the plan>
 Branch: <branch name, never main>
@@ -95,6 +116,8 @@ Older plans say `sonnet` / `haiku`; read them as `build` / `build-light`.
 ```bash
 codex -p build exec --cd "<repo>" --sandbox workspace-write "$(cat <<'HANDOFF'
 Role: builder
+Intent: docs/intent/INTENT-00N-<slug>.md
+Spec: docs/SPEC-<slug>.md (<requirement ids>)
 Plan: docs/PLAN-<slug>.md
 Step: <id and title>
 Branch: <branch>

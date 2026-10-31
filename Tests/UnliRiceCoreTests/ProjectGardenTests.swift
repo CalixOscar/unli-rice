@@ -133,8 +133,8 @@ final class ProjectGardenTests: XCTestCase {
     func testMissingRootIsReportedAndOneCharacterRegistrationIsValid() throws {
         let missing = temporary.appendingPathComponent("gone")
         let report = ProjectGarden.load(roots: [missing], notes: [note(title: "Project:X", body: "X")])
-        XCTAssertEqual(report.projects.map(\.name), ["X"])
-        XCTAssertTrue(report.issues.contains { $0.localizedCaseInsensitiveContains("could not read") })
+        XCTAssertEqual(Set(report.projects.map(\.name)), ["X", "gone"])
+        XCTAssertEqual(report.projects.first { $0.name == "gone" }?.issues.first, ProjectGarden.unreadableRootIssue)
     }
 
     func testLiveRepositoryKeepsItsDateWhileMissingMemoryUsesDatedSnapshotStep() throws {
@@ -295,6 +295,40 @@ final class ProjectGardenTests: XCTestCase {
         XCTAssertTrue(ProjectGarden.load(roots: [root], notes: []).projects.isEmpty)
         try "".write(to: target.appendingPathComponent(LocalFileImporter.ignoreMarkerFilename), atomically: true, encoding: .utf8)
         XCTAssertTrue(ProjectGarden.load(roots: [target], notes: []).projects.isEmpty)
+    }
+
+    func testUnreadableFolderInsideARootIsACantReadProject() throws {
+        let root = temporary.appendingPathComponent("root")
+        let locked = root.appendingPathComponent("locked")
+        try mkdir(locked)
+        try "".write(to: locked.appendingPathComponent("memory.md"), atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path) }
+
+        let report = ProjectGarden.load(roots: [root], notes: [])
+        let project = try XCTUnwrap(report.projects.first { $0.name == "locked" })
+        XCTAssertEqual(project.issues.first, ProjectGarden.unreadableFolderIssue)
+        XCTAssertEqual(GardenCrate.state(of: project), .cantRead(ProjectGarden.unreadableFolderIssue))
+    }
+
+    func testUnreadableRootIsACantReadProject() throws {
+        let root = temporary.appendingPathComponent("root")
+        try mkdir(root)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: root.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path) }
+
+        let report = ProjectGarden.load(roots: [root], notes: [])
+        XCTAssertEqual(report.projects.count, 1)
+        XCTAssertEqual(report.projects.first?.name, root.lastPathComponent)
+        XCTAssertEqual(report.projects.first?.issues.first, ProjectGarden.unreadableRootIssue)
+    }
+
+    func testMissingRootIsACantReadProject() throws {
+        let root = temporary.appendingPathComponent("missing")
+        let report = ProjectGarden.load(roots: [root], notes: [])
+        XCTAssertEqual(report.projects.count, 1)
+        XCTAssertEqual(report.projects.first?.name, root.lastPathComponent)
+        XCTAssertEqual(report.projects.first?.issues.first, ProjectGarden.unreadableRootIssue)
     }
 
     func testDiscoveryDepthAndProjectCapAreReported() throws {

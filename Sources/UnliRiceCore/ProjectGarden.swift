@@ -3,6 +3,9 @@ import Foundation
 /// A bounded, read-only report of projects assembled from granted folders and notes.
 /// This is deliberately an in-memory projection: it has no persisted representation.
 public enum ProjectGarden {
+    static let unreadableRootIssue = "Unli Rice can't open this folder. If it moved or lost permission, choose it again in Setup › Folders."
+    static let unreadableFolderIssue = "Unli Rice can't open this folder. In Finder, select it, choose File › Get Info, and check Sharing & Permissions."
+
     public struct Report: Sendable {
         public let projects: [Project]
         public let scannedAt: Date
@@ -171,7 +174,11 @@ public enum ProjectGarden {
             guard seen.insert(key).inserted else { return }
             var isDirectory: ObjCBool = false
             guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-                issues.append("Project discovery could not read root or directory \(rawURL.path).")
+                if depth == 0 {
+                    result.append(Candidate(url: url, name: url.lastPathComponent, issues: [unreadableRootIssue]))
+                } else {
+                    issues.append("Project discovery could not read root or directory \(rawURL.path).")
+                }
                 return
             }
             visited += 1
@@ -189,7 +196,11 @@ public enum ProjectGarden {
             do {
                 entries = try fm.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey], options: [.skipsHiddenFiles])
             } catch {
-                issues.append("Project discovery could not enumerate \(url.path).")
+                if depth > 0 {
+                    result.append(Candidate(url: url, name: url.lastPathComponent, issues: [unreadableFolderIssue]))
+                } else {
+                    result.append(Candidate(url: url, name: url.lastPathComponent, issues: [unreadableRootIssue]))
+                }
                 return
             }
             for entry in entries.sorted(by: { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }) {
