@@ -2638,3 +2638,42 @@ asked for a look like djay Pro: a few big, understandable pictures, namely the G
 branches and the notes. It puts Garden and Branches on the main stage a day after INTENT-007 made
 Projects an off-by-default Extra; open question 1 asks the founder to settle that. Done in a cloud
 container with no Swift and no vault: nothing was built or run.
+
+## Studio redesign, Phase A: built and walked (2026-10-31)
+
+**Built** on `claude/studio-redesign` (not merged to `main`; Mac 1.4 is in App Review). Steps S1–S7
+replaced the sidebar with two tabs, **Studio** (Projects crate, Branches, Notes, and the seven
+build-gate lights) and **Guardrails & Grounding**, plus a gear menu. Merges `1705e3b` (S1
+`BuildGate`) through `35bd656` (S7), then `a3b9ae3` (polish). Plan:
+`docs/PLAN-studio-redesign.md`; intent INTENT-009; spec `docs/SPEC-studio-redesign.md`.
+
+**S8, the QA walk (plan §4a has every row).** Q1–Q7 and Q9–Q13 pass; Q8 and K1 were not run, with
+the reason recorded (macOS's Text size slider only reaches Apple's listed apps and the Studio uses
+fixed font sizes; no macOS 13 machine). Rows that first failed and the fixes that made them pass:
+- Q3: the Guardrails tiles lost keyboard focus because `.accessibilityElement(children: .ignore)`
+  on a `Button` strips its button role (S8c, `ecb0a04`).
+- Q4: back sleeves covered the headline at 4+ projects, and "1 projects" (S8d, `ef6521c`).
+- Q7: tabs read as buttons, the gear as "Gear shape", several elements had no role, light names
+  were read twice, the Extras switches had no names (S8j `c439811`, S8k `dae76b0`). Q9 then found
+  S8j's `.accessibilityRepresentation` tabs reporting frames far from the drawn tabs; replaced by a
+  `.contain` group with the `.isTabBar` trait (S8l, `673e72b`).
+- Q11: a project folder that lost read permission vanished instead of showing CAN'T READ, because
+  discovery could not see its markers and dropped it with a global issue nothing displays. It is
+  now a CAN'T READ project when below a scan root (S8m, `e4818e9`). Same behaviour existed in
+  1.4's Project Garden.
+
+**Founder requests during the walk** (each settled in plan §2.9 before building): equal Guardrails
+tiles (S8a); two-finger trackpad swipe and a generated flip swoosh, silent when interface sounds
+are off (S8b); sleeves slide sideways instead of over the top (S8e); "Garden" renamed "Projects"
+everywhere a user sees it (S8f); Branches and Notes follow the front project, with a "This
+project / All projects" switch (S8g, S8h); project icons centred on the sleeves, found by a bounded
+walk for `AppIcon.appiconset` PNGs, `.icns`, logos and favicons (S8i). Founder confirmed the
+motion and the switch by feel.
+
+**S9:** `docs/USER_GUIDE.md` §6 rewritten for two tabs and a gear; the iPhone Capture Extra's
+description no longer says "sidebar" (S9a, `aa8fd25`). The public guide on calmdownoscar.com is a
+separate change and was not touched.
+
+At `aa8fd25`: 536 tests, 0 failures, 2 skipped (verified: swift test 2026-10-31); Xcode Debug
+build succeeded (verified: xcodebuild 2026-10-31). Builders were Codex CLI (`build` =
+gpt-6.1-terra, `build-light` = gpt-6-luna), each run's model line checked before commit.
