@@ -1425,6 +1425,15 @@ Acceptance: `swift test` gains two tests and passes; in the QA app, a fixture fo
 `000` mid-session shows "CAN'T READ" after Refresh, with the tooltip text above, and returns to
 normal after its permission is restored and Refresh is pressed again.
 
+**S9a — the iPhone Capture Extra's description (build-light; found in Q2, 2026-10-31).**
+
+Setup › Extras still says the iPhone Capture card appears "in the sidebar", which S4 removed; it
+is now an item in the gear menu.
+
+1. **`Sources/UnliRice/Extras.swift`**: `case .capturePromo: return "Shows the card for the free iPhone app in the sidebar."`
+   becomes `case .capturePromo: return "Adds the free iPhone app's card to the gear menu."`.
+   Nothing else changes.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1455,6 +1464,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8l | build-light | Tab positions; tracklist rows and Grounding columns get a role, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift`, `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A7 | App build; Xcode build |
 | S8m | build | An unreadable project shows "CAN'T READ" instead of vanishing, exactly as §2.9 | `Sources/UnliRiceCore/ProjectGarden.swift`, `Tests/UnliRiceCoreTests/ProjectGardenTests.swift` | B1 | Tests; app build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
+| S9a | build-light | The iPhone Capture Extra's description, exactly as §2.9 | `Sources/UnliRice/Extras.swift` | E4 | App build |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
 - **Order.** S1 and S2 may run in parallel on separate branches. S4 to S7 are sequential, and
