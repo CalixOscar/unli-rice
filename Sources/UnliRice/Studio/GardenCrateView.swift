@@ -14,7 +14,7 @@ struct GardenCrateView: View {
         VStack(alignment: .leading, spacing: 12) {
             switch store.studioGardenState {
             case .loading:
-                ProgressView("Reading your garden…")
+                ProgressView("Reading your projects…")
             case .failed(let message):
                 Text(message).foregroundStyle(Theme.textSecondary)
             case .loaded:
@@ -41,19 +41,19 @@ struct GardenCrateView: View {
         let last = store.studioSleeves.count - 1
         let first = reduceMotion ? front : max(front - 1, 0)
         let indices = Array(first...min(front + 3, last))
-        return ZStack(alignment: .bottom) {
+        return ZStack(alignment: .leading) {
             ForEach(indices, id: \.self) { index in
                 let sleeve = store.studioSleeves[index]
                 let distance = index - front
                 SleeveFront(sleeve: sleeve, side: side)
-                    .modifier(SleeveMotion(distance: distance, reduceMotion: reduceMotion))
+                    .modifier(SleeveMotion(distance: distance, side: side, reduceMotion: reduceMotion))
                     .zIndex(distance == -1 ? 1 : distance == 0 ? 0 : -Double(distance))
                     .allowsHitTesting(distance != -1)
                     .onTapGesture { if distance > 0 { select(index) } }
                     .accessibilityAddTraits(distance > 0 ? .isButton : [])
             }
         }
-        .frame(width: side, height: side + peek, alignment: .bottom)
+        .frame(width: side + peek, height: side, alignment: .leading)
         .background(TrackpadSwipeCatcher { move(by: $0) })
         .gesture(DragGesture(minimumDistance: 40).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) else { return }
@@ -105,7 +105,7 @@ struct GardenCrateView: View {
             .stroke(Theme.textSecondary.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
             .frame(width: side, height: side)
         let action = Link(destination: URL(string: "https://www.calmdownoscar.com/idea-clinic/")!) {
-            Label("Plant your first idea", systemImage: "plus.circle")
+            Label("Start your first project", systemImage: "plus.circle")
         }
         .font(.system(size: 16, weight: .semibold))
         let pick = Button("Pick a folder") { store.chooseScanRoot() }
@@ -131,18 +131,18 @@ struct GardenCrateView: View {
 
 private struct SleeveMotion: ViewModifier {
     let distance: Int
+    let side: CGFloat
     let reduceMotion: Bool
 
     // One unconditional chain, so a sleeve keeps its identity as it changes
     // place and the spring animates the change instead of crossfading.
     func body(content: Content) -> some View {
         let behind = max(distance, 0)
+        let gone = distance == -1
         content
-            .rotation3DEffect(.degrees(distance == -1 && !reduceMotion ? -84 : 0),
-                              axis: (x: 1, y: 0, z: 0), anchor: .bottom, perspective: 0.5)
-            .scaleEffect(1 - 0.06 * Double(behind))
-            .offset(y: -26 * CGFloat(behind))
-            .opacity(distance == -1 ? 0 : 1)
+            .scaleEffect(gone ? 0.94 : 1 - 0.06 * Double(behind))
+            .offset(x: gone && !reduceMotion ? -side * 0.6 : 26 * CGFloat(behind))
+            .opacity(gone ? 0 : 1)
     }
 }
 
