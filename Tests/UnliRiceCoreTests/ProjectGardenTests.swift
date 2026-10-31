@@ -133,8 +133,8 @@ final class ProjectGardenTests: XCTestCase {
     func testMissingRootIsReportedAndOneCharacterRegistrationIsValid() throws {
         let missing = temporary.appendingPathComponent("gone")
         let report = ProjectGarden.load(roots: [missing], notes: [note(title: "Project:X", body: "X")])
-        XCTAssertEqual(report.projects.map(\.name), ["X"])
-        XCTAssertTrue(report.issues.contains { $0.localizedCaseInsensitiveContains("could not read") })
+        XCTAssertEqual(Set(report.projects.map(\.name)), ["X", "gone"])
+        XCTAssertEqual(report.projects.first { $0.name == "gone" }?.issues.first, ProjectGarden.unreadableRootIssue)
     }
 
     func testLiveRepositoryKeepsItsDateWhileMissingMemoryUsesDatedSnapshotStep() throws {
@@ -311,15 +311,24 @@ final class ProjectGardenTests: XCTestCase {
         XCTAssertEqual(GardenCrate.state(of: project), .cantRead(ProjectGarden.unreadableFolderIssue))
     }
 
-    func testUnreadableRootStaysAGlobalIssue() throws {
+    func testUnreadableRootIsACantReadProject() throws {
         let root = temporary.appendingPathComponent("root")
         try mkdir(root)
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: root.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: root.path) }
 
         let report = ProjectGarden.load(roots: [root], notes: [])
-        XCTAssertTrue(report.projects.isEmpty)
-        XCTAssertTrue(report.issues.contains { $0.hasPrefix("Project discovery could not") })
+        XCTAssertEqual(report.projects.count, 1)
+        XCTAssertEqual(report.projects.first?.name, root.lastPathComponent)
+        XCTAssertEqual(report.projects.first?.issues.first, ProjectGarden.unreadableRootIssue)
+    }
+
+    func testMissingRootIsACantReadProject() throws {
+        let root = temporary.appendingPathComponent("missing")
+        let report = ProjectGarden.load(roots: [root], notes: [])
+        XCTAssertEqual(report.projects.count, 1)
+        XCTAssertEqual(report.projects.first?.name, root.lastPathComponent)
+        XCTAssertEqual(report.projects.first?.issues.first, ProjectGarden.unreadableRootIssue)
     }
 
     func testDiscoveryDepthAndProjectCapAreReported() throws {

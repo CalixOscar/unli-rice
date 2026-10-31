@@ -22,7 +22,7 @@ struct StudioView: View {
                                 noteCount: store.notes.count)) {
             await store.refreshStudioGarden()
         }
-        .task(id: store.studioFrontSleeve?.id) {
+        .task(id: StudioGateKey(sleeveID: store.studioFrontSleeve?.id, refresh: store.studioRefreshCount)) {
             await store.refreshStudioGate()
         }
     }
