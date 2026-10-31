@@ -34,8 +34,9 @@ struct BranchesDeck: View {
                                         HStack {
                                             Text(repo.name).font(.system(size: 13)).foregroundStyle(Theme.textPrimary).lineLimit(1)
                                             Spacer()
-                                            Text("\(repo.branches) branches").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
+                                            Text(repo.branches == 1 ? "1 branch" : "\(repo.branches) branches").font(.system(size: 11)).foregroundStyle(Theme.textSecondary)
                                         }
+                                        .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -47,7 +48,7 @@ struct BranchesDeck: View {
             } else if let folder = store.studioFrontSleeve?.folderURL {
                 if let snapshot {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("\(snapshot.branches.count) branches")
+                        Text(snapshot.branches.count == 1 ? "1 branch" : "\(snapshot.branches.count) branches")
                             .font(.system(size: 28, weight: .bold))
                             .foregroundStyle(Theme.textPrimary)
                         ScrollView(.vertical) {
