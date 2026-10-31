@@ -54,6 +54,7 @@ struct GardenCrateView: View {
             }
         }
         .frame(width: side, height: side + peek)
+        .background(TrackpadSwipeCatcher { move(by: $0) })
         .gesture(DragGesture(minimumDistance: 40).onEnded { value in
             guard abs(value.translation.width) > abs(value.translation.height) else { return }
             move(by: value.translation.width < 0 ? 1 : -1)
@@ -122,6 +123,7 @@ struct GardenCrateView: View {
     private func select(_ index: Int) {
         let target = min(max(index, 0), store.studioSleeves.count - 1)
         guard target != store.studioFrontIndex else { return }
+        FlipSound.play()
         let animation: Animation = reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.45, dampingFraction: 0.78)
         withAnimation(animation) { store.studioFrontIndex = target }
     }
