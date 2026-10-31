@@ -34,6 +34,14 @@ items require the owner's Apple Developer and App Store Connect accounts.
 - Encryption: the app does not implement non-exempt encryption;
   `ITSAppUsesNonExemptEncryption` is `false`.
 
+## Promotional text (2026-10-31, for 1.5)
+
+170 characters max; can be changed at any time without a new review.
+
+```text
+New in 1.5: Studio shows each project's branches, notes and next step at a glance. Your AI tools share one set of notes on your Mac. Free, open source, no account.
+```
+
 ## App Store description (2026-10-31, for 1.5)
 
 Kept here so it's versioned with the rest of the submission, not only pasted
