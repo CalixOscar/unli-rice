@@ -1351,6 +1351,46 @@ description, which neither `.accessibilityLabel` reaches. Give the image that de
 Acceptance: the gear's `AXDescription` is "Settings and more", and it looks the same as before
 (size and colour) in light and dark.
 
+**S8l — tab positions, and two more unnamed roles (build-light; found in Q9, 2026-10-31).**
+
+S8j's `.accessibilityRepresentation { Picker(…) }` gave real tabs, but the representation lays
+itself out at its own size: the tab group was 763 pt wide, ran past the window's right edge, and
+each tab's Accessibility frame was far from where it is drawn, so anything that clicks by position
+(Voice Control, pointer-based tools) misses. Adding `.labelsHidden().fixedSize()` fixed the group
+but collapsed each tab to 10×16 pt. Tried in a throwaway copy at `e865e25`: a container with
+`.accessibilityElement(children: .contain)` and, on macOS 14+, the `.isTabBar` trait exposes a
+"Pages" `AXTabGroup` at the drawn frame whose children are the two buttons at their drawn frames,
+the open one `AXSelected`. That replaces the representation. Also found while reading the enlarged
+Projects view: the tracklist rows (`SleeveBackView`) and the Grounding columns
+(`GuardrailsGroundingView`) are `AXUnknown`, the same defect S8j fixed on the sleeves.
+
+1. **`Sources/UnliRice/Studio/StudioToolbar.swift`.**
+   - Replace the whole `.accessibilityRepresentation { … }` block that S8j added after
+     `.liquidGlassCapsule()` in `tabs` with:
+     ```swift
+     .accessibilityElement(children: .contain)
+     .accessibilityLabel("Pages")
+     .modifier(TabBarTrait())
+     ```
+   - At the end of the file add:
+     ```swift
+     private struct TabBarTrait: ViewModifier {
+         func body(content: Content) -> some View {
+             if #available(macOS 14.0, *) { content.accessibilityAddTraits(.isTabBar) } else { content }
+         }
+     }
+     ```
+2. **`Sources/UnliRice/Studio/SleeveBackView.swift`**, the tracklist row: after
+   `.accessibilityLabel("\(BuildGateLights.title(for: stage)): \(word)")` add
+   `.accessibilityAddTraits(.isStaticText)`.
+3. **`Sources/UnliRice/Studio/GuardrailsGroundingView.swift`**, `groundingColumn`: after
+   `.accessibilityLabel(accessibilityLabel)` add `.accessibilityAddTraits(.isStaticText)`.
+
+Acceptance: the tab bar is a "Pages" tab group at the drawn capsule's frame, holding "Studio"
+and "Guardrails & Grounding" at their drawn frames with the open one selected; a mouse click at
+either tab's Accessibility centre switches the page; the tracklist rows and Grounding columns
+are static text with their labels.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1378,6 +1418,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8i | build | Project icons centred on the sleeves, exactly as §2.9 | `Sources/UnliRiceCore/ProjectIcon.swift` (new), `Tests/UnliRiceCoreTests/ProjectIconTests.swift` (new), `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | Tests; app build; xcodegen and the Xcode build |
 | S8j | build-light | What VoiceOver hears: tabs, gear, front sleeve, counter, light captions, Extras switches, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/BuildGateLights.swift`, `Sources/UnliRice/AutomationView.swift` | A7, A8 | App build; Xcode build |
 | S8k | build-light | The gear's spoken name, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift` | A7 | App build |
+| S8l | build-light | Tab positions; tracklist rows and Grounding columns get a role, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/SleeveBackView.swift`, `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A7 | App build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
