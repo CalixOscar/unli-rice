@@ -1032,6 +1032,16 @@ Exact changes:
    `testSamplesAreDeterministic`, `testWavHeader` (44 + 19,404 bytes, `RIFF`/`WAVE`/`fmt `/`data`,
    1 channel, 44,100 Hz, 16 bits, data size 19,404).
 
+**S8c — tiles keep their button role (build-light; Q3 failure, 2026-10-31).** §2.7a's "each tile
+is one accessibility element" was built as `.accessibilityElement(children: .ignore)` on each tile
+`Button`. That wraps the button in a new element with no button role (`AXUnknown`) and no keyboard
+focus, so Tab skips all three tiles and VoiceOver can't press them. A `Button` already is one
+element, so the wrapper is the defect. In `Sources/UnliRice/Studio/GuardrailsGroundingView.swift`,
+and nothing else: on each of the three tile `Button`s in `tiles`, delete
+`.accessibilityElement(children: .ignore)` and keep `.accessibilityLabel(…)` exactly as it is.
+Acceptance: each tile reports `AXButton` with its label, and Tab reaches it with Keyboard
+navigation on.
+
 **QA.** Q5 now includes a two-finger swipe on the trackpad, and a vertical two-finger scroll over
 the crate at 960×600 that still scrolls the page. The swoosh is checked by ear with UI sounds on and
 off.
@@ -1054,6 +1064,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8 | planner (the founder or the Codex driver executes it, and Claude reviews the results) | The QA matrix (§4) in an isolated `.app` bundle against a throwaway vault | — | A3–A10 | §4 |
 | S8a | build-light | Guardrails tiles share one height; captions centred, exactly as §2.9 | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S8b | build | Two-finger trackpad swipe and flip swoosh, exactly as §2.9 | `Sources/UnliRiceCore/TrackpadSwipe.swift` (new), `Sources/UnliRiceCore/FlipSwoosh.swift` (new), `Sources/UnliRice/Studio/TrackpadSwipeCatcher.swift` (new), `Sources/UnliRice/Studio/FlipSound.swift` (new), `Sources/UnliRice/Studio/GardenCrateView.swift`, `Tests/UnliRiceCoreTests/TrackpadSwipeTests.swift` (new), `Tests/UnliRiceCoreTests/FlipSwooshTests.swift` (new) | B1–B3 | Tests; app build; xcodegen and the Xcode build |
+| S8c | build-light | Guardrails tiles keep their button role, exactly as §2.9 | `Sources/UnliRice/Studio/GuardrailsGroundingView.swift` | A1 | App build; Xcode build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
@@ -1094,6 +1105,7 @@ the minimum content size (a 960×628 window).
 |---|---|---|
 | Q1 | **pass** (2026-10-31) | Studio: three decks in one row at 1440×900; at 960×600 Garden spans the width with Branches and Notes beneath, and scrolling reaches the bottom of Notes with its padding intact. Guardrails & Grounding: both decks side by side at both sizes, no scroll needed. Checked in light and dark. Sleeves stay dark in light mode by design (§2.8). Seen, not a failure: at 960 the "Safety checks need a look" tile is slightly taller than its neighbours and its two-line label is left-aligned (fixed by S8a, `02d7563`, and seen on screen) |
 | Q2 | **pass**, except `.whyNotTextFile`: **not run, because no route to it exists** (nothing sets that pane, here or in 1.4 at `8d2189c`; a pre-existing orphan, not a regression) (2026-10-31) | Real mouse clicks (CGEvent) at Accessibility positions, at `3090c37`. Studio: Garden, Branches and Notes expand buttons → their panes → "All decks" → Studio. Tab 2: Open notes, Details (`.home`), Open the folder, Edit House Rules, the Need you tile (and its "All messages" → `.notices`), Safety checks tile (`.trustCenter`), Archived tile → each → "All decks" → tab 2. Gear: Setup, Trust Center, Archived notes, To do, and with those Extras switched on for the check, Map and Your year so far; Setup › Separate memories → Profile Builder. "Back" always returns to the tab it was opened from (`lastTab`, as §2.3 says), so the table's Tab 1 / Tab 2 column describes the usual tab of origin. Found on the way: the three Guardrails tiles are exposed as `AXUnknown`, not buttons (for Q7); Setup › Extras switches have no accessibility labels (for Q7); the iPhone Capture Extra's copy still says "in the sidebar" (for S9) |
+| Q3 | **fail** (2026-10-31): the three Guardrails tiles never take keyboard focus. Fixed by S8c; re-run below | With System Settings › Keyboard › "Keyboard navigation" on (it is off by default; turned on for the check and off after). ⌘1/⌘2 switch tabs; plain 1/2/3 expand Garden/Branches/Notes and Esc returns to Studio; ← → flip the crate. Tab order on Studio: Guardrails & Grounding tab, gear, the three expand buttons, the note rows and Next project, then the Studio tab (Previous project is skipped while disabled). Space opens, and Esc closes, Open Garden/Branches/Notes, Edit House Rules, Open notes, Open the folder and Details. Gear by keyboard: Tab to it, Space, ↓, Return opens Setup, Trust Center, Archived notes and To do, and Esc returns. The tiles: 25 Tabs never focused any of them (`AXUnknown`, see S8c) |
 
 ## 5. Risks and gotchas
 
