@@ -1336,6 +1336,21 @@ Grounding" with the open one selected, and choosing one switches the page; the g
 light is read once; each Extras switch carries its row's title. ⌘1/⌘2 still switch tabs, and the
 screen looks the same.
 
+**S8k — the gear's spoken name (build-light; found re-running Q7 at the S8j merge, 2026-10-31).**
+
+After S8j the gear's `AXTitle` is "Settings and more" but its `AXDescription` is still "Gear
+shape": a borderless `Menu` takes the description from the symbol image's own accessibility
+description, which neither `.accessibilityLabel` reaches. Give the image that description.
+
+1. **`Sources/UnliRice/Studio/StudioToolbar.swift`**, in `gear`, the label line
+   `Image(systemName: "gearshape").accessibilityLabel("Settings and more").frame(width: 44, height: 44)`
+   becomes
+   `Image(nsImage: NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings and more") ?? NSImage()).frame(width: 44, height: 44)`.
+   Nothing else changes.
+
+Acceptance: the gear's `AXDescription` is "Settings and more", and it looks the same as before
+(size and colour) in light and dark.
+
 ## 3. Phase A steps
 
 Each step is given to a builder with the handoff in §7. "Tests" means
@@ -1362,6 +1377,7 @@ Each step is given to a builder with the handoff in §7. "Tests" means
 | S8h | build-light | Repo rows click anywhere; "1 branch", exactly as §2.9 | `Sources/UnliRice/Studio/BranchesDeck.swift` | B4 | App build; Xcode build |
 | S8i | build | Project icons centred on the sleeves, exactly as §2.9 | `Sources/UnliRiceCore/ProjectIcon.swift` (new), `Tests/UnliRiceCoreTests/ProjectIconTests.swift` (new), `Sources/UnliRice/AppStore.swift` (one stored property), `Sources/UnliRice/AppStore+Studio.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift` | B1–B3 | Tests; app build; xcodegen and the Xcode build |
 | S8j | build-light | What VoiceOver hears: tabs, gear, front sleeve, counter, light captions, Extras switches, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift`, `Sources/UnliRice/Studio/GardenCrateView.swift`, `Sources/UnliRice/Studio/BuildGateLights.swift`, `Sources/UnliRice/AutomationView.swift` | A7, A8 | App build; Xcode build |
+| S8k | build-light | The gear's spoken name, exactly as §2.9 | `Sources/UnliRice/Studio/StudioToolbar.swift` | A7 | App build |
 | S9 | planner | Copy sync with `docs/USER_GUIDE.md`. The public guide needs its own CalmdownOscar change | `docs/USER_GUIDE.md` | E4 | Review |
 | S10 | planner | `PROJECT_NOTES.md` and `memory.md`; ask Codex for the post-mortem | — | — | — |
 
