@@ -106,7 +106,7 @@ struct StudioToolbar: View {
                 NSWorkspace.shared.open(AppStore.writeReviewURL)
             }
         } label: {
-            Image(systemName: "gearshape").accessibilityLabel("Settings and more").frame(width: 44, height: 44)
+            Image(nsImage: NSImage(systemSymbolName: "gearshape", accessibilityDescription: "Settings and more") ?? NSImage()).frame(width: 44, height: 44)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
