@@ -37,6 +37,7 @@ struct CaptureStudioView: View {
         .background(CaptureStudioStyle.color(.background, scheme))
         .refreshable { reload() }
         .onAppear { reload() }
+        .onChange(of: store.overviewRevision) { _, _ in refreshData() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in reload() }
         .sheet(item: $detail, onDismiss: reload) { project in
             NavigationStack { CaptureProjectView(store: store, project: project, projects: projects, notes: notes, reload: reload) }.modifier(CapturePrivacyCover())
@@ -128,14 +129,14 @@ struct CaptureStudioView: View {
     private func select(_ index: Int) { if projects.indices.contains(index) { selectedID = projects[index].id } }
     private func reload() {
         store.sync()
+        refreshData()
+    }
+    private func refreshData() {
         do { notes = try store.noteService.listNotes(includeArchived: false); notesError = nil }
         catch { notesError = error.localizedDescription }
-        guard let folder = store.sharedFolderURL else { overview = nil; message = "No shared folder is set up. Pending captures remain available on this device."; return }
-        let access = folder.startAccessingSecurityScopedResource()
-        defer { if access { folder.stopAccessingSecurityScopedResource() } }
         do {
-            overview = try StudioOverviewFile.read(fromFolder: folder)
-            message = nil
+            overview = try store.loadStudioOverview()
+            message = overview == nil ? "Studio overview unavailable. \(store.syncStatus)" : nil
             if !projects.contains(where: { $0.id == selectedID }) { selectedID = projects.first?.id }
         } catch { overview = nil; message = "Studio overview unavailable: \(error.localizedDescription) Pending captures remain available." }
     }

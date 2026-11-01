@@ -45,7 +45,8 @@ args = []
 Unli Rice is a standalone native macOS productivity application that manages a persistent, append-only note vault on your Mac.
 
 - **Standalone App:** The app functions 100% locally without requiring any external cloud subscription, API key, account, or internet connection.
-- **Embedded MCP Helper:** The app bundle contains an independently sandboxed binary helper executable at `/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`.
+- **Embedded MCP Helper:** The app contains an independently sandboxed, provisioned `Contents/Helpers/UnliRiceMCP.app`. The existing command `/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp` is a relative symlink to its executable, preserving client configurations.
+- **Optional iCloud:** Explicit opt-in in Setup › AI Tools and Capture Settings shares note text, transcripts, to-dos and project summaries through the same private iCloud container. Audio and repository files remain local. Device-only use requires no Apple-account sign-in. Account mismatch pauses sync; a cloud-linked store offers reversible archive instead of physical purge.
 - **Interoperability:** When an external MCP client (such as Claude Desktop, Cursor, Goose, or Windsurf) is installed, it launches the embedded `unlirice-mcp` binary via standard input/output (stdio) to create and query notes in the app's local memory store.
 
 ---

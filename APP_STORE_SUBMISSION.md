@@ -149,3 +149,26 @@ team wildcard profile and does not grant the App Group, so complete identifiers
    warning, then choose **Distribute App → App Store Connect**.
 5. Test the exact uploaded build through TestFlight before submitting it for
    review.
+
+## Native iCloud candidate — local preparation, not yet uploaded
+
+The native-sync branch adds optional iCloud for note text, transcripts, to-dos and
+Mac project summaries, with audio and repositories staying local. Replace the
+older description's unconditional “no cloud sync” claim before using this build's
+listing. The revised local privacy policy and reviewer guide accompany it; their
+public URLs have not been updated by this work.
+
+Observed live 2026-11-01: Mac 1.5 (11) is the highest uploaded build; Capture 1.3
+(8) is the highest. Recheck trains immediately before archiving; no marketing
+version should be bumped speculatively. Existing waiting-for-review submissions
+must not be withdrawn or have their selected build replaced by this upload.
+
+This release goal authorizes uploading verified builds to App Store Connect.
+It does not authorize Submit for Review. Internal TestFlight upload is separate
+from submission and does not trigger the six-month business premortem gate.
+Account Holder agreement acceptance and shared-container approval are complete.
+Xcode GUI provisioning works; command-line distribution export still reports
+No Accounts/missing distribution keys. Signed probes found an executable-scoped
+account-token defect; B7 replaces it with canonical CloudKit identity plus
+per-client tokens before any upload. Existing pre-B7 archives must not ship.
+See docs/PLAN-native-icloud-sync.md for the release verification record.

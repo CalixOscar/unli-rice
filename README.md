@@ -9,8 +9,10 @@ an immutable event, and nothing is ever destructively deleted by an agent.
 
 See [PROJECT_NOTES.md](PROJECT_NOTES.md) for architecture, current status, and what's deferred — read that first before making changes.
 
-Everything runs on-device, and the package has **no external dependencies** —
-no bundled model, analytics, cloud service, or credentials. The optional
+Note processing runs on-device, and the package has **no external dependencies** —
+no bundled model, analytics, or developer-operated server. Optional native iCloud
+sync shares notes, captures and Mac project summaries between devices using the
+same Apple account; audio and repositories remain local. The optional
 embedding connection is restricted to localhost. The reasoning that lives in
 the system comes from whatever agent you connect over MCP.
 

@@ -4,12 +4,18 @@ import UnliRiceCore
 /// One screen, one job: point an AI tool at these notes.
 struct ConnectView: View {
     @EnvironmentObject var store: AppStore
+    @State private var confirmingCloudSync = false
+    @State private var confirmingFolderSync = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
             ScrollView {
+                nativeSyncCard
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+
                 unliRiceFolderCard
                     .padding(.horizontal, 24)
                     .padding(.bottom, 16)
@@ -37,6 +43,18 @@ struct ConnectView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Theme.bgMain)
+        .confirmationDialog("Sync with iCloud?", isPresented: $confirmingCloudSync) {
+            Button("Enable iCloud Sync") { store.enableNativeSync() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Existing notes, transcripts, to-dos, and project summaries sync to devices using the same Apple account. Audio and repositories stay on this device.")
+        }
+        .confirmationDialog("Use shared folder sync?", isPresented: $confirmingFolderSync) {
+            Button("Use Shared Folder") { store.useSharedFolderSync() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This resumes the older capture sync through your chosen shared folder.")
+        }
         .onAppear {
             store.refreshTrustCenter()
         }
@@ -66,6 +84,21 @@ struct ConnectView: View {
         .padding(.horizontal, 24)
         .padding(.top, 22)
         .padding(.bottom, 18)
+    }
+
+    private var nativeSyncCard: some View {
+        Card(title: "iCloud Sync", subtitle: store.nativeSyncStatus, icon: "icloud") {
+            if store.nativeSyncMode == .iCloud {
+                HStack {
+                    Button("Retry iCloud Setup") { confirmingCloudSync = true }
+                    Button("Stop iCloud Sync") { store.stopNativeSync() }
+                }
+            } else {
+                Button("Sync with iCloud…") { confirmingCloudSync = true }
+            }
+            Button("Use shared folder (Advanced)…") { confirmingFolderSync = true }
+                .disabled(store.exportFolderURL == nil)
+        }
     }
 
     private var unliRiceFolderCard: some View {

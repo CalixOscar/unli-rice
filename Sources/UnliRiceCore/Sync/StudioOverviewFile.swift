@@ -75,16 +75,16 @@ public struct StudioOverviewFile: Codable, Equatable, Sendable {
         now.timeIntervalSince(generatedAt) > tolerance
     }
 
-    public func write(toFolder folder: URL) throws {
+    public func write(toFolder folder: URL, filename: String = Self.filename) throws {
         guard version == Self.currentVersion else { throw ReadError.unsupportedVersion(version) }
         guard projects.count <= Self.maximumProjects else { throw ReadError.tooManyProjects }
         let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(self)
         guard data.count <= Self.maximumBytes else { throw ReadError.oversized }
-        try data.write(to: folder.appendingPathComponent(Self.filename), options: .atomic)
+        try data.write(to: folder.appendingPathComponent(filename), options: .atomic)
     }
 
-    public static func read(fromFolder folder: URL) throws -> Self {
+    public static func read(fromFolder folder: URL, filename: String = Self.filename) throws -> Self {
         let url = folder.appendingPathComponent(filename)
         guard FileManager.default.fileExists(atPath: url.path) else { throw ReadError.missing }
         let data: Data

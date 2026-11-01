@@ -2779,3 +2779,19 @@ positions migrate once before folder changes. The founder approved intent/spec
 and waived pre-mortem only ("Proceed skip pre mortem and implement"); Claude's
 post-mortem drove recovery fixes. See `docs/PLAN-capture-studio.md` and dialogue.
 Physical-device acceptance remains before release; no version or upload changed.
+
+
+## Native iCloud transport and shared AI context (2026-11-01)
+
+Mac, Capture and a provisioned MCP wrapper share immutable iCloud event batches
+with strict cursors and causal projection. Pending/conflicted histories isolate
+individual notes; healthy notes remain available. Project summaries refresh
+without opening Studio. Sync is explicit opt-in; audio/repos remain local and
+cloud-bound notes archive reversibly. Signed probes exposed app-scoped ubiquity
+tokens; canonical CloudKit identity with per-client tokens fixes enrollment while
+preserving account-change pauses and migration UUIDs. Claude's reviews and root
+verification are in `docs/PLAN-native-icloud-sync.md` and its dialogue. Root ran
+620 tests (2 skipped, 0 failures); both signed Release archives and Production
+cross-app identity checks passed. Mac1.5(12)/Capture1.3(9) are not yet uploaded:
+Organizer access is unavailable. No review submission or actual corpus opt-in
+occurred. Two-device delivery remains unverified.

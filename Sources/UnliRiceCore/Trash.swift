@@ -47,12 +47,14 @@ public enum TrashService {
     }
 
     public enum TrashError: Error, CustomStringConvertible {
+        case cloudBound
         case fileUnavailable
         case nothingToPurge
         case notInTrash(UUID)
 
         public var description: String {
             switch self {
+            case .cloudBound: return "This corpus has used iCloud sync; archive notes instead of permanently deleting them."
             case .fileUnavailable: return "Couldn't open the event log."
             case .nothingToPurge: return "Those notes aren't in the event log."
             case .notInTrash(let id): return "No trashed note with id \(id)."
@@ -85,6 +87,8 @@ public enum TrashService {
     /// remembers what it used to say.
     @discardableResult
     public static func purge(noteIDs: Set<UUID>, logURL: URL) throws -> Receipt {
+        return try CaptureSyncBridge.withLock(eventLogURL: logURL) {
+        guard !NativeCloudBinding.exists(besideEventLog: logURL) else { throw TrashError.cloudBound }
         guard !noteIDs.isEmpty else { throw TrashError.nothingToPurge }
 
         let fm = FileManager.default
@@ -169,6 +173,7 @@ public enum TrashService {
             backupURL: backupURL,
             trashURLs: trashURLs
         )
+        }
     }
 
     // MARK: - Reading and restoring the trash

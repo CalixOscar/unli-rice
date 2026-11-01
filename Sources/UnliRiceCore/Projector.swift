@@ -5,11 +5,19 @@ import Foundation
 /// notes. This is what a fresh device (or a rebuilt local vector index) is
 /// meant to replay after sync.
 public enum Projector {
-    public static func project(_ events: [Event]) -> [UUID: Note] {
+    public struct ProjectionResult {
+        public let notes: [UUID: Note]
+        public let pendingEventIDs: Set<UUID>
+        public let conflictedNoteIDs: Set<UUID>
+    }
+    public static func project(_ events: [Event]) -> [UUID: Note] { projectResult(events).notes }
+    public static func projectResult(_ events: [Event]) -> ProjectionResult {
+        let order = EventCausalOrder.order(events)
         var notes: [UUID: Note] = [:]
-        apply(events, to: &notes)
+        applyOrdered(order.ordered, to: &notes)
+        for id in order.conflictedNoteIDs { notes.removeValue(forKey: id) }
         resolveLinks(&notes)
-        return notes
+        return ProjectionResult(notes: notes, pendingEventIDs: order.pending, conflictedNoteIDs: order.conflictedNoteIDs)
     }
 
     /// Folds `events` onto an existing projection, without the link pass.
@@ -33,12 +41,18 @@ public enum Projector {
     /// dropped below, so an importer must not split a note's history across
     /// batches.
     public static func apply(_ events: [Event], to notes: inout [UUID: Note]) {
-        for event in events.sorted(by: { $0.timestamp < $1.timestamp }) {
+        let ordered = events.enumerated().sorted { a, b in
+            a.element.timestamp == b.element.timestamp ? a.offset < b.offset : a.element.timestamp < b.element.timestamp
+        }.map(\.element)
+        applyOrdered(ordered, to: &notes)
+    }
+    private static func applyOrdered(_ events: [Event], to notes: inout [UUID: Note]) {
+        for event in events {
             // A kind this build predates. It stays in the log — and crosses
             // device boundaries intact via `EventStore.appendRaw` — but it can't
             // be folded, and it earns no editor attribution either, because
             // there's no way to say what it did.
-            guard event.kind != .unrecognized else { continue }
+            guard event.kind != .unrecognized && event.kind != .causalOrder else { continue }
 
             // Anyone who changed a note they didn't write, whatever the change
             // was. Kept apart from `sources` — which only ever meant "wrote
@@ -51,7 +65,7 @@ public enum Projector {
             }
 
             switch event.kind {
-            case .unrecognized:
+            case .unrecognized, .causalOrder:
                 continue // unreachable: the guard above already skipped these
 
             case .created:

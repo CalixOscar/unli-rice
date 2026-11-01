@@ -16,9 +16,11 @@ settings:
     CLANG_ENABLE_MODULES: YES
   configs:
     Debug:
+      NATIVE_CLOUD_ENVIRONMENT: Development
       SWIFT_OPTIMIZATION_LEVEL: "-Onone"
       CODE_SIGN_INJECT_BASE_ENTITLEMENTS: YES
     Release:
+      NATIVE_CLOUD_ENVIRONMENT: Production
       SWIFT_COMPILATION_MODE: wholemodule
       SWIFT_OPTIMIZATION_LEVEL: "-O"
       CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
@@ -66,7 +68,7 @@ targets:
         PRODUCT_NAME: UnliRiceCapture
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.3"
-        CURRENT_PROJECT_VERSION: "8"
+        CURRENT_PROJECT_VERSION: "9"
         INFOPLIST_KEY_CFBundleDisplayName: "Unli Rice Capture"
         # Standard system encryption only (HTTPS, Data Protection), as the Mac app
         # declares; without it every build waits on a manual compliance answer.
@@ -112,7 +114,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         # Must match the Capture app's versions, or upload is refused.
         MARKETING_VERSION: "1.3"
-        CURRENT_PROJECT_VERSION: "8"
+        CURRENT_PROJECT_VERSION: "9"
         TARGETED_DEVICE_FAMILY: "1,2"
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
 
@@ -128,7 +130,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.host
 
   unlirice-mcp:
-    type: tool
+    type: application
     platform: macOS
     sources:
       - Sources/unlirice-mcp
@@ -136,14 +138,18 @@ targets:
       - target: UnliRiceCore
     settings:
       base:
+        PRODUCT_NAME: UnliRiceMCP
+        EXECUTABLE_NAME: unlirice-mcp
+        PRODUCT_MODULE_NAME: UnliRiceMCP
         PRODUCT_BUNDLE_IDENTIFIER: com.calmdownoscar.unlirice.mcp
-        CODE_SIGN_ENTITLEMENTS: UnliRiceHelper.entitlements
+        CODE_SIGN_ENTITLEMENTS: UnliRiceMCP.entitlements
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: 22SNGN5JYD
         ENABLE_APP_SANDBOX: YES
-        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        INFOPLIST_FILE: UnliRiceMCP-Info.plist
         GENERATE_INFOPLIST_FILE: YES
-        OTHER_CODE_SIGN_FLAGS: "$(inherited) -i $(PRODUCT_BUNDLE_IDENTIFIER)"
+        MARKETING_VERSION: "1.5"
+        CURRENT_PROJECT_VERSION: "12"
         SKIP_INSTALL: YES
 
   unlirice-agent:
@@ -212,7 +218,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         # An embedded extension's versions must match its app's, or upload is refused.
         MARKETING_VERSION: "1.5"
-        CURRENT_PROJECT_VERSION: "11"
+        CURRENT_PROJECT_VERSION: "12"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
 
   UnliRice:
@@ -250,7 +256,7 @@ targets:
         ENABLE_APP_SANDBOX: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.5"
-        CURRENT_PROJECT_VERSION: "11"
+        CURRENT_PROJECT_VERSION: "12"
         INFOPLIST_KEY_CFBundleDisplayName: Unli Rice
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © 2026 calmdownoscar. All rights reserved.
@@ -267,8 +273,11 @@ targets:
           set -euo pipefail
           app_macos="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/MacOS"
           launch_agents="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Library/LaunchAgents"
-          mkdir -p "$app_macos" "$launch_agents"
-          install -m 755 "$BUILT_PRODUCTS_DIR/unlirice-mcp" "$app_macos/unlirice-mcp"
+          helpers="$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers"
+          mkdir -p "$app_macos" "$launch_agents" "$helpers"
+          rm -rf "$helpers/UnliRiceMCP.app"
+          ditto "$BUILT_PRODUCTS_DIR/UnliRiceMCP.app" "$helpers/UnliRiceMCP.app"
+          ln -sfn "../Helpers/UnliRiceMCP.app/Contents/MacOS/unlirice-mcp" "$app_macos/unlirice-mcp"
           install -m 755 "$BUILT_PRODUCTS_DIR/unlirice-agent" "$app_macos/unlirice-agent"
           install -m 755 "$BUILT_PRODUCTS_DIR/unlirice-cli" "$app_macos/unlirice-cli"
           install -m 644 "$SRCROOT/Config/LaunchAgents/com.calmdownoscar.unlirice.agent.plist" "$launch_agents/com.calmdownoscar.unlirice.agent.plist"

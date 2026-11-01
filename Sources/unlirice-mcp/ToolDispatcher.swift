@@ -160,7 +160,15 @@ struct ToolDispatcher {
             }
 
             let text = try jsonString(payload)
-            return ["content": [["type": "text", "text": text]]]
+            var content = [["type": "text", "text": text]]
+            do {
+                if let warning = try service.projectionSnapshot(includeArchived: true).diagnostics.technicalSummary {
+                    content.append(["type": "text", "text": warning])
+                }
+            } catch {
+                content.append(["type": "text", "text": "Note projection unavailable: \(error.localizedDescription)"])
+            }
+            return ["content": content]
         } catch {
             return [
                 "content": [["type": "text", "text": "Error: \(error)"]],

@@ -1,14 +1,48 @@
 import Foundation
 
-public enum NoteServiceError: Error, CustomStringConvertible {
+public struct ProjectionDiagnostics: Equatable, Sendable {
+    public let pendingEventIDs: Set<UUID>
+    public let pendingNoteIDs: Set<UUID>
+    public let conflictedNoteIDs: Set<UUID>
+    public var incompleteNoteIDs: Set<UUID> { pendingNoteIDs.union(conflictedNoteIDs) }
+    public var summary: String? {
+        var parts: [String] = []
+        if !pendingNoteIDs.isEmpty { let n = pendingNoteIDs.count; parts.append("\(n) \(n == 1 ? "note is" : "notes are") waiting for earlier changes.") }
+        if !conflictedNoteIDs.isEmpty { let n = conflictedNoteIDs.count; parts.append("\(n) \(n == 1 ? "note has" : "notes have") conflicting history.") }
+        guard !parts.isEmpty else { return nil }
+        parts.append("Other notes are available.")
+        return parts.joined(separator: " ")
+    }
+    public var technicalSummary: String? {
+        guard let summary else { return nil }
+        return summary + " Affected note IDs: " + incompleteNoteIDs.map(\.uuidString).sorted().joined(separator: ", ") + "."
+    }
+    public init(pendingEventIDs: Set<UUID> = [], pendingNoteIDs: Set<UUID> = [], conflictedNoteIDs: Set<UUID> = []) {
+        self.pendingEventIDs = pendingEventIDs
+        self.conflictedNoteIDs = conflictedNoteIDs
+        self.pendingNoteIDs = pendingNoteIDs.subtracting(conflictedNoteIDs)
+    }
+}
+
+public struct ProjectionSnapshot: Sendable {
+    public let notes: [Note]
+    public let diagnostics: ProjectionDiagnostics
+}
+
+public enum NoteServiceError: Error, CustomStringConvertible, LocalizedError {
     case noteNotFound(UUID)
     case projectionFailed
     case invalidLimit(Int)
+    case orderingConflict(noteIDs: Set<UUID>)
+    case orderingPending(noteIDs: Set<UUID>)
 
+    public var errorDescription: String? { description }
     public var description: String {
         switch self {
         case .noteNotFound(let id): return "No note found with id \(id)"
         case .projectionFailed: return "Failed to project note state after write"
+        case .orderingPending(let ids): return "Causal ordering is waiting for earlier changes for notes: \(ids.map(\.uuidString).sorted().joined(separator: ", "))."
+        case .orderingConflict(let ids): return "Causal ordering conflict for notes: \(ids.map(\.uuidString).sorted().joined(separator: ", "))."
         case .invalidLimit(let limit): return "Invalid limit: \(limit) (must be non-negative)"
         }
     }
@@ -36,7 +70,9 @@ public final class NoteService {
     /// past the cursor, and `EventStore.read(from:)` reports a shrunken file so
     /// the cache can be thrown away rather than folded onto.
     private var cachedNotes: [UUID: Note] = [:]
+    private var cachedDiagnostics = ProjectionDiagnostics()
     private var cursor: EventStoreCursor = .start
+    private var causalMode = false
     private let cacheLock = NSLock()
 
     /// Keeps wiki-links current without rebuilding them for the whole corpus on
@@ -61,8 +97,10 @@ public final class NoteService {
         cacheLock.lock()
         defer { cacheLock.unlock() }
         cachedNotes = [:]
+        cachedDiagnostics = ProjectionDiagnostics()
         links.reset()
         cursor = .start
+        causalMode = false
     }
 
     @discardableResult
@@ -171,13 +209,18 @@ public final class NoteService {
     }
 
     public func getNote(id: UUID) throws -> Note? {
-        try currentNotes()[id]
+        let snapshot = try projectionSnapshot(includeArchived: true)
+        try checkOrdering(id, diagnostics: snapshot.diagnostics)
+        return snapshot.notes.first { $0.id == id }
+    }
+
+    public func projectionSnapshot(includeArchived: Bool = false) throws -> ProjectionSnapshot {
+        let (notes, diagnostics) = try currentProjection()
+        return ProjectionSnapshot(notes: notes.values.filter { includeArchived || !$0.archived }.sorted { $0.updatedAt > $1.updatedAt }, diagnostics: diagnostics)
     }
 
     public func listNotes(includeArchived: Bool = false) throws -> [Note] {
-        try currentNotes().values
-            .filter { includeArchived || !$0.archived }
-            .sorted { $0.updatedAt > $1.updatedAt }
+        try projectionSnapshot(includeArchived: includeArchived).notes
     }
 
     public func searchNotes(query: String, includeArchived: Bool = false) throws -> [Note] {
@@ -203,28 +246,39 @@ public final class NoteService {
     }
 
     public func pendingReviews() throws -> [(note: Note, flag: ReviewFlag)] {
-        try currentNotes().values
+        try projectionSnapshot(includeArchived: true).notes
             .flatMap { note in note.flags.filter { !$0.resolved }.map { (note, $0) } }
             .sorted { $0.flag.timestamp < $1.flag.timestamp }
     }
 
-    public func transactionLog(limit: Int = 50) throws -> [Event] {
+    public func transactionLog(limit: Int = 50, includeOrderingMetadata: Bool = true) throws -> [Event] {
         guard limit >= 0 else { throw NoteServiceError.invalidLimit(limit) }
-        return Array(try store.readAll().sorted { $0.timestamp > $1.timestamp }.prefix(limit))
+        return Array(try store.readAll().filter { includeOrderingMetadata || $0.kind != .causalOrder }.sorted { $0.timestamp > $1.timestamp }.prefix(limit))
     }
 
     // MARK: - Private
 
-    private func currentNotes() throws -> [UUID: Note] {
+    private func currentProjection() throws -> ([UUID: Note], ProjectionDiagnostics) {
         cacheLock.lock()
         defer { cacheLock.unlock() }
 
         let batch = try store.read(from: cursor)
         if batch.restarted {
             cachedNotes = [:]
+            cachedDiagnostics = ProjectionDiagnostics()
+            causalMode = false
             links.reset()
         }
-        if !batch.events.isEmpty {
+        if !batch.events.isEmpty && (causalMode || batch.events.contains(where: { $0.causalParents != nil || $0.kind == .causalOrder })) {
+            causalMode = true
+            let events = try store.readAll()
+            let result = Projector.projectResult(events)
+            let pendingNotes = Set(events.filter { result.pendingEventIDs.contains($0.id) }.map(\.noteId))
+            cachedDiagnostics = ProjectionDiagnostics(pendingEventIDs: result.pendingEventIDs, pendingNoteIDs: pendingNotes, conflictedNoteIDs: result.conflictedNoteIDs)
+            cachedNotes = result.notes.filter { !cachedDiagnostics.incompleteNoteIDs.contains($0.key) }
+            Projector.resolveLinks(&cachedNotes)
+            links.reset()
+        } else if !batch.events.isEmpty {
             Projector.apply(batch.events, to: &cachedNotes)
             // Only these two kinds can change a link. A run of tags and flags —
             // which is what a whole janitor pass consists of — costs nothing
@@ -236,15 +290,20 @@ public final class NoteService {
             )
         }
         cursor = batch.cursor
-        return cachedNotes
+        return (cachedNotes, cachedDiagnostics)
+    }
+
+    private func checkOrdering(_ id: UUID, diagnostics: ProjectionDiagnostics) throws {
+        if diagnostics.conflictedNoteIDs.contains(id) { throw NoteServiceError.orderingConflict(noteIDs: [id]) }
+        if diagnostics.pendingNoteIDs.contains(id) { throw NoteServiceError.orderingPending(noteIDs: [id]) }
     }
 
     private func requireExists(_ id: UUID) throws {
-        guard try currentNotes()[id] != nil else { throw NoteServiceError.noteNotFound(id) }
+        guard try getNote(id: id) != nil else { throw NoteServiceError.noteNotFound(id) }
     }
 
     private func require(_ id: UUID) throws -> Note {
-        guard let note = try currentNotes()[id] else { throw NoteServiceError.noteNotFound(id) }
+        guard let note = try getNote(id: id) else { throw NoteServiceError.noteNotFound(id) }
         return note
     }
 }

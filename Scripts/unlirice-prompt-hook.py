@@ -10,6 +10,8 @@ hook writes `lastContextDeliveredAt` rather than pretending a tool call occurred
 """
 
 import fcntl
+import heapq
+import uuid
 import json
 import os
 import sys
@@ -122,6 +124,7 @@ KNOWN_EVENT_KINDS = {
     "unarchived",
     "flagged",
     "reviewResolved",
+    "causalOrder",
 }
 
 
@@ -175,7 +178,94 @@ def current_project():
     return rel.split(os.sep)[0]
 
 
-def fold_events(events_path):
+def causal_events(events, warnings=None):
+    """Return replayable semantic events, or None for a known causal conflict."""
+    semantics = [event for event in events if event["kind"] != "causalOrder"]
+    by_id = {}
+    for event in semantics:
+        by_id.setdefault(event["id"], event)
+    parents = {event_id: set() for event_id in by_id}
+    declared = set()
+    causal_notes = {event["noteId"] for event in semantics if event.get("causalParents") is not None}
+    causal_notes.update(by_id[event["relatedEventId"]]["noteId"] for event in events
+                        if event["kind"] == "causalOrder" and event.get("relatedEventId") in by_id)
+    if not causal_notes:
+        return sorted(semantics, key=lambda event: event["timestamp"])
+    for event_id, event in by_id.items():
+        if event.get("causalParents") is not None:
+            declared.add(event_id)
+            parents[event_id].update(event["causalParents"])
+    for declaration in events:
+        if declaration["kind"] != "causalOrder":
+            continue
+        target = declaration.get("relatedEventId")
+        if target not in by_id:
+            continue  # An orphan declaration is inert.
+        if by_id[target]["noteId"] != declaration["noteId"] or declaration.get("causalParents") is None:
+            print("unlirice-hook: invalid causal declaration", file=sys.stderr)
+            return None
+        declared.add(target)
+        parents[target].update(declaration["causalParents"])
+    previous = {}
+    for event in sorted(semantics, key=lambda event: event["timestamp"]):
+        if event["noteId"] in causal_notes:
+            continue
+        declared.add(event["id"])
+        if event["noteId"] in previous:
+            parents[event["id"]].add(previous[event["noteId"]])
+        previous[event["noteId"]] = event["id"]
+    children = {event_id: set() for event_id in by_id}
+    indegree = {event_id: 0 for event_id in by_id}
+    for event_id, links in parents.items():
+        for parent in links:
+            if parent not in by_id:
+                continue
+            if by_id[parent]["noteId"] != by_id[event_id]["noteId"]:
+                print("unlirice-hook: cross-note causal parent", file=sys.stderr)
+                return None
+            children[parent].add(event_id)
+            indegree[event_id] += 1
+    # Detect cycles independently of missing parents, matching Swift's SCC rule.
+    queue = [event_id for event_id, count in indegree.items() if count == 0]
+    cursor = 0
+    while cursor < len(queue):
+        current = queue[cursor]; cursor += 1
+        for child in children[current]:
+            indegree[child] -= 1
+            if indegree[child] == 0:
+                queue.append(child)
+    if len(queue) != len(by_id):
+        conflict_notes = sorted({by_id[event_id]["noteId"] for event_id, degree in indegree.items() if degree > 0})
+        if warnings is not None:
+            warnings.append(f"{len(conflict_notes)} note(s) have conflicting history: {', '.join(conflict_notes)}. Use project_context to check available notes.")
+        print("unlirice-hook: causal ordering cycle", file=sys.stderr)
+        return None
+    pending = {event_id for event_id in by_id if event_id not in declared or any(parent not in by_id for parent in parents[event_id])}
+    queue = list(pending); cursor = 0
+    while cursor < len(queue):
+        current = queue[cursor]; cursor += 1
+        for child in children[current]:
+            if child not in pending:
+                pending.add(child); queue.append(child)
+    pending_notes = {by_id[event_id]["noteId"] for event_id in pending}
+    if pending_notes and warnings is not None:
+        warnings.append(f"{len(pending_notes)} note(s) are waiting for earlier changes: {', '.join(sorted(pending_notes))}. Use project_context to check available notes.")
+    eligible = {event_id for event_id in by_id if by_id[event_id]["noteId"] not in pending_notes}
+    degrees = {event_id: len(parents[event_id] & eligible) for event_id in eligible}
+    ready = [(by_id[event_id]["timestamp"], event_id) for event_id in eligible if degrees[event_id] == 0]
+    heapq.heapify(ready)
+    ordered = []
+    while ready:
+        _, event_id = heapq.heappop(ready)
+        ordered.append(by_id[event_id])
+        for child in children[event_id] & eligible:
+            degrees[child] -= 1
+            if degrees[child] == 0:
+                heapq.heappush(ready, (by_id[child]["timestamp"], child))
+    return ordered
+
+
+def fold_events(events_path, warnings=None):
     """Fold events.jsonl into {note_id: {id, title, creator, createdAt, tags, archived}}.
 
     Conservative fold: on any unrecognized event kind, malformed line, unreadable file,
@@ -213,15 +303,27 @@ def fold_events(events_path):
                     print(f"unlirice-hook: line {line_no} missing required event fields", file=sys.stderr)
                     return None
 
+                try:
+                    event["id"] = str(uuid.UUID(event["id"])).upper()
+                    event["noteId"] = str(uuid.UUID(note_id)).upper()
+                    if event.get("relatedEventId") is not None:
+                        event["relatedEventId"] = str(uuid.UUID(event["relatedEventId"])).upper()
+                    if event.get("causalParents") is not None:
+                        if not isinstance(event["causalParents"], list):
+                            raise ValueError("causalParents must be an array")
+                        event["causalParents"] = [str(uuid.UUID(value)).upper() for value in event["causalParents"]]
+                        if len(set(event["causalParents"])) > 1024:
+                            raise ValueError("too many causal parents")
+                except (KeyError, ValueError, TypeError, AttributeError) as exc:
+                    print(f"unlirice-hook: invalid event UUID on line {line_no}: {exc}", file=sys.stderr)
+                    return None
                 raw_events.append(event)
     except Exception as e:
         print(f"unlirice-hook: could not read {events_path}: {e}", file=sys.stderr)
         return None
 
-    try:
-        raw_events.sort(key=lambda ev: ev.get("timestamp", ""))
-    except Exception as e:
-        print(f"unlirice-hook: failed to sort events: {e}", file=sys.stderr)
+    raw_events = causal_events(raw_events, warnings)
+    if raw_events is None:
         return None
 
     notes = {}
@@ -382,9 +484,10 @@ def handle_dump_todos(args):
         sys.exit(2)
     events_file = args[0]
     project = args[1]
-    notes = fold_events(events_file)
+    warnings = []
+    notes = fold_events(events_file, warnings)
     if notes is None:
-        print(json.dumps({"error": "failed_open", "todos": []}))
+        print(json.dumps({"error": "failed_open", "todos": [], "warnings": warnings}))
         sys.exit(1)
     todos = open_todos_for_project(notes, project)
     out = []
@@ -392,7 +495,7 @@ def handle_dump_todos(args):
         item = dict(t)
         item["tags"] = sorted(list(item["tags"]))
         out.append(item)
-    print(json.dumps({"todos": out}))
+    print(json.dumps({"todos": out, "warnings": warnings}))
     sys.exit(0)
 
 
@@ -400,9 +503,10 @@ def handle_dump_captures(args):
     if len(args) != 2:
         print("Usage: unlirice-prompt-hook.py --dump-captures <events.jsonl> <project>", file=sys.stderr)
         sys.exit(2)
-    notes = fold_events(args[0])
+    warnings = []
+    notes = fold_events(args[0], warnings)
     if notes is None:
-        print(json.dumps({"error": "failed_open", "captures": []}))
+        print(json.dumps({"error": "failed_open", "captures": [], "warnings": warnings}))
         sys.exit(1)
     captures = pending_captures_for_project(notes, args[1])
     out = []
@@ -410,7 +514,7 @@ def handle_dump_captures(args):
         item = dict(capture)
         item["tags"] = sorted(item["tags"])
         out.append(item)
-    print(json.dumps({"captures": out, "context": format_context(args[1], [], captures)}))
+    print(json.dumps({"captures": out, "context": format_context(args[1], [], captures), "warnings": warnings}))
     sys.exit(0)
 
 
@@ -425,17 +529,21 @@ def main():
     record_context_delivery()
 
     context = STATIC_CONTEXT
+    warnings = []
     try:
         project = current_project()
         if project:
             folder = corpus_folder()
             events_path = os.path.join(folder, "events.jsonl")
-            notes = fold_events(events_path)
+            notes = fold_events(events_path, warnings)
             if notes is not None:
                 todos = open_todos_for_project(notes, project)
                 context = format_context(project, todos, pending_captures_for_project(notes, project))
     except Exception as exc:  # noqa: BLE001
         print(f"unlirice-hook: error resolving to-dos: {exc}", file=sys.stderr)
+
+    if warnings:
+        context += "\n\n" + "\n".join(warnings)
 
     print(json.dumps({
         "hookSpecificOutput": {

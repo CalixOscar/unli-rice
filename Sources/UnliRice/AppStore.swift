@@ -1,4 +1,5 @@
 import AppKit
+import CloudKit
 import Foundation
 import UnliRiceCore
 import UnliRiceHost
@@ -77,6 +78,19 @@ final class AppStore: ObservableObject {
 
     @Published var pane: Pane = .notes
     @Published var lastTab: Pane = .studio
+    @Published var projectionDiagnostics = ProjectionDiagnostics()
+    @Published var nativeSyncMode: NativeSyncMode = .privateDevice
+    @Published var nativeSyncStatus: String = "On this device"
+    var nativeGeneration = NativeSyncGeneration()
+    let nativeWorkLock = NSLock()
+    var nativeTask: Task<Void, Never>?
+    private var nativeTimer: Timer?
+    private var nativeAccountObserver: NSObjectProtocol?
+    private var nativeCloudAccountObserver: NSObjectProtocol?
+    var nativeDiscovery = NativeCloudDiscovery()
+    var nativeWatchedRootURL: URL?
+    var nativePendingConsent = false
+
     @Published var studioSleeves: [GardenCrate.Sleeve] = []
     @Published var studioFrontIndex: Int = 0
     @Published var studioGardenState: StudioGardenState = .loading
@@ -714,7 +728,28 @@ final class AppStore: ObservableObject {
         routineDriver.announceNow(settings: agentSettings)
         refreshNotices()
 
+        loadNativeSyncPreferences()
+        nativeTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.startNativeSync() }
+        }
+        nativeAccountObserver = NotificationCenter.default.addObserver(
+            forName: .NSUbiquityIdentityDidChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.invalidateNativeSync()
+                if self.nativeSyncMode == .iCloud { self.nativeSyncStatus = "iCloud account changed; sync paused." }
+            }
+        }
+        nativeCloudAccountObserver = NotificationCenter.default.addObserver(forName: .CKAccountChanged, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.invalidateNativeSync()
+                if self.nativeSyncMode == .iCloud { self.nativeSyncStatus = "iCloud account changed; sync paused." }
+            }
+        }
         runShardImportIfNeeded()
+        startNativeSync()
         NotificationCenter.default.addObserver(
             forName: NSApplication.willBecomeActiveNotification,
             object: nil,
@@ -722,6 +757,7 @@ final class AppStore: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.runShardImportIfNeeded()
+                self?.startNativeSync()
             }
         }
     }
@@ -748,7 +784,7 @@ final class AppStore: ObservableObject {
         // root or the export folder. Importing only from `besideEventLog`
         // meant captures sat in iCloud, as text, for days while the Mac
         // reported an empty corpus and the MCP tools found nothing.
-        let phoneShardFolders = phoneShardSearchFolders()
+        let phoneShardFolders = nativeSyncMode == .folder ? phoneShardSearchFolders() : []
         var phoneEventsAppended = 0
         for folder in phoneShardFolders {
             if let exportFolderURL, folder.resolvingSymlinksInPath().standardizedFileURL == exportFolderURL.resolvingSymlinksInPath().standardizedFileURL { continue }
@@ -803,7 +839,7 @@ final class AppStore: ObservableObject {
         }
 
         var bridgeImported = 0
-        if let folder = exportFolderURL {
+        if nativeSyncMode == .folder, let folder = exportFolderURL {
             let scoped = folder.startAccessingSecurityScopedResource()
             defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
             do {
@@ -906,7 +942,10 @@ final class AppStore: ObservableObject {
             let store = try EventStore(fileURL: url)
             let deviceIdentity = DeviceIdentity.current(inDirectory: url.deletingLastPathComponent())
             service = NoteService(store: store, deviceLabel: deviceIdentity.label)
+            invalidateNativeSync()
             dataURL = url
+            loadNativeSyncPreferences()
+            startNativeSync()
             dataFolderAccessStarted = isScoped
             activeDataFolderURL = isScoped ? folder : nil
             // An explicit switch always succeeded if we reached here, so the
@@ -1111,12 +1150,23 @@ final class AppStore: ObservableObject {
 
     func reload() {
         do {
-            let all = try service.listNotes(includeArchived: true)
+            let snapshot = try service.projectionSnapshot(includeArchived: true)
+            let all = snapshot.notes
+            let previousWarning = projectionDiagnostics.summary
+            projectionDiagnostics = snapshot.diagnostics
+            if let warning = snapshot.diagnostics.summary {
+                statusMessage = warning
+                nativeSyncStatus = warning
+            } else if let previousWarning {
+                if statusMessage == previousWarning { statusMessage = "Notes are up to date." }
+                if nativeSyncStatus == previousWarning { nativeSyncStatus = nativeSyncMode == .iCloud ? "Waiting to sync" : "On this device" }
+                else if nativeSyncStatus.hasPrefix(previousWarning + " ") { nativeSyncStatus.removeFirst(previousWarning.count + 1) }
+            }
             noteIndex = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
             notes = all.filter { !$0.archived }
             archivedNotes = all.filter { $0.archived }
-            pending = try service.pendingReviews()
-            recentEvents = (try? service.transactionLog(limit: 10)) ?? []
+            pending = all.flatMap { note in note.flags.filter { !$0.resolved }.map { (note: note, flag: $0) } }.sorted { $0.flag.timestamp < $1.flag.timestamp }
+            recentEvents = (try? service.transactionLog(limit: 10, includeOrderingMetadata: false)) ?? []
             refreshNotices()
             errorMessage = nil
             if let selected = selectedNoteID, noteIndex[selected] == nil {
@@ -1625,6 +1675,9 @@ final class AppStore: ObservableObject {
     }
 
     deinit {
+        nativeTimer?.invalidate()
+        if let nativeAccountObserver { NotificationCenter.default.removeObserver(nativeAccountObserver) }
+        if let nativeCloudAccountObserver { NotificationCenter.default.removeObserver(nativeCloudAccountObserver) }
         if dataFolderAccessStarted {
             activeDataFolderURL?.stopAccessingSecurityScopedResource()
         }

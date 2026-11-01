@@ -367,6 +367,7 @@ extension StudioTodoTests {
         }
         let todos: [TodoItem]?
         let error: String?
+        let warnings: [String]?
     }
 
     func testPythonFoldAndProjectorAgreeOnOpenTodosForProject() throws {
@@ -612,5 +613,74 @@ extension StudioTodoTests {
     func testNextStepStopsAtAHeading() {
         let body = "**Next step:** Ship it.\n\n## Open hypotheses\n- something"
         XCTAssertEqual(StudioTodo.nextStep(fromMemory: body), "Ship it.")
+    }
+}
+
+extension StudioTodoTests {
+    func testPythonCausalFoldAgreesAndFailsOnCycle() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let log = root.appendingPathComponent("events.jsonl"), store = try EventStore(fileURL: log)
+        let legacy = try NoteService(store: store).createNote(title: "legacy", body: "", source: "human")
+        _ = try NoteService(store: store).tagNote(id: legacy.id, tag: "todo", source: "human")
+        _ = try NoteService(store: store).tagNote(id: legacy.id, tag: "project", source: "human")
+        let service = NoteService(store: store)
+        let note = Event(noteId: UUID(), source: "human", kind: .created, title: "causal", causalParents: [])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        try store.appendRaw(encoder.encode(note))
+        let tagged = Event(noteId: note.noteId, source: "human", kind: .tagged, tag: "todo", causalParents: [note.id])
+        let project = Event(noteId: note.noteId, source: "human", kind: .tagged, tag: "project", causalParents: [tagged.id])
+        try store.appendRawBatch([encoder.encode(tagged), encoder.encode(project)])
+        let pending = Event(noteId: note.noteId, source: "human", kind: .archived, causalParents: [UUID()])
+        try store.appendRaw(encoder.encode(pending))
+        let script = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Scripts/unlirice-prompt-hook.py")
+        func run() throws -> PythonDumpResponse {
+            let process = Process(), output = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            process.arguments = [script.path, "--dump-todos", log.path, "project"]
+            process.standardOutput = output; process.standardError = Pipe()
+            try process.run(); process.waitUntilExit()
+            return try JSONDecoder().decode(PythonDumpResponse.self, from: output.fileHandleForReading.readDataToEndOfFile())
+        }
+        let pendingResult = try run()
+        XCTAssertEqual(Set(pendingResult.todos!.map(\.id)), Set([legacy.id.uuidString]))
+        XCTAssertTrue(pendingResult.warnings?.contains(where: { $0.contains(note.noteId.uuidString) && $0.contains("project_context") }) == true)
+        let snapshot = try service.projectionSnapshot()
+        XCTAssertEqual(Set(snapshot.notes.map(\.id)), [legacy.id])
+        XCTAssertEqual(snapshot.diagnostics.pendingNoteIDs, [note.noteId])
+        XCTAssertThrowsError(try service.getNote(id: note.noteId)) { error in
+            guard case NoteServiceError.orderingPending = error else { return XCTFail("Unexpected: \(error)") }
+        }
+        XCTAssertEqual(try service.getNote(id: legacy.id)?.title, "legacy")
+        _ = try service.tagNote(id: legacy.id, tag: "healthy", source: "human")
+        let a = UUID(), b = UUID()
+        try store.appendRawBatch(try [Event(id: a, noteId: note.noteId, source: "human", kind: .tagged, tag: "a", causalParents: [b]), Event(id: b, noteId: note.noteId, source: "human", kind: .tagged, tag: "b", causalParents: [a])].map { event in
+            let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; return try encoder.encode(event)
+        })
+        let failed = try run()
+        XCTAssertEqual(failed.error, "failed_open")
+        XCTAssertEqual(failed.todos?.count, 0)
+        XCTAssertTrue(failed.warnings?.contains(where: { $0.contains(note.noteId.uuidString) && $0.contains("project_context") }) == true)
+        let projectFolder = root.appendingPathComponent("project")
+        let git = projectFolder.appendingPathComponent(".git")
+        try FileManager.default.createDirectory(at: git, withIntermediateDirectories: true)
+        try Data("ref: refs/heads/main\n".utf8).write(to: git.appendingPathComponent("HEAD"))
+        let hook = Process(), hookOutput = Pipe()
+        hook.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        hook.arguments = [script.path]; hook.currentDirectoryURL = projectFolder
+        var environment = ProcessInfo.processInfo.environment
+        environment["HOME"] = root.path; environment["UNLIRICE_DATA_PATH"] = log.path
+        hook.environment = environment; hook.standardOutput = hookOutput; hook.standardError = Pipe()
+        try hook.run(); hook.waitUntilExit()
+        let output = try XCTUnwrap(JSONSerialization.jsonObject(with: hookOutput.fileHandleForReading.readDataToEndOfFile()) as? [String: Any])
+        let specific = try XCTUnwrap(output["hookSpecificOutput"] as? [String: Any])
+        let context = try XCTUnwrap(specific["additionalContext"] as? String)
+        XCTAssertTrue(context.contains(note.noteId.uuidString)); XCTAssertTrue(context.contains("project_context"))
+        XCTAssertEqual(Set(try service.listNotes().map(\.id)), [legacy.id])
+        XCTAssertEqual(try service.projectionSnapshot().diagnostics.conflictedNoteIDs, [note.noteId])
+        XCTAssertThrowsError(try service.getNote(id: note.noteId)) { error in
+            guard case NoteServiceError.orderingConflict = error else { return XCTFail("Unexpected: \(error)") }
+        }
     }
 }

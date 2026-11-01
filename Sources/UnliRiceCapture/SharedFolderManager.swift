@@ -17,6 +17,8 @@ public final class SharedFolderManager: @unchecked Sendable {
         UserDefaults.standard.bool(forKey: choiceMadeKey)
     }
 
+    public func markChosen() { UserDefaults.standard.set(true, forKey: choiceMadeKey) }
+
     /// Records that the user wants nothing leaving the phone.
     public func chooseNoFolder() {
         clearBookmark()

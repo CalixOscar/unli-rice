@@ -139,10 +139,11 @@ public struct CaptureView: View {
             lock.lockOnBackground()
         }
         .alert("Where should captures go?", isPresented: $showFolderChoice) {
-            Button("Choose a folder") { showFolderPicker = true }
+            Button("Sync with iCloud") { store.enableNativeSync() }
+            Button("Advanced: choose a folder") { showFolderPicker = true }
             Button("Keep on this device only") { store.choosePrivateMode() }
         } message: {
-            Text("A shared folder in iCloud Drive is how thoughts reach your Mac. Without one, everything stays on this device — you can change this later in Settings.")
+            Text("Existing notes, transcripts, to-dos and project summaries sync with devices using the same Apple account. Recordings and repositories stay local. You can change this later in Settings.")
         }
         // Its own importer, separate from the one inside the settings sheet:
         // presenting a file importer from the root while a sheet is up does not
@@ -325,7 +326,7 @@ public struct CaptureView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.textSecondary)
 
-            Text("Captures and notes automatically sync with your Mac via your shared iCloud Drive folder.")
+            Text("Choose iCloud sync in Settings to share captures and notes with your Mac. A manual folder is available under Advanced.")
                 .font(.system(size: 11.5))
                 .foregroundStyle(Theme.textLight)
         }
@@ -663,7 +664,7 @@ public struct CaptureView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Archive note")
 
-            Button(action: {
+            if !store.archiveOnly { Button(action: {
                 // Deleting the note deletes the file underneath the player.
                 if isPlaying { player.stop() }
                 store.deleteCapture(id: item.id)
@@ -673,7 +674,7 @@ public struct CaptureView: View {
                     .foregroundStyle(Theme.crit)
                     .padding(6)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain) } else { Text("Archive only").font(.caption).foregroundStyle(Theme.textSecondary) }
         }
         .padding(12)
         .cardStyle(cornerRadius: 12)
@@ -700,18 +701,26 @@ public struct CaptureView: View {
                     }
 
                     Section(header: Text("Sync Configuration").foregroundStyle(Theme.textSecondary)) {
+                        Text(store.syncStatus).font(.caption).foregroundStyle(Theme.textSecondary)
+                        if store.nativeSyncMode != .iCloud {
+                            Button("Sync with iCloud") { store.enableNativeSync() }
+                            Text("Existing notes, transcripts, to-dos and project summaries sync with the same Apple account. Recordings and repositories stay local.").font(.caption)
+                        } else {
+                            Button("Retry iCloud setup") { store.enableNativeSync() }
+                            Button("Stop syncing — keep on this device", role: .destructive) { store.choosePrivateMode() }
+                        }
                         Button(action: { showFileImporter = true }) {
                             HStack {
-                                Text("Select Sync Folder")
+                                Text("Advanced: Select Sync Folder")
                                     .foregroundStyle(Theme.textPrimary)
                                 Spacer()
-                                if store.sharedFolderURL != nil {
+                                if store.nativeSyncMode == .folder && store.sharedFolderURL != nil {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(Theme.emerald)
                                 }
                             }
                         }
-                        if let url = store.sharedFolderURL {
+                        if store.nativeSyncMode == .folder, let url = store.sharedFolderURL {
                             Text(url.lastPathComponent)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(Theme.textSecondary)
@@ -720,7 +729,11 @@ public struct CaptureView: View {
                             }) {
                                 Text("Stop syncing — keep on this device")
                             }
-                        } else {
+                        } else if store.nativeSyncMode == .folder {
+                            Text("Shared folder unavailable.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.textSecondary)
+                        } else if store.nativeSyncMode == .privateDevice {
                             Text("Private. Nothing leaves this device.")
                                 .font(.system(size: 11))
                                 .foregroundStyle(Theme.textSecondary)

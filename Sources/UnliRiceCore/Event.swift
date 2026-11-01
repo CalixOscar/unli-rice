@@ -12,6 +12,8 @@ public enum EventKind: String, Codable, Sendable {
     case unarchived
     case flagged
     case reviewResolved
+    /// Metadata declaring predecessors for the legacy semantic event in relatedEventId.
+    case causalOrder
 
     /// A kind written by a build newer than this one.
     ///
@@ -61,6 +63,8 @@ public struct Event: Codable, Sendable, Identifiable {
     /// Optional so old lines decode in new builds and new lines decode in old
     /// ones — the only extension shape that is safe in both directions.
     public var device: String?
+    /// Nil is legacy; an empty array is a root. Parents identify semantic events on the same note.
+    public var causalParents: [UUID]?
 
     public init(
         id: UUID = UUID(),
@@ -73,7 +77,8 @@ public struct Event: Codable, Sendable, Identifiable {
         tag: String? = nil,
         reason: String? = nil,
         relatedEventId: UUID? = nil,
-        device: String? = nil
+        device: String? = nil,
+        causalParents: [UUID]? = nil
     ) {
         self.id = id
         self.noteId = noteId
@@ -86,5 +91,6 @@ public struct Event: Codable, Sendable, Identifiable {
         self.reason = reason
         self.relatedEventId = relatedEventId
         self.device = device
+        self.causalParents = causalParents
     }
 }

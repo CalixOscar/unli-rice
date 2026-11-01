@@ -28,6 +28,7 @@ APP="$STAGE/Unli Rice.app"
 MACOS="$APP/Contents/MacOS"
 RESOURCES="$APP/Contents/Resources"
 LAUNCHAGENTS="$APP/Contents/Library/LaunchAgents"
+MCP_APP="$APP/Contents/Helpers/UnliRiceMCP.app"
 
 echo "==> Building ($CONFIGURATION)"
 swift build -c "$CONFIGURATION"
@@ -35,7 +36,7 @@ BIN="$(swift build -c "$CONFIGURATION" --show-bin-path)"
 
 echo "==> Assembling $APP"
 rm -rf "$APP"
-mkdir -p "$MACOS" "$RESOURCES" "$LAUNCHAGENTS"
+mkdir -p "$MACOS" "$RESOURCES" "$LAUNCHAGENTS" "$MCP_APP/Contents/MacOS"
 
 # The GUI, plus the two executables it needs to be able to point at: the MCP
 # server (Get Started writes its path into other tools' configs) and the
@@ -49,9 +50,9 @@ mkdir -p "$MACOS" "$RESOURCES" "$LAUNCHAGENTS"
 # kernel-managed, so `xattr -c` cannot strip it after the fact — it has to not be
 # copied in the first place. (com.apple.provenance survives and is harmless.)
 ditto --noextattr --norsrc "$BIN/UnliRiceApp" "$MACOS/UnliRice"
-for binary in unlirice-mcp unlirice-agent; do
-    ditto --noextattr --norsrc "$BIN/$binary" "$MACOS/$binary"
-done
+ditto --noextattr --norsrc "$BIN/unlirice-agent" "$MACOS/unlirice-agent"
+ditto --noextattr --norsrc "$BIN/unlirice-mcp" "$MCP_APP/Contents/MacOS/unlirice-mcp"
+ln -s "../Helpers/UnliRiceMCP.app/Contents/MacOS/unlirice-mcp" "$MACOS/unlirice-mcp"
 
 # Copy AppIcon if it exists
 if [ -f "dist/AppIcon.icns" ]; then
@@ -84,6 +85,20 @@ if [ -z "$APP_VERSION" ] || [ -z "$APP_BUILD" ]; then
     echo "ERROR: could not read MARKETING_VERSION / CURRENT_PROJECT_VERSION for the UnliRice target in project.yml" >&2
     exit 1
 fi
+
+cat > "$MCP_APP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleName</key><string>UnliRiceMCP</string>
+    <key>CFBundleIdentifier</key><string>com.calmdownoscar.unlirice.mcp</string>
+    <key>CFBundleExecutable</key><string>unlirice-mcp</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
+    <key>CFBundleVersion</key><string>${APP_BUILD}</string>
+    <key>LSUIElement</key><true/>
+</dict></plist>
+PLIST
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -124,8 +139,19 @@ PLIST
 
 # Code signing with entitlements for sandbox compliance
 echo "==> Signing targets with entitlements (ad-hoc)"
-ENTITLEMENTS="UnliRice.entitlements"
+ENTITLEMENTS="$STAGE/UnliRice.entitlements"
+MCP_ENTITLEMENTS="$STAGE/UnliRiceMCP.entitlements"
 HELPER_ENTITLEMENTS="UnliRiceHelper.entitlements"
+# Preview builds have no provisioning profile for restricted iCloud capabilities.
+for pair in "UnliRice.entitlements:$ENTITLEMENTS" "UnliRiceMCP.entitlements:$MCP_ENTITLEMENTS"; do
+    source_file="${pair%%:*}"
+    destination_file="${pair#*:}"
+    /usr/bin/plutil -convert xml1 -o "$destination_file" "$source_file"
+    for key in com.apple.developer.icloud-container-identifiers com.apple.developer.icloud-services com.apple.developer.ubiquity-container-identifiers com.apple.developer.icloud-container-environment; do
+        /usr/libexec/PlistBuddy -c "Delete :$key" "$destination_file"
+    done
+done
+echo "==> Native iCloud requires a provisioned Xcode build."
 
 # Sign each executable inside the bundle
 # --- signing identity ---------------------------------------------------------
@@ -170,7 +196,7 @@ strip_xattrs
 strip_xattrs
 codesign --force --options runtime --identifier com.calmdownoscar.unlirice.agent --entitlements "$HELPER_ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$MACOS/unlirice-agent"
 strip_xattrs
-codesign --force --options runtime --identifier com.calmdownoscar.unlirice.mcp --entitlements "$HELPER_ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$MACOS/unlirice-mcp"
+codesign --force --options runtime --identifier com.calmdownoscar.unlirice.mcp --entitlements "$MCP_ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$MCP_APP"
 strip_xattrs
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$SIGN_IDENTITY" "$MACOS/UnliRice"
 strip_xattrs
