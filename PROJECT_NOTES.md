@@ -2764,3 +2764,18 @@ branch `claude/guardrails-template-refresh`.
 archived 1.5 (11), re-shot screenshot 05 (only its token and character counter changed) and replaced
 the App Store set; the founder uploaded build 11 from Organizer and said "Submit". 1.5 (11) is Waiting
 for Review. The tier-2 pipeline was waived by the founder for this release work.
+
+
+## Capture Studio shares project context with the phone and AI tools (2026-11-01)
+
+Capture adopts the Mac Studio palette and project sleeves, preserving one-tap
+recording. Pending ideas, deferred ideas and to-dos share the existing note/event
+model; converting an idea tags the original note instead of duplicating it.
+The Mac publishes a separate versioned overview without replacing `repos.json`.
+Connector synchronization imports phone captures and exports AI decisions through
+the chosen shared folder, with separate import/export cursors and a bounded lock.
+Remote comparison remains recorded refs, never live GitHub. Legacy phone import
+positions migrate once before folder changes. The founder approved intent/spec
+and waived pre-mortem only ("Proceed skip pre mortem and implement"); Claude's
+post-mortem drove recovery fixes. See `docs/PLAN-capture-studio.md` and dialogue.
+Physical-device acceptance remains before release; no version or upload changed.

@@ -21,6 +21,8 @@ public struct CaptureView: View {
     @State private var showWelcomeSplash = false
     @State private var selectedCapture: SentCaptureItem? = nil
     @State private var showTypedNote = false
+    @State private var page = "Studio"
+    @State private var trackingError: String?
 
     @MainActor
     public init(store: CaptureStore? = nil) {
@@ -56,8 +58,41 @@ public struct CaptureView: View {
 
             VStack(spacing: 16) {
                 header
-                tabBar
+                Picker("Page", selection: $page) {
+                    Text("Studio").tag("Studio")
+                    Text("Capture").tag("Capture")
+                    Text("To do").tag("To do")
+                }
+                .pickerStyle(.segmented)
+                Text(store.syncStatus).font(.caption).foregroundStyle(Theme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
+                if page == "Studio" {
+                    CaptureStudioView(store: store) { project in
+                        let existing = store.projectTabs.first { $0.caseInsensitiveCompare(project.name) == .orderedSame }
+                        if existing == nil { store.projectTabs.append(project.name) }
+                        store.currentProjectTab = existing ?? project.name
+                        page = "Capture"
+                        if !store.captureInFlight { store.startRecording() }
+                    }
+                    if store.captureInFlight {
+                        recordSection
+                    } else {
+                        Button {
+                            page = "Capture"
+                            store.startRecording()
+                        } label: {
+                            Label("Record for \(store.currentProjectTab)", systemImage: "mic.fill")
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                        }
+                        .buttonStyle(.plain)
+                        .studioControl()
+                    }
+                } else if page == "To do" {
+                    TodoView(store: store)
+                    if store.captureInFlight { recordSection }
+                } else {
+                    tabBar
                 if horizontalSizeClass == .regular {
                     HStack(alignment: .top, spacing: 20) {
                         VStack(spacing: 16) {
@@ -79,6 +114,7 @@ public struct CaptureView: View {
                     notesAndCapturesSection
                     Divider().overlay(Theme.borderLight)
                     recordSection
+                }
                 }
             }
             .padding(horizontalSizeClass == .regular ? 24 : 16)
@@ -140,7 +176,22 @@ public struct CaptureView: View {
             settingsSheet
         }
         .sheet(item: $selectedCapture) { capture in
-            NoteDetailView(store: store, capture: capture)
+            VStack(spacing: 0) {
+                if let note = try? store.noteService.getNote(id: capture.id), !CaptureContext.isCapture(note) {
+                    Button("Track this capture") {
+                        do {
+                            try CaptureContext.track(id: note.id, service: store.noteService, source: "human")
+                            store.sync()
+                        } catch { trackingError = error.localizedDescription }
+                    }
+                    .frame(minHeight: 44)
+                }
+                NoteDetailView(store: store, capture: capture)
+            }
+            .modifier(CapturePrivacyCover())
+            .alert("Could not track capture", isPresented: Binding(get: { trackingError != nil }, set: { if !$0 { trackingError = nil } })) {
+                Button("OK") { trackingError = nil }
+            } message: { Text(trackingError ?? "") }
         }
         .alert("New Project Tab", isPresented: $showNewTabAlert) {
             TextField("Project Name", text: $newTabName)
@@ -210,9 +261,9 @@ public struct CaptureView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Unli Rice")
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Voice Capture & Memory")
+                Text("Studio & Capture")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -221,21 +272,23 @@ public struct CaptureView: View {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 44, height: 44)
                     .solidControl(cornerRadius: 10)
                     .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Refresh")
 
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 44, height: 44)
                     .solidControl(cornerRadius: 10)
                     .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
             .padding(.leading, 4)
         }
     }

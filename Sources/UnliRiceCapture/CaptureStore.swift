@@ -82,6 +82,8 @@ public final class CaptureStore: ObservableObject {
     @Published public var captures: [SentCaptureItem] = []
     @Published public var archivedCaptures: [SentCaptureItem] = []
     @Published public var pulledNotes: [Note] = []
+    @Published public private(set) var syncStatus: String = "Saved on this device"
+    @Published public private(set) var receivedCaptureIDs: Set<UUID> = []
     @Published public var sharedFolderURL: URL?
     @Published public var appendTargetNoteID: UUID? = nil
 
@@ -138,7 +140,7 @@ public final class CaptureStore: ObservableObject {
     /// same, complete list of every recording ever made — which is what "the
     /// notes stay on screen in the same folder" was.
     public var visibleCaptures: [SentCaptureItem] {
-        captures.filter { $0.tags.contains(currentProjectTab) }
+        captures.filter { item in item.tags.contains { $0.caseInsensitiveCompare(currentProjectTab) == .orderedSame } }
     }
 
     /// Where recordings live. Also the unit retention operates on.
@@ -323,21 +325,45 @@ public final class CaptureStore: ObservableObject {
     /// the intent, so the prompt stops asking and the UI can state plainly that
     /// nothing leaves the device.
     public func choosePrivateMode() {
+        var migrationSucceeded = false
+        do {
+            let stateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+            try SyncState.prepareScopedImports(at: stateURL, currentNamespace: sharedFolderURL?.standardizedFileURL.path)
+            migrationSucceeded = true
+        } catch {
+            syncStatus = "Import cursor migration failed: \(error.localizedDescription)"
+        }
         SharedFolderManager.shared.chooseNoFolder()
         sharedFolderURL = nil
+        receivedCaptureIDs = []
+        if migrationSucceeded { syncStatus = "Saved on this device" }
         objectWillChange.send()
     }
 
     /// Forgets the current folder and asks again on next launch.
     public func clearSharedFolder() {
+        var migrationSucceeded = false
+        do {
+            let stateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+            try SyncState.prepareScopedImports(at: stateURL, currentNamespace: sharedFolderURL?.standardizedFileURL.path)
+            migrationSucceeded = true
+        } catch {
+            syncStatus = "Import cursor migration failed: \(error.localizedDescription)"
+        }
         SharedFolderManager.shared.clearBookmark()
         SharedFolderManager.shared.resetChoice()
         sharedFolderURL = nil
+        receivedCaptureIDs = []
+        if migrationSucceeded { syncStatus = "Choose a shared folder to sync" }
         objectWillChange.send()
     }
 
     public func setSharedFolder(_ url: URL) {
         do {
+            let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+            // Adopt legacy imports for the old folder before selecting a different one.
+            // The existing publication reset below remains separate from this migration.
+            try SyncState.prepareScopedImports(at: syncStateURL, currentNamespace: sharedFolderURL?.standardizedFileURL.path)
             try SharedFolderManager.shared.saveBookmark(for: url)
             self.sharedFolderURL = url
 
@@ -354,7 +380,6 @@ public final class CaptureStore: ObservableObject {
             }
             if needsStop { url.stopAccessingSecurityScopedResource() }
 
-            let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
             var syncState = SyncState.load(from: syncStateURL)
             syncState.publishedCursor = nil
             try? syncState.save(to: syncStateURL)
@@ -373,11 +398,15 @@ public final class CaptureStore: ObservableObject {
         let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
         let ownShardFilename = "events-phone-\(deviceIdentity.id).jsonl"
 
-        _ = try? ShardImporter.importShards(
+        do {
+        let namespace = sharedFolderURL?.standardizedFileURL.path
+        try SyncState.prepareScopedImports(at: syncStateURL, currentNamespace: namespace)
+        _ = try ShardImporter.importShards(
             from: syncFolder,
             into: eventStore,
             syncStateURL: syncStateURL,
-            ownShardFilename: ownShardFilename
+            ownShardFilename: ownShardFilename,
+            cursorNamespace: namespace
         )
 
         // Done taps queued by the To Do widget become archive events here, before the
@@ -393,7 +422,7 @@ public final class CaptureStore: ObservableObject {
 
         let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
         let ownDeviceLabel = deviceIdentity.label
-        _ = try? ShardPublisher.publishLocalEvents(
+        _ = try ShardPublisher.publishLocalEvents(
             eventLogURL: storageDir.appendingPathComponent("events.jsonl"),
             to: ownShardFileURL,
             syncStateURL: syncStateURL,
@@ -405,6 +434,22 @@ public final class CaptureStore: ObservableObject {
             }
         )
 
+        if sharedFolderURL != nil {
+            syncStatus = "Published to shared folder; Mac receipt not confirmed"
+            do {
+                receivedCaptureIDs = Set(try CaptureReceiptFile.readAll(fromFolder: syncFolder).flatMap(\.receivedNoteIDs))
+            } catch {
+                receivedCaptureIDs = []
+                syncStatus = "Published to shared folder; Mac receipt could not be read: \(error.localizedDescription)"
+            }
+        } else {
+            receivedCaptureIDs = []
+            syncStatus = "Saved on this device"
+        }
+        } catch {
+            receivedCaptureIDs = []
+            syncStatus = "Saved on this device; sync failed: \(error.localizedDescription)"
+        }
         publishTodoWidget()
     }
 
@@ -420,7 +465,7 @@ public final class CaptureStore: ObservableObject {
     public func updatePulledNotesForCurrentTab() {
         let allNotes = (try? noteService.listNotes()) ?? []
         self.pulledNotes = allNotes.filter { note in
-            note.tags.contains(currentProjectTab)
+            note.tags.contains { $0.caseInsensitiveCompare(currentProjectTab) == .orderedSame }
         }
     }
 
@@ -673,7 +718,10 @@ public final class CaptureStore: ObservableObject {
     /// same case reached from the other direction.
     @discardableResult
     private func saveCapturedText(_ text: String, audioURL: URL?) throws -> SentCaptureItem {
-        let written = try shardWriter.writeCaptureEvents(text: text, tags: [currentProjectTab])
+        let projectTag = currentProjectTab.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tag = projectTag.caseInsensitiveCompare("Unli Thoughts") == .orderedSame ? "Unli Thoughts" : projectTag.lowercased()
+        let captureTags = [tag, CaptureContext.captureTag, CaptureContext.pendingTag]
+        let written = try shardWriter.writeCaptureEvents(text: text, tags: captureTags)
         guard let event = written.first else {
             throw RecorderShardError.nothingWritten
         }
@@ -715,7 +763,7 @@ public final class CaptureStore: ObservableObject {
             title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
             timestamp: event.timestamp,
             audioURL: audioURL,
-            tags: [currentProjectTab]
+            tags: captureTags
         )
         captures.insert(item, at: 0)
         state = .completed(title: item.title)

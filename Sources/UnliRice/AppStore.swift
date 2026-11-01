@@ -728,70 +728,96 @@ final class AppStore: ObservableObject {
 
     @discardableResult
     func runShardImportIfNeeded() -> Int {
+        var syncFailures: [String] = []
+        let deviceIdentity = DeviceIdentity.current(inDirectory: dataURL.deletingLastPathComponent())
+        let ownShardFilename = "events-mac-\(deviceIdentity.id).jsonl"
+        let receipt: ImportReceipt
         do {
-            let deviceIdentity = DeviceIdentity.current(inDirectory: dataURL.deletingLastPathComponent())
-            let ownShardFilename = "events-mac-\(deviceIdentity.id).jsonl"
-            let eventStore = try EventStore(fileURL: dataURL)
-
-            let receipt = try ShardImporter.importShards(
-                besideEventLog: dataURL,
-                into: eventStore,
-                ownShardFilename: ownShardFilename
+            receipt = try CaptureSyncBridge.importOnly(
+                eventLogURL: dataURL, from: DataLocation.shardDirectory(besideEventLog: dataURL),
+                ownShardFilename: ownShardFilename, cursorNamespace: nil, requiringShardNaming: false
             )
-
-            // The phone does not write into this Mac's `shards/` directory — it
-            // cannot see it. It publishes `events-phone-<id>.jsonl` into the
-            // folder the user picked on the phone, which on this side is a scan
-            // root or the export folder. Importing only from `besideEventLog`
-            // meant captures sat in iCloud, as text, for days while the Mac
-            // reported an empty corpus and the MCP tools found nothing.
-            let phoneShardFolders = phoneShardSearchFolders()
-            var phoneEventsAppended = 0
-            for folder in phoneShardFolders {
-                let needsStop = folder.startAccessingSecurityScopedResource()
-                defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
-
-                let folderReceipt = try? ShardImporter.importShards(
-                    from: folder,
-                    into: eventStore,
-                    syncStateURL: SyncState.url(besideEventLog: dataURL),
-                    ownShardFilename: ownShardFilename,
-                    requiringShardNaming: true,
-                    cursorNamespace: folder.path
-                )
-                phoneEventsAppended += folderReceipt?.eventsAppended ?? 0
-            }
-
-            if phoneEventsAppended > 0 {
-                service.rebuild()
-                _ = noticeStore.post(NoticeFactory.capturesArrived(count: phoneEventsAppended))
-                reload()
-            }
-
-            if receipt.eventsAppended > 0 {
-                service.rebuild()
-                _ = noticeStore.post(NoticeFactory.capturesArrived(count: receipt.eventsAppended))
-                reload()
-            }
-
-            let ownShardURL = DataLocation.shardDirectory(besideEventLog: dataURL)
-                .appendingPathComponent(ownShardFilename)
-            let ownDeviceLabel = deviceIdentity.label
-            try? ShardPublisher.publishLocalEvents(
-                eventLogURL: dataURL,
-                to: ownShardURL,
-                syncStateURL: SyncState.url(besideEventLog: dataURL),
-                ownDeviceLabel: ownDeviceLabel,
-                isLocallyOriginated: { event in
-                    // Mac-originated events have device == nil (legacy) or device == ownDeviceLabel
-                    event.device == nil || event.device == ownDeviceLabel
-                }
-            )
-
-            return receipt.eventsAppended + phoneEventsAppended
         } catch {
-            return 0
+            receipt = ImportReceipt(eventsAppended: 0, shardsImported: 0)
+            syncFailures.append("Local capture imports failed.")
         }
+
+        // The phone does not write into this Mac's `shards/` directory — it
+        // cannot see it. It publishes `events-phone-<id>.jsonl` into the
+        // folder the user picked on the phone, which on this side is a scan
+        // root or the export folder. Importing only from `besideEventLog`
+        // meant captures sat in iCloud, as text, for days while the Mac
+        // reported an empty corpus and the MCP tools found nothing.
+        let phoneShardFolders = phoneShardSearchFolders()
+        var phoneEventsAppended = 0
+        for folder in phoneShardFolders {
+            if let exportFolderURL, folder.resolvingSymlinksInPath().standardizedFileURL == exportFolderURL.resolvingSymlinksInPath().standardizedFileURL { continue }
+            let needsStop = folder.startAccessingSecurityScopedResource()
+            defer { if needsStop { folder.stopAccessingSecurityScopedResource() } }
+
+            do {
+                let folderReceipt = try CaptureSyncBridge.importOnly(
+                    eventLogURL: dataURL, from: folder, ownShardFilename: ownShardFilename,
+                    cursorNamespace: folder.path, requiringShardNaming: true
+                )
+                phoneEventsAppended += folderReceipt.eventsAppended
+            } catch {
+                syncFailures.append("A project folder could not import captures.")
+            }
+        }
+
+        if phoneEventsAppended > 0 {
+            service.rebuild()
+            _ = noticeStore.post(NoticeFactory.capturesArrived(count: phoneEventsAppended))
+            reload()
+        }
+
+        if receipt.eventsAppended > 0 {
+            service.rebuild()
+            _ = noticeStore.post(NoticeFactory.capturesArrived(count: receipt.eventsAppended))
+            reload()
+        }
+
+        let ownShardURL = DataLocation.shardDirectory(besideEventLog: dataURL)
+            .appendingPathComponent(ownShardFilename)
+        let ownDeviceLabel = deviceIdentity.label
+        do {
+            try CaptureSyncBridge.withLock(eventLogURL: dataURL) {
+                let stateURL = SyncState.url(besideEventLog: dataURL)
+                if FileManager.default.fileExists(atPath: stateURL.path) {
+                    guard let data = try? Data(contentsOf: stateURL), (try? JSONDecoder().decode(SyncState.self, from: data)) != nil else { throw CaptureSyncBridge.BridgeError.corruptState }
+                }
+                return try ShardPublisher.publishLocalEvents(
+                    eventLogURL: dataURL,
+                    to: ownShardURL,
+                    syncStateURL: SyncState.url(besideEventLog: dataURL),
+                    ownDeviceLabel: ownDeviceLabel,
+                    isLocallyOriginated: { event in
+                        // Mac-originated events have device == nil (legacy) or device == ownDeviceLabel
+                        event.device == nil || event.device == ownDeviceLabel
+                    }
+                )
+            }
+        } catch {
+            syncFailures.append("Local capture publication failed.")
+        }
+
+        var bridgeImported = 0
+        if let folder = exportFolderURL {
+            let scoped = folder.startAccessingSecurityScopedResource()
+            defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+            do {
+                let result = try CaptureSyncBridge.synchronize(eventLogURL: dataURL, sharedFolder: folder, identity: deviceIdentity)
+                bridgeImported = result.eventsImported
+                if bridgeImported > 0 { service.rebuild(); reload() }
+            } catch {
+                syncFailures.append("Shared capture sync failed.")
+            }
+        }
+        if !syncFailures.isEmpty {
+            statusMessage = "Some capture sources could not sync: " + syncFailures.joined(separator: " ")
+        }
+        return receipt.eventsAppended + phoneEventsAppended + bridgeImported
     }
 
     /// Folders that may hold a shard published by another device.

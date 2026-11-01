@@ -19,12 +19,13 @@ final class MCPToolCatalogTests: XCTestCase {
             "search_notes",
             "note_history",
             "pending_reviews",
-            "transaction_log"
+            "transaction_log",
+            "project_context"
         ]
 
         let actualTools = Set(MCPTool.allCases.map(\.rawValue))
         XCTAssertEqual(actualTools, expectedTools)
-        XCTAssertEqual(MCPTool.allCases.count, 14)
+        XCTAssertEqual(MCPTool.allCases.count, 15)
 
         // Verify write classification
         let writeTools: Set<MCPTool> = [
