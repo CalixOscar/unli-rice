@@ -300,3 +300,11 @@ schemes:
         - UnliRiceCoreTests
     archive:
       config: Release
+  UnliRiceCapture:
+    build:
+      targets:
+        UnliRiceCapture: all
+    run:
+      config: Debug
+    archive:
+      config: Release

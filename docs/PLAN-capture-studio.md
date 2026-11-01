@@ -279,3 +279,16 @@ Checkpoint note: physical-device/release acceptance is filed in Unli Rice as
 linked to handoff `3A5B38D0-4421-4031-A660-1924EF09BE54`. No unrelated to-dos closed.
 The planner's P7 local review is complete; unchecked manual acceptance above is
 explicitly deferred to that device test, not claimed passed.
+
+
+## Shared Capture scheme follow-up — 2026-11-01
+
+The founder's screenshot showed the main-checkout Xcode project, not the feature
+checkout. The target exists in both, but project.yml only explicitly shared the
+Mac scheme. Added explicit shared UnliRiceCapture build/run/archive configuration
+with Debug run and Release archive; generated project regenerated. Xcode was
+opened at the feature checkout and scripting verified active scheme
+UnliRiceCapture. Xcode -list confirms it, and the Simulator build passes
+(`/tmp/unlirice-shared-scheme-build.log`). No source behavior, signing, release
+number or to-do state changed. Mechanical edit built by explicitly selected
+Luna/low; planner inspected the diff and reran scheme/build checks.
