@@ -2795,3 +2795,14 @@ verification are in `docs/PLAN-native-icloud-sync.md` and its dialogue. Root ran
 cross-app identity checks passed. Mac1.5(12)/Capture1.3(9) are not yet uploaded:
 Organizer access is unavailable. No review submission or actual corpus opt-in
 occurred. Two-device delivery remains unverified.
+
+
+## Native iCloud candidates uploaded for internal testing (2026-11-01)
+
+Xcode Organizer automatically signed and uploaded the final Mac1.5(12) and
+Capture1.3(9) archives from source7df815e. Live App Store Connect verification:
+Mac12 Internal/Testing, Capture9 Internal/Ready to Test. These are internal-only
+builds; no review submission or replacement happened. Capture has no internal
+tester group yet. Existing physical-device acceptance remains open; no actual
+corpus was opted in. The canonical-account fix passed signed Production probes,
+both archives and620tests (2skipped,0failures). See native sync plan/dialogue.

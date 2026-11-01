@@ -310,3 +310,13 @@ no note/document operations. Real two-device delivery remains unverified.
 No blocking code defect remains from B7. Organizer upload is still pending;
 native UI automation currently reports cgWindowNotFound and the founder was
 asked to leave the Mac unlocked with Xcode visible. No upload claimed.
+
+
+## codex — release receipt — 2026-11-01
+
+Organizer's TestFlight Internal Only flow succeeded for final Mac1.5(12) and
+Capture1.3(9) archives. App Store Connect live verification after processing:
+Mac12 Internal/Testing, Capture9 Internal/Ready to Test. No review submission,
+withdrawal, build replacement or invitation was performed. Both source and
+packaging blockers are resolved. Physical two-device delivery remains unverified;
+Capture has no internal group/tester assigned. Source is checkpoint7df815e.

@@ -6,7 +6,7 @@
 **Reviewer:** claude
 **Branch:** CalixOscar/Unli-rice-Capture
 **Baseline:** 2f3506c; clean tree before these planning documents
-**Stage:** 5 — code and signed archives verified; Organizer upload pending visible Xcode access
+**Stage:** 8 — implementation, peer review and internal TestFlight uploads complete; physical delivery acceptance remains unverified
 **Founder skips:** none for this native sync feature
 
 ## Settled architecture
@@ -22,11 +22,14 @@ The new transport is distinct from the mutable manual-folder shard bridge.
 - `NativeSyncMode`: privateDevice='private', iCloud='icloud', folder='folder'.
   `NativeSyncPreferences` version1 in local corpus directory, not cloud: mode.
   If absent infer old folder/private from existing app preferences, never cloud.
-- `NativeCloudBinding` local version1 file per corpus stores binding UUID and
-  archived ubiquityIdentityToken. Compare unarchived token equality. First binding
-  requires runtime native-mode consent. Existing unreadable/future binding fails
-  closed. Token nil/different pauses; no reset/rebind UI in v1. The UUID namespaces
-  LOCAL cursor state only. Presence of even a corrupt binding blocks permanent purge.
+- `NativeCloudBinding` local version2 stores binding UUID, canonical CloudKit
+  container/environment/user-record tuple and one archived ubiquity token per
+  executable. Known clients compare only their own token; unknown clients enroll
+  only after canonical equality. First binding requires runtime consent. Version1
+  migrates only under its original token, preserving UUID/local cursor state.
+  Missing/different tokens, corrupt/future bindings and environment mismatch pause.
+  No reset/rebind UI. Even a corrupt binding blocks permanent purge. B7/B7a below
+  records the signed evidence and settled concurrency/deadline details.
 - Native cloud event files `events-<deviceUUID>-<batchUUID>.jsonl`: immutable,
   coordinated atomic creation. Complete raw JSONL records, <=500 records and <=2MB
   per batch, no line >1MB. Export cursor committed only after successful creation.
@@ -86,7 +89,7 @@ The new transport is distinct from the mutable manual-folder shard bridge.
 No builder starts until Claude review is answered and dialogue settled.
 
 - [x] P0 — planner: record intent/spec and settle pre-mortem. Shared Apple Developer
-  container/App IDs are pending explicit portal approval, recorded below.
+  container/App IDs were subsequently approved and provisioned, recorded below.
 - [x] B1 — build: native preference/account/transport/discovery core and tests.
   Files new Sync/NativeSyncPreferences.swift, NativeCloudBinding.swift,
   NativeCloudTransport.swift, NativeCloudDiscovery.swift; Projector.swift;
@@ -104,7 +107,7 @@ No builder starts until Claude review is answered and dialogue settled.
 - [x] B4 — build: phone native opt-in and automatic Studio data.
   Files CaptureStore.swift, SharedFolderManager.swift, CaptureView.swift,
   CaptureStudioView.swift, relevant archive UI. C2/C5/C6/C8/C10/C12.
-- [ ] P5 — planner: review worker diffs, rerun full core suite, protocol smoke and
+- [x] P5 — planner: review worker diffs, rerun full core suite, protocol smoke and
   both Xcode builds; signed entitlements/cloud discovery checks when provisioning
   permits; obtain Claude post-mortem, record evidence and physical-device limits,
   update memory/decisions/wiki and checkpoint. No production store activation.
@@ -606,3 +609,30 @@ leave the Mac unlocked with Xcode visible. Existing Mac review build is untouche
 No submission, install over running production app, native production opt-in or
 public privacy/listing update happened. Physical two-device/recording acceptance
 and updated installed client hook deployment remain outside this checkpoint.
+
+
+## Upload acceptance — 2026-11-01, Asia/Manila
+
+Xcode Organizer reopened the final archives from the exact paths above. Both
+used “TestFlight Internal Only” with automatic/cloud-managed distribution signing.
+Organizer reported “Unli Rice 1.5 (12) uploaded” and
+“UnliRiceCapture 1.3 (9) uploaded”; Capture's receipt shows 11:32 PM/build9.
+App Store Connect live verification after processing:
+
+- Mac app6792837485: build12 Internal, **Testing**, existing Family group.
+- Capture app6800863948: build9 Internal, **Ready to Test**, no testers/groups
+  assigned. No compliance blocker on build9.
+
+Implementation/source checkpoint is `7df815e`. The release goal is achieved:
+both verified builds are uploaded and processed. These are internal-only builds,
+not public App Store releases and cannot be reused for review submission. No
+Submit for Review, review-build replacement or withdrawal was performed. No
+accounts, testers, invitations, public listings or privacy URLs were modified.
+Any future public-release build must use fresh verified build counters.
+
+Remaining physical-device acceptance is the existing Unli Rice to-do
+BBC01BEE-FE38-4D53-9999-59422F498AD8. Capture requires its internal testing group
+and tester assignment before installation through TestFlight; no invitation was
+sent by this session. Real two-device delivery and the actual voice-capture →
+project context → Codex/Claude reminder loop are not claimed verified. No
+production corpus was opted in or running installed app overwritten.
