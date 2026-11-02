@@ -2889,3 +2889,8 @@ Founder confirmed that if the Mac App Store path cannot deliver the necessary ca
 ## Project session folders and favorites proposed (2026-11-03)
 
 Founder requested gathering all related assistant sessions under each Unli Rice project folder and starring that folder as a favorite. Draft requirement AW-13 and the agent-workspace intent/plan record this as logical UI organization across providers and checkouts, retaining per-session branch evidence. No provider transcript moves or implementation occurred. Association, persistence and default navigation still require design; Claude was not rerun for this planning addition.
+
+
+## Agent workspace becomes a cross-platform open-source proposal (2026-11-03)
+
+Founder chose a new open-source app for macOS and Windows, distributed outside the Mac App Store through GitHub, superseding the conditional Mac-only fallback. They asked whether to embed Unli Rice features. The draft recommendation is basic local project memory plus optional consented Unli Rice integration, not a full product transplant; this recommendation is not yet accepted. Existing code is reference, Windows integration is unproven, new name/repo/license/runtime and external demand evidence are unsettled. Draft documents and Idea Clinic record reflect this; no app bootstrap, implementation, publishing or additional Claude run occurred.

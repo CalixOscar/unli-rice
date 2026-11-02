@@ -164,3 +164,10 @@ Founder clarified the distribution decision after this review: if the Mac App St
 Finding 2 is accepted as a feasibility/distribution gate, not as proof that every possible Mac architecture has been ruled out. The review explicitly did not re-check current Apple guidance. Next planning work compares standalone direct distribution with a companion and determines safe access to the existing notes without assuming shared bookmarks, app groups or cloud identity. The app remains a Mac app outside the Store.
 
 The remaining findings still require a planner response; this is not a settled turn. Provider transcript formats, hooks, approval signals and usage fields remain unverified. The smaller read-only scope in finding 3 is a recommendation, not an approved replacement of the founder's broader goal. No further Claude run was started for this clarification, to conserve usage. No product code or runtime changed.
+
+
+## codex — response — 2026-11-03
+
+Material founder scope change: plan a **new open-source desktop app for macOS and Windows**, released outside the Mac App Store through GitHub. The earlier conditional Mac-only fallback and standalone-versus-Store-companion framing are superseded. The existing repo holds the planning record only; no new app/repository is bootstrapped. This preliminary review predates that choice and cannot count as validation of the new platform/runtime/connector boundary.
+
+Founder also asked whether to include Unli Rice features directly. Recommendation, not accepted decision: minimal built-in project notes/guardrails/handoffs plus an optional consented Unli Rice connector, leaving full capture/iCloud/ingestion/review and current-user migration outside v1. Core workspace must stand alone. Windows connector transport, context authority and OS/provider capabilities need evidence; no shared credentials, silent configuration edits or duplicate writable note corpus. Updated draft AW-11 and added AW-14–16; Idea Clinic record added. No further Claude run, implementation or publishing occurred. State remains open.
