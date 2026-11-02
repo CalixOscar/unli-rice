@@ -2884,3 +2884,8 @@ Founder requested “Start a plan, hand the plan to Claude but do not build anyt
 ## Agent workspace distribution fallback clarified (2026-11-03)
 
 Founder confirmed that if the Mac App Store path cannot deliver the necessary capabilities, the fallback is a separate desktop app distributed through GitHub initially. This means the download channel, not a restriction to GitHub repositories. Claude's preliminary discovery critique is preserved in `docs/dialogue/agent-workspace.md`; Codex appended this clarification without starting another Claude run. Standalone versus companion, safe shared-note access and provider feasibility remain open. No new app, repo, target, signing change or data migration was created.
+
+
+## Project session folders and favorites proposed (2026-11-03)
+
+Founder requested gathering all related assistant sessions under each Unli Rice project folder and starring that folder as a favorite. Draft requirement AW-13 and the agent-workspace intent/plan record this as logical UI organization across providers and checkouts, retaining per-session branch evidence. No provider transcript moves or implementation occurred. Association, persistence and default navigation still require design; Claude was not rerun for this planning addition.

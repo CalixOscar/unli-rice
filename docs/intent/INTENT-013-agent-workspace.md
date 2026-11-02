@@ -12,6 +12,9 @@ A folder-first project view, with Git details wherever available, and a simple r
 
 A successful owner can identify the project, conversation, observed branch/worktree, current state and next decision; open or resume a supported session deliberately; and review its result. Unsupported, stale or unknown state is labeled rather than guessed. Editing runs initially serialize per project; independent reviews may continue.
 
+## Founder addition — project session folders and favorites
+Gather the related sessions for an Unli Rice project into one project folder in the interface, across supported assistants and branches. The founder can star that project folder as a favorite for quick access. Treat this as logical organization, not moving provider transcript files or creating another checkout. Branch/worktree evidence remains visible on each session. This addition is a requested product outcome, not approval of the full architecture or permission to build.
+
 ## Boundaries and open choices
 This is not approval to clone Orca, hide branches, run unattended agents, override provider safeguards, auto-approve, merge, publish, or build. Folder-only projects remain possible. Chat, task, run, and observed Git association are separate concepts. The default view, execution/distribution boundary, and degree of session control are not yet decided. Local models and Cursor are later possibilities. See the draft spec and plan; founder approval follows discovery review.
 
