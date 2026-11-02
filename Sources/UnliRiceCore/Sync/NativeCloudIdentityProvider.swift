@@ -9,6 +9,7 @@ public protocol NativeCloudIdentityProvider {
 }
 
 public struct LiveNativeCloudIdentityProvider: NativeCloudIdentityProvider {
+    internal static let guiClients: Set<String> = ["com.calmdownoscar.unlirice", "com.calmdownoscar.unlirice.capture"]
     public static let allowedClients: Set<String> = ["com.calmdownoscar.unlirice", "com.calmdownoscar.unlirice.mcp", "com.calmdownoscar.unlirice.capture"]
     public let clientID: String
     public let environment: String

@@ -36,17 +36,28 @@ public enum NativeCloudTransport {
     }
     private static let maxBytes = 2 * 1024 * 1024
     private static let maxLine = EventStore.maxNativeLineBytes
-    private static func stateURL(_ log: URL, _ binding: NativeCloudBinding) -> URL {
-        log.deletingLastPathComponent().appendingPathComponent("native-cloud-state-\(binding.bindingID.uuidString).json")
+    internal static func stateURL(_ log: URL, _ binding: NativeCloudBinding) -> URL {
+        log.deletingLastPathComponent().appendingPathComponent("native-cloud-state-\(binding.transportStateID.uuidString).json")
     }
     private static func loadState(_ url: URL) throws -> State {
         guard FileManager.default.fileExists(atPath: url.path) else { return State() }
-        guard let data = try? Data(contentsOf: url),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        guard let data = try? Data(contentsOf: url) else { throw TransportError.invalidState }
+        return try decodeState(data)
+    }
+    private static func decodeState(_ data: Data) throws -> State {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let version = object["version"] as? Int else { throw TransportError.invalidState }
         guard version == 1 else { throw TransportError.unsupportedState(version) }
         guard let state = try? JSONDecoder().decode(State.self, from: data) else { throw TransportError.invalidState }
         return state
+    }
+    internal static func validatedExistingState(_ url: URL, source: Data) throws -> Data? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let bytes = try Data(contentsOf: url)
+        let state = try decodeState(bytes)
+        guard state.exportedOffset <= UInt64(source.count), state.exportedOffset == 0 || (state.exportedOffset <= UInt64(source.count) && source[source.index(source.startIndex, offsetBy: Int(state.exportedOffset) - 1)] == 10) else { throw TransportError.invalidState }
+        _ = try records(source)
+        return bytes
     }
     private static func safeID(_ value: String) throws -> String {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-")

@@ -158,6 +158,13 @@ public final class EventStore: @unchecked Sendable {
     public func validateNativeHistory() throws {
         try locked { fd in _ = try strictRead(fd) }
     }
+    public func validatedNativeRawSnapshot() throws -> Data {
+        try locked { fd in
+            _ = try strictRead(fd)
+            guard lseek(fd, 0, SEEK_SET) >= 0 else { throw EventStoreError.fileUnavailable }
+            return FileHandle(fileDescriptor: fd, closeOnDealloc: false).readDataToEndOfFile()
+        }
+    }
     private func declarations(_ events: [Event]) throws -> [Event] {
         let boundary = events.firstIndex { $0.causalParents != nil || $0.kind == .causalOrder } ?? events.count
         var declared = Set(events.compactMap { $0.kind == .causalOrder ? $0.relatedEventId : ($0.causalParents != nil ? $0.id : nil) })

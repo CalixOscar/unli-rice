@@ -88,3 +88,34 @@ Plan amended as above. B1 may build now with bounded files. Existing live
 connections remain untouched; source changes do not authorize resetting data.
 Public-versus-internal release destination and old device-checklist inclusion
 questions remain pending; neither blocks source work, both constrain later release.
+
+
+## codex — stage1.5 record and refinement — 2026-11-02
+
+Astra independently audited actual intent/spec/plan at9257f29: intent passed;
+B2 had a concrete nil-callback hierarchy blocker. Accepted and settled: install
+only in a joined window, qualify callback by interaction.view.window and attachment
+generation, invalidate before detach/remove and recheck queued delivery. Detached
+nil never becomes nonhinged. Awaiting callback is voice-only; observed hinged
+identity is retained. Added explicit cold-closed/reattachment QA. No runtime action.
+No other intent contradiction was found. Existing minimum26 fallback and shared
+recorder remain required. Builder briefs name this exact attachment contract.
+
+
+## Codex — authorized Claude source-review response, 2026-11-02
+
+Founder approved the previously blocked source-only Claude review. Claude Opus
+reviewed migration source/tests/plan; no notes, audio, account archives or live
+app data were sent. Review found recovery retry collisions after partial writes,
+a latent Data slice indexing assumption, missing namespace-alias rejection and
+missing authorization/failure coverage. Accepted as B3a. Exact-source rejection
+after concurrent client enrollment is intentional; no merge or archive dropping
+is permitted. Snapshot is point-in-time under EventStore's own event flock, not
+a promise that CaptureSyncBridge freezes every append. Public migration remains
+GUI-only. Review attempted a temporary test write but tool permission rejected
+it; repository status contains only expected existing work.
+
+Settled: per-attempt retained recovery directories and durability checks, strict
+namespace validation, relative indexing, and bounded regression tests as B3a in
+the plan. UI test failures remain open; bottom QA overlay obstructed typed editor
+and keyboard controls, so Q5 must correct its host before product conclusions.

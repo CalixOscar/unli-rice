@@ -1,5 +1,6 @@
 # INTENT — Production Studio and folding-phone capture
 
+**Intent read:** passed 2026-11-02 — Astra audited this intent at9257f29; attached-hierarchy fold observation refinement settled in plan/dialogue.
 **Status:** founder intent approved by direct request 2026-11-02; public versus internal release destination awaiting clarification.
 **Founder:** “Lets bring them both live then, but I want the same flipping of projects available on the mac app on the ios app too. Also make sure the ios app is iphone duo optimized”
 **Refinement:** “For iphone duo only voice capture should be available when folded. When opened up the whole studio and to do list becomes visible”

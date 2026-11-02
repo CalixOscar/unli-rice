@@ -2818,3 +2818,19 @@ test still fails Production MCP visibility despite Capture publication progress.
 Mac's local binding is Development while installed build is Production. Planned
 recovery is explicit GUI-only verified migration with local recovery snapshot;
 no existing connection or notes were changed. See docs/PLAN-production-studio.md.
+
+
+### Production Studio migration core — 2026-11-02
+
+B3/B3a implements explicit known-GUI Development→Production migration without
+resetting source events, binding identity, archived client tokens, old cursors or
+cloud batches. An opaque GUI-only offer ties consent to exact source binding and
+corpus. Fresh Production identity plus unchanged own token is mandatory. Schema3
+uses fresh local transport progress namespace; old cloud root remains unchanged.
+Private retained recovery snapshots use per-attempt directories, byte verification,
+SHA256 manifest and fsync before binding commit. Same-offer retries tolerate partial
+snapshot attempts; concurrent binding enrollment fails closed and needs fresh offer.
+Founder authorized Claude source-only review; retry collision, Data slice indexing
+and namespace alias findings addressed. Root full suite633 tests,2 skipped,0failed
+(`/tmp/unlirice-production-core-root-full.log`). UI/consent hosts and real voice
+capture acceptance are unfinished; no new release/runtime migration performed.

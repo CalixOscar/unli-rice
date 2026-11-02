@@ -90,7 +90,7 @@ inside coordinated accessors fences new code as far as the existing contract all
   CaptureProjectView.swift and new CapturePresentation.swift/CaptureVoiceControls.swift.
   Keep drafts and hierarchy mounted; shared folded/privacy cover applies to ALL
   presentations. Xcodegen, iOS build, normal phone/iPad/Duo pose UI verification.
-- [ ] B3 — build: account schema/transition core (S1–S3). Allowed core
+- [x] B3 — build: account schema/transition core (S1–S3). Allowed core
   Sync/NativeCloudBinding.swift, NativeCloudIdentityProvider.swift, new
   NativeCloudEnvironmentMigration.swift; EventStore.swift (read-only snapshot only),
   NativeCloudTransport.swift (namespace only); focused migration/binding/transport
@@ -213,3 +213,188 @@ source diffs and independently reran the generic iOS Simulator Debug build:
 passed (`/tmp/unlirice-production-deck-root-build.log`). Xcodegen/diff check pass.
 No app launched, no live connection changed. B1 interaction/accessibility/pose
 acceptance is still pending the combined B2/P5 fixture run; no visual claim yet.
+
+
+## Stage1.5 / B2 attachment refinement (settled)
+
+Astra read this intent/spec/plan at9257f29 and passed intent, identifying an
+initial nil hinge callback ambiguity. The observation UIView installs/enables its
+UIHingeInteraction only after joining a window. Tag each attachment with a fresh
+generation; disregard callbacks unless interaction.view.window is that current
+window and attachment generation still matches. Invalidate before removal or
+willMove(nil), and recheck queued callbacks before applying state. Detached or
+superseded callbacks never establish ordinary-device status. Until a valid
+attached callback arrives, awaitingCallback stays voice-only. A valid attached nil
+may establish standard navigation only if no hinge was ever observed. Once hinged,
+retain that identity on detachment and show safe voice-only until reattached.
+Cold already-closed launch and attach/detach/reattach are explicit QA cases.
+
+B2 keeps the known-hinged workspace hierarchy mounted in EVERY pose: switching
+closed/open changes covers, not conditional creation of Studio/Todo subtrees.
+ArrangementView adapts their layout without reparenting state. Each presented
+sheet root shares the environment presentation state and folded/privacy cover;
+keep content mounted underneath, large detent when closed, restore on open. End
+editing on the affected window to hide keyboard, without clearing draft strings.
+Use an INTERNAL CaptureView initializer to inject a fake presentation model for
+isolated QA; retain the existing public init(store:) signature. Never build a real
+store as an environment fallback in fixture views. Folded voice controls support
+existing recording mode/pause/resume/stop/transcription states, omit typed/history/
+project/to-do content. The currently selected project may be named as voice context.
+B2 compilation waits while B3 edits shared core source, to avoid mixed snapshots.
+
+
+## B3 public authorization boundary (settled clarification)
+
+Migration's PUBLIC offer(eventLogURL:isValid:) and migrate(offer:isValid:) entry
+points accept NO provider/clientID parameters. Each obtains a fresh
+LiveNativeCloudIdentityProvider internally and checks actual Bundle.main GUI
+identity before using it. Opaque public Offer has internal construction, private
+source bytes/corpus path/issued client/target scope; migrate verifies that same
+actual process identity and source scope again. Offer binds the corpus URL, so
+migrate has no independently supplied alternate corpus URL. Internal injectable
+methods exist only for @testable synthetic fixtures, not as public API. Normal
+binding provider injection may remain public for existing callers/tests; it is not
+an authorization boundary for environment migration. No MCP dispatch route exposes
+migration, and actual .mcp bundle cannot obtain or consume a public offer.
+
+## B2a review corrections (build)
+
+Root host Simulator build passed, but source review found remaining UI issues.
+Hide legacy Page picker for known-hinged workspace (both panes are already shown).
+Welcome splash and initial folder-choice prompt stay deferred while voice-only,
+locked or captureInFlight; retain pending flags so they appear on opening only
+when appropriate, rather than dropping setup state. Folded pause/resume/save
+controls have44pt minimum hit targets; disable mic while transcribing. Preserve
+all active recording state. Only CaptureView.swift/CaptureVoiceControls.swift.
+Rerun host build/diff check; pose/draft/accessibility QA still pending.
+
+
+### Q5 — build: isolated UI verification harness
+
+Allowed only /tmp/unlirice-production-ui-qa/**. Generate a separate QA app bundle
+and UI-test target, compiling Capture sources except CaptureApp with synthetic
+local store/project snapshots (three generic projects, pending capture, todo).
+No production bundle ID, app group entitlement, real iCloud, real note copies,
+phone data or MCP substitution. Internal presentation injection disables observer
+for deterministic mode tests; hardware mode uses public init(store:) and realhinge.
+QA launch flags exist in the QA-only host, never production source. Test buttons
+for synthetic pose state changes live only in QA host overlays and are excluded
+from production screenshots/acceptance; real Device Hub poses remain separate.
+
+Test deck boundaries/swipes/selection refresh, closed voice-only/noWorkspace,
+open Studio+Todo, fold/unfold selectedID and typed/todo drafts, synthetic recording/
+paused/transcribing state retention, locked covers, ordinary phone/iPad, Dynamic
+Type and Reduce Motion. Screenshots are actual QA app artifacts, no generated art.
+AppLock configuration if needed stays in QA host defaults, not a production bypass.
+Prepare project/tests and xcodegen first; compile/run only after CORE STABLE.
+Use a NEW disposable Duo simulator and existing explicitly disposable Capture
+Studio QA simulator, never erase or install over founder's existing Duo device.
+Synthetic recorder-state checks do not establish physical microphone continuity.
+
+
+### B2b — opened-workspace typed capture access (build-light)
+
+Q5 found no route to a new typed note in opened Duo. Preserve existing Type instead
+button by adding `else { typeNoteButton }` after the duoWorkspace in-flight recorder
+condition. Only CaptureView.swift; no new sheet or draft state. This supplies the
+full opened app and lets Q5 open a real typed editor before folding. QA initializes
+presentation.open first (hasSeenHinge true), then changes closed/open; it does not
+fake a hinged device by starting ordinary and setting mode alone.
+
+B3 focused root verification:38tests,0failures
+(/tmp/unlirice-production-migration-root-focused.log). External Claude code review
+was automatically rejected as private-source disclosure; founder was asked to
+approve that limited payload or keep review inside Codex. Do not bypass rejection.
+No new release/post-mortem acceptance is claimed from these tests.
+
+
+### B3a — build: retry-safe migration recovery (settled)
+
+Founder explicitly approved external Claude source review: “Keep going and yes you
+can send to claude”. Authorized source-only review identified fixed transition
+recovery-directory collisions after interrupted writes. Use a fresh attempt UUID
+for EACH recovery snapshot, directory <transitionUUID>-<attemptUUID>, manifest
+records both IDs. Retain partial copies; never overwrite, resume or delete them.
+The binding transition ID remains stable for idempotent repeated consent ticket.
+Exclusive recovery files are fsynced before closing; fsync snapshot directory and
+recovery root before binding commit; fail closed if durability check fails. This
+does not claim a global freeze of concurrent append-only event writers.
+
+Reject v3 transport namespace equal to binding ID. Address Data slice indices
+relative to startIndex. Keep exact-source binding guard: concurrent enrollment
+requires a fresh offer, never implicitly merges changed account archives. Add
+regressions for failure at each snapshot/manifest boundary then same-offer retry,
+helper consuming a valid GUI offer, cancellation before commit, token change
+during lookup, append between offer/migration included in recovery, namespace
+alias rejection and nonzero-index Data state validation. No host UI or live data
+changes in this step. Allowed migration/binding/transport core files and their
+three focused test files only. Verify focused tests and diff check.
+
+
+### B4a — build: Mac explicit migration consent/status host
+
+Only AppStore.swift, AppStore+NativeSync.swift, ConnectView.swift. Track typed
+Development→Production mismatch separately from status strings. Show a recovery
+action only for that mismatch. Clicking it invalidates native generation/discovery
+and asynchronously obtains the public nonmutating Offer, serialized by existing
+nativeWorkLock and protected security-scoped corpus access. Publish confirmation
+only after offer succeeds. Store opaque offer privately; no token/record text UI.
+
+Confirm text: “Move this device to the released iCloud connection?” Message:
+“Your notes stay on this device, with a recovery copy. Notes, transcripts, to-dos
+and project summaries will sync with the same Apple account. Other devices may
+need this update too. Recordings and repositories stay local.” Buttons Continue
+and Cancel. This confirmation is separate from ordinary Enable/Retry; never
+migrate automatically. Cancel discards offer, leaves binding/preferences/events
+unchanged, remains paused.
+
+Confirm captures offer, invalidates generation again, runs public migrate with
+that generation/corpus checks and existing work lock/security scope. Busy/offered
+state suppresses timer sync; disable duplicate actions. Completion must still
+match generation, corpus URL, iCloud mode. On success clear mismatch, reload local
+projection, resume ordinary sync. On failure remain paused with error, no deletion
+or resets; fresh explicit action obtains a fresh offer. Account/folder/mode change
+and invalidate cancel work, discard offer, dismiss confirmation. Migration task
+uses existing nativeTask ownership; no extra untracked task. Verify macOS build
+and diff check. Capture host is a separate B4b step after UI review fixes.
+
+
+### B2c — build: folded and locked accessibility isolation
+
+Q5 rerun reached editors after moving its overlay. Closed workspace still exposed
+Projects, locked closed exposed Record, and locked presented editor exposed its
+TextView in XCTest accessibility queries. Preserve mounted draft hierarchy but
+explicitly set accessibilityElement(children: .ignore) plus accessibilityHidden
+for covered workspace/root/sheet content; use .contain when uncovered. Keep
+allowsHitTesting false under covers. CaptureVoiceControls owns no draft state;
+observe AppLock and omit its entire controls subtree while locked, so Record
+cannot survive beneath lock. Root and sheet opaque lock overlays keep precedence.
+Type instead hit target gets minHeight44. Only CaptureView.swift,
+CaptureStudioStyle.swift, CaptureVoiceControls.swift. No recorder/store/lifecycle
+changes. Verify iOS build/diff then Q5 rechecks actual absence, never weaken tests.
+Full core suite independently passed633, skipped2, failures0 after B3a.
+
+
+### B4b — build: Capture explicit migration consent/status host
+
+Only CaptureStore.swift and CaptureView.swift, preserve B2c covers. Same typed
+mismatch and explicit request/confirmation as B4a, exact same copy. Keep private
+Offer and tracked migration task; invalidateNative cancels/discards migration
+state with the existing generation. Introduce a host native work lock to serialize
+existing native sync with offer/migrate; keep all locking in detached synchronous
+work and never on MainActor. Core generation checks still gate commit.
+
+finishNative carries Error rather than lossy string so it can detect only typed
+Development→Production mismatch. Native sync/retries suppressed while mismatch,
+migration busy or offer pending. On confirmation success maintain/rebuild local
+projection then resume ordinary sync; failure remains paused. Preference/mode/
+account invalidation cancels work without touching binding or events. Preserve
+recorder, drafts and selected project. Settings action disabled while locked,
+voice-only or migration busy. Confirmation is attached to settings sheet root,
+visible only when open/unlocked; fold/lock discards pending offer and dismisses
+confirmation. Already confirmed work may complete under normal generation checks;
+fold is not an account change. No automatic migration on retry/startup.
+
+Verify iOS host Simulator build and diff check; Q5 fixture tests must later cover
+visibility/cancellation where feasible without real cloud. No live-store test
+bypasses or production launch flags.
