@@ -2874,3 +2874,8 @@ changes paused pending independent Inspector verification, currently blocked by
 CUA DeviceHub ScreenCaptureKit -3812 after viewer WindowFill; user reconnect asked.
 ASCbrowserlogin expired, user signin asked. No app replacement, link migration,
 new upload/public review or real recorded-capture receipt acceptance performed.
+
+
+## Agent workspace exploration — planning only (2026-11-03)
+
+Founder requested “Start a plan, hand the plan to Claude but do not build anything yet,” with remaining assistant usage limited. Draft intent `docs/intent/INTENT-013-agent-workspace.md`, proposed `docs/SPEC-agent-workspace.md`, and `docs/PLAN-agent-workspace.md` record the exploration at baseline `aa91d60`. The founder wants existing repo tiles to make branches visible in plain language, plus understandable conversation state, prioritized usage pauses, scoped shared memory and manual bridges between assistants. One editing agent per project initially was accepted; default navigation, actual provider capabilities and execution/distribution boundary remain open. Drafts are not founder approval, a settled pre-mortem or authorization to build. No product source or runtime changes were made in preparing them.
