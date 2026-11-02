@@ -31,6 +31,11 @@ extension AppStore {
         nativeDiscovery.stop()
         nativeWatchedRootURL = nil
         nativePendingConsent = false
+        nativeEnvironmentMismatch = false
+        nativeMigrationBusy = false
+        nativeMigrationConfirmation = false
+        nativeMigrationConfirmed = false
+        setNativeMigrationOffer(nil)
     }
 
     func enableNativeSync() {
@@ -64,7 +69,7 @@ extension AppStore {
     }
 
     func startNativeSync(explicitConsent: Bool = false) {
-        guard nativeSyncMode == .iCloud, nativeTask == nil else { return }
+        guard nativeSyncMode == .iCloud, nativeTask == nil, !nativeEnvironmentMismatch, !nativeMigrationBusy, !nativeMigrationConfirmation else { return }
         let allowCreate = explicitConsent && nativePendingConsent
         nativePendingConsent = false
         let generation = nativeGeneration.snapshot(), token = nativeGeneration, workLock = nativeWorkLock
@@ -131,7 +136,82 @@ extension AppStore {
                 }
             case .failure(let error):
                 if outcome.1 > 0 { self.reload() }
+                if case NativeCloudError.environmentMismatch(source: "Development", destination: "Production") = error {
+                    self.nativeEnvironmentMismatch = true
+                }
                 self.nativeSyncStatus = [self.projectionDiagnostics.summary, "Sync paused: \(error.localizedDescription)"].compactMap { $0 }.joined(separator: " ")
+            }
+        }
+    }
+
+    func requestNativeMigration() {
+        guard nativeSyncMode == .iCloud, nativeEnvironmentMismatch, !nativeMigrationBusy, !nativeMigrationConfirmation else { return }
+        invalidateNativeSync()
+        nativeEnvironmentMismatch = true
+        nativeMigrationBusy = true
+        let generation = nativeGeneration.snapshot(), token = nativeGeneration, workLock = nativeWorkLock
+        let log = dataURL
+        nativeTask = Task { [weak self] in
+            let result = await Task.detached(priority: .utility) { () -> Result<NativeCloudEnvironmentMigration.Offer, Error> in
+                do {
+                    workLock.lock(); defer { workLock.unlock() }
+                    let folder = log.deletingLastPathComponent()
+                    let scoped = folder.startAccessingSecurityScopedResource()
+                    defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+                    return .success(try NativeCloudEnvironmentMigration.offer(eventLogURL: log, isValid: { token.valid(generation) }))
+                } catch { return .failure(error) }
+            }.value
+            guard let self, token.valid(generation), self.dataURL == log, self.nativeSyncMode == .iCloud else { return }
+            self.nativeTask = nil
+            self.nativeMigrationBusy = false
+            switch result {
+            case .success(let offer):
+                self.setNativeMigrationOffer(offer)
+                self.nativeMigrationConfirmation = true
+            case .failure(let error):
+                self.nativeSyncStatus = self.nativeStatus("Sync paused: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func cancelNativeMigration() {
+        guard !nativeMigrationConfirmed else { return }
+        let hadOffer = takeNativeMigrationOffer() != nil
+        guard nativeMigrationBusy || nativeMigrationConfirmation || hadOffer else { return }
+        invalidateNativeSync()
+        nativeEnvironmentMismatch = true
+    }
+
+    func confirmNativeMigration() {
+        guard nativeSyncMode == .iCloud, nativeEnvironmentMismatch, !nativeMigrationBusy, let offer = takeNativeMigrationOffer() else { return }
+        invalidateNativeSync()
+        nativeEnvironmentMismatch = true
+        nativeMigrationBusy = true
+        nativeMigrationConfirmed = true
+        let generation = nativeGeneration.snapshot(), token = nativeGeneration, workLock = nativeWorkLock
+        let log = dataURL
+        nativeTask = Task { [weak self] in
+            let result = await Task.detached(priority: .utility) { () -> Result<Void, Error> in
+                do {
+                    workLock.lock(); defer { workLock.unlock() }
+                    let folder = log.deletingLastPathComponent()
+                    let scoped = folder.startAccessingSecurityScopedResource()
+                    defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+                    _ = try NativeCloudEnvironmentMigration.migrate(offer: offer, isValid: { token.valid(generation) })
+                    return .success(())
+                } catch { return .failure(error) }
+            }.value
+            guard let self, token.valid(generation), self.dataURL == log, self.nativeSyncMode == .iCloud else { return }
+            self.nativeTask = nil
+            self.nativeMigrationBusy = false
+            self.nativeMigrationConfirmed = false
+            switch result {
+            case .success:
+                self.nativeEnvironmentMismatch = false
+                self.reload()
+                self.startNativeSync()
+            case .failure(let error):
+                self.nativeSyncStatus = self.nativeStatus("Sync paused: \(error.localizedDescription)")
             }
         }
     }

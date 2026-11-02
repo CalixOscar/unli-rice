@@ -81,6 +81,16 @@ final class AppStore: ObservableObject {
     @Published var projectionDiagnostics = ProjectionDiagnostics()
     @Published var nativeSyncMode: NativeSyncMode = .privateDevice
     @Published var nativeSyncStatus: String = "On this device"
+    @Published var nativeEnvironmentMismatch = false
+    @Published var nativeMigrationBusy = false
+    @Published var nativeMigrationConfirmation = false
+    var nativeMigrationConfirmed = false
+    private var nativeMigrationOffer: NativeCloudEnvironmentMigration.Offer?
+    func setNativeMigrationOffer(_ offer: NativeCloudEnvironmentMigration.Offer?) { nativeMigrationOffer = offer }
+    func takeNativeMigrationOffer() -> NativeCloudEnvironmentMigration.Offer? {
+        defer { nativeMigrationOffer = nil }
+        return nativeMigrationOffer
+    }
     var nativeGeneration = NativeSyncGeneration()
     let nativeWorkLock = NSLock()
     var nativeTask: Task<Void, Never>?

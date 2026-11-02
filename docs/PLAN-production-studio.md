@@ -398,3 +398,116 @@ fold is not an account change. No automatic migration on retry/startup.
 Verify iOS host Simulator build and diff check; Q5 fixture tests must later cover
 visibility/cancellation where feasible without real cloud. No live-store test
 bypasses or production launch flags.
+
+
+### B4c — build-light: modal migration confirmation
+
+Review found confirmationDialog outside-tap dismissal can strand Capture's opaque
+offer while visible state is false. Avoid ordering-dependent deferred cleanup or
+a second consent-ticket slot. Use SwiftUI .alert for migration confirmation only
+on both platforms, same exact text/buttons; modal alert has explicit Cancel and
+Continue rather than iPad popover outside-tap dismissal. Existing invalidation
+and Capture fold/lock cancellation remain. ConnectView.onDisappear discards
+pending offer. As fail-closed recovery, a fresh Capture request may clear an
+existing unpresented offer before obtaining a fresh one (never migrate it).
+No generation/canonical/source safety changes. Allowed ConnectView.swift,
+CaptureView.swift and CaptureStore.swift only; verify both host builds/diff.
+
+
+### B2d — build: owned UIKit privacy boundary for presented content
+
+Astra reviewed B2c's remaining UIKit-backed TextView hierarchy membership. Retain
+root workspace boundaries; put ONLY CapturePrivacyCover private content in stable
+CapturePrivateContentHost<Content>: UIViewControllerRepresentable. Its owned
+container owns one UIHostingController<EnvironmentBridge<Content>>, attached once
+with proper child containment and pinned edges. Capture @Environment(\.self) at
+mounted modifier/representable, apply full captured EnvironmentValues with
+content.environment(\.self, values) in stable bridge, update same concrete root
+type. SDK/typecheck verified writable self keypath forwards read-only dismiss
+and environment objects; no default/new environment bag, no injected fake dismiss.
+
+When concealed call endEditing(true), set owned container view accessibilityElementsHidden,
+isUserInteractionEnabled=false and hosted child view.isHidden=true. Keep it mounted
+and size unchanged; reveal reverses flags. Voice/lock overlays remain siblings
+outside boundary. No ancestor/window scanning, conditional controller creation,
+.id reset, or sheet dismissal on fold. Fill sheet frame; sizingOptions=[]; optional
+sizeThatFits returns finite full proposed size only, otherwise nil. All callers
+are full-sheet NavigationStack/NavView content; no intrinsic sizing feedback.
+
+Allowed new CapturePrivateContentHost.swift and CaptureStudioStyle.swift only.
+xcodegen generate then iOS host build/diff. Q5 must check two fold/open cycles,
+draft preservation, keyboard removal, concealed editor/sentinel absence, lock,
+Cancel/Save dismissal, voice/unlock accessibility. Native containment keeps draft
+identity; runtime verification remains mandatory. XCTest exists alone is hierarchy
+membership, not proof of actual VoiceOver disclosure. Do not overstate evidence.
+
+
+### B4d — build: Mac preparation lifecycle cancellation
+
+Claude source review identified pane-disappearance while offer preparation is
+busy. Track nativeMigrationConfirmed on Mac (false on invalidate, true only after
+Continue consumes offer, false on valid completion). cancelNativeMigration guards
+!confirmed, discards any offer, and if preparing/offered/presented invalidates
+native generation/task then restores typed mismatch pause. ConnectView calls this
+unconditionally onDisappear. Confirmed migration is unaffected by pane navigation,
+but account/mode/corpus changes still invalidate. No deferred cleanup or extra
+consent slot. Allowed AppStore.swift, AppStore+NativeSync.swift, ConnectView.swift.
+Mac host build + diffcheck, root review. Mismatch after Cancel deliberately stays
+paused; explicit Retry rechecks it, Move prepares fresh offer, account observers
+invalidate stale pause. No automatic binding rewrite.
+
+
+### B1b — build: exclusive project flip and open gestures
+
+Q5 diagnostic proved Beta→Gamma swipe also opened Beta detail (before reverse
+gesture screenshot already shows detail). Card Button tap recognizer coexists with
+parent simultaneous DragGesture, causing dual action. Replace card Button with
+its sleeve view and a single exclusive gesture composition per card: DragGesture
+(minimumDistance40).exclusively(before: TapGesture()), attached simultaneously
+so parent vertical scrolling remains possible. On first result, only horizontal
+dominant translation selects neighboring front; on second result run existing
+tap behavior (front opens, future peek selects). Remove duplicate parent drag.
+Keep accessibility button trait, explicit action performing same tap behavior,
+existing identifier/label, adjustable action and44pt arrows. No draft/sync/recorder
+changes. Only CaptureProjectDeck.swift. Build then Q5 verifies swipe does not open
+detail, reverse swipe and tap still open expected project, selection refresh/fold.
+
+
+B1b1 review correction (build-light): replacing Button exposed multiple sleeve
+children with inherited button trait/identifier. Insert
+`.accessibilityElement(children: .ignore)` on sleeve before button traits/actions
+and explicit label/identifier, producing one semantic button per front sleeve.
+Only CaptureProjectDeck.swift. Retain Q5 single-match selector; do not mask
+duplicates with firstMatch. Generic Simulator build/diff and deck UI recheck.
+
+
+### B2e — build-light: combined hosted SwiftUI accessibility exclusion
+
+Astra verified synthetic native probes: same editor identity and draft through two
+folds; concealed actual native ancestors hidden/AXhidden and interaction disabled,
+firstResponder false. Plain UIKit calibration disappears from XCUI query, so
+claim that XCTest always includes hidden UIKit is unsupported. Remaining SwiftUI
+snapshot projection is hypothesis, not proven VoiceOver disclosure. Restore BOTH
+layers: add concealed Bool to stable CaptureEnvironmentBridge, pass from host
+at all construction/update sites. Its body applies content.accessibilityElement
+(children: concealed ? .ignore : .contain).accessibilityHidden(concealed)
+.allowsHitTesting(!concealed).environment(\.self,values). Keep UIKit concealment,
+root concrete type and mounted identity unchanged. Only CapturePrivateContentHost.swift.
+Build/diff then strict editor/sentinel absence plus identity/draft/dismissal checks.
+If this fails stop source changes again, inspect actual AX projection/VoiceOver;
+no speculative modifier accumulation or assertion weakening.
+
+
+Q5 privacy investigation gate after B2e: strict concealed-editor query still fails,
+while native flags/identity/drafts and opaque lock screenshot pass. STOP production
+changes. Astra says cross-host ViewModifier.Content proxy hypothesis is plausible
+but unproved. QA-only matched A/B: identical synthetic concrete editor + NavigationStack
+in identical sheet, environment and overlays, (A) current .modifier(CapturePrivacyCover())
+proxy path, (B) same concrete view directly in CapturePrivateContentHost under a
+QA-only copy of exact overlay/conditions/detents. Never change content identity
+while folding; vary launch choice only. Include ordinary SwiftUI TextEditor native
+visibility calibration. Two folds/dismissal, exact hierarchy/value/native flags/
+identity/keyboard/hit-test and screenshots. If concrete succeeds and proxy fails,
+settle explicit generic wrapper design before builder touches production. If both
+fail, inspect Accessibility Inspector/actual VoiceOver, no speculative rewrite or
+assertion weakening. Only existing /tmp Q5 harness files may change.

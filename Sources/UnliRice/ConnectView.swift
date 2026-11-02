@@ -55,8 +55,17 @@ struct ConnectView: View {
         } message: {
             Text("This resumes the older capture sync through your chosen shared folder.")
         }
+        .alert("Move this device to the released iCloud connection?", isPresented: $store.nativeMigrationConfirmation) {
+            Button("Continue") { store.confirmNativeMigration() }
+            Button("Cancel", role: .cancel) { store.cancelNativeMigration() }
+        } message: {
+            Text("Your notes stay on this device, with a recovery copy. Notes, transcripts, to-dos and project summaries will sync with the same Apple account. Other devices may need this update too. Recordings and repositories stay local.")
+        }
         .onAppear {
             store.refreshTrustCenter()
+        }
+        .onDisappear {
+            store.cancelNativeMigration()
         }
     }
 
@@ -91,7 +100,12 @@ struct ConnectView: View {
             if store.nativeSyncMode == .iCloud {
                 HStack {
                     Button("Retry iCloud Setup") { confirmingCloudSync = true }
+                        .disabled(store.nativeMigrationBusy || store.nativeMigrationConfirmation)
                     Button("Stop iCloud Sync") { store.stopNativeSync() }
+                }
+                if store.nativeEnvironmentMismatch {
+                    Button("Move to released iCloud connection…") { store.requestNativeMigration() }
+                        .disabled(store.nativeMigrationBusy || store.nativeMigrationConfirmation)
                 }
             } else {
                 Button("Sync with iCloud…") { confirmingCloudSync = true }

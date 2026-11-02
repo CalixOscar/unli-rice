@@ -2834,3 +2834,22 @@ Founder authorized Claude source-only review; retry collision, Data slice indexi
 and namespace alias findings addressed. Root full suite633 tests,2 skipped,0failed
 (`/tmp/unlirice-production-core-root-full.log`). UI/consent hosts and real voice
 capture acceptance are unfinished; no new release/runtime migration performed.
+
+
+### Explicit Mac migration consent host — 2026-11-02
+
+Mac typed Development→Production mismatch offers an explicit action, nonmutating
+offer then modal alert and separate Continue. Retry/startup never migrate. Account,
+mode/corpus changes invalidate work; Connect pane departure cancels unconfirmed
+preparation by generation, while confirmed work may finish. Existing work lock
+serializes sync and transition. Authorized source-only Claude review identified
+preparation lifecycle gap; B4d addresses it. Root macOS build passed
+(`/tmp/unlirice-production-mac-root-b4d.log`). Capture consent source/UI and editor
+AX investigation remain uncommitted; no runtime migration or release performed.
+
+Root also checked real public-init Duo simulator hinge callbacks with synthetic
+QA app: cold closedvoiceonly, opened Studio+Todo, folded presented emptyeditor
+concealed+keyboardhidden, reopened editor restored; no physical microphone proof.
+Q5 deck swipes/tap/selection now pass; retained editor native identity/drafts pass
+2folds, but3 strict concealed editor accessibility queries still fail. Matched
+QA-only proxy/concrete experiment is next; no claim of VoiceOver acceptance.
