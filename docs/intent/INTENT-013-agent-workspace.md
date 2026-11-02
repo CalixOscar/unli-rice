@@ -14,3 +14,6 @@ A successful owner can identify the project, conversation, observed branch/workt
 
 ## Boundaries and open choices
 This is not approval to clone Orca, hide branches, run unattended agents, override provider safeguards, auto-approve, merge, publish, or build. Folder-only projects remain possible. Chat, task, run, and observed Git association are separate concepts. The default view, execution/distribution boundary, and degree of session control are not yet decided. Local models and Cursor are later possibilities. See the draft spec and plan; founder approval follows discovery review.
+
+## Founder clarification — 2026-11-03
+If the Mac App Store route cannot support the required capabilities, plan a **separate desktop app distributed through GitHub**, outside the Mac App Store, initially. Founder confirmed this means the download/distribution channel, not a restriction to GitHub-hosted repositories. It remains a Mac desktop app; exact product identity, runtime, packaging and sharing with the existing Unli Rice app require design. This accepts a fallback, not the whole draft intent or implementation. Do not create a new project, target, bundle, store or migration in this planning pass.

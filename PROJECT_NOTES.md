@@ -2879,3 +2879,8 @@ new upload/public review or real recorded-capture receipt acceptance performed.
 ## Agent workspace exploration — planning only (2026-11-03)
 
 Founder requested “Start a plan, hand the plan to Claude but do not build anything yet,” with remaining assistant usage limited. Draft intent `docs/intent/INTENT-013-agent-workspace.md`, proposed `docs/SPEC-agent-workspace.md`, and `docs/PLAN-agent-workspace.md` record the exploration at baseline `aa91d60`. The founder wants existing repo tiles to make branches visible in plain language, plus understandable conversation state, prioritized usage pauses, scoped shared memory and manual bridges between assistants. One editing agent per project initially was accepted; default navigation, actual provider capabilities and execution/distribution boundary remain open. Drafts are not founder approval, a settled pre-mortem or authorization to build. No product source or runtime changes were made in preparing them.
+
+
+## Agent workspace distribution fallback clarified (2026-11-03)
+
+Founder confirmed that if the Mac App Store path cannot deliver the necessary capabilities, the fallback is a separate desktop app distributed through GitHub initially. This means the download channel, not a restriction to GitHub repositories. Claude's preliminary discovery critique is preserved in `docs/dialogue/agent-workspace.md`; Codex appended this clarification without starting another Claude run. Standalone versus companion, safe shared-note access and provider feasibility remain open. No new app, repo, target, signing change or data migration was created.
