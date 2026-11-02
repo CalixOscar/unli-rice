@@ -71,7 +71,7 @@ The gear menu holds Setup, the Trust Center and archived notes. Setup › Extras
 STAYS OUT OF YOUR WAY
 Background work is off unless you turn it on, and each background job has its own switch. Nothing running unattended can exceed the app's own limits: it may only tag and flag, imports may only create and append, and every structural question is yours to answer.
 
-Unli Rice runs entirely on your Mac. No account, no analytics, no cloud sync, no bundled model. The reasoning comes from whichever AI tool you connect, and the optional embedding connection is restricted to localhost.
+Unli Rice stores notes locally by default. Optional iCloud sync shares note text, transcribed captures, tags, to-dos and project summaries with your devices using the same Apple account. Recordings and repository source files stay local. There is no separate Unli Rice account, analytics, tracking or bundled model. The reasoning comes from whichever AI tool you connect, and the optional embedding connection is restricted to localhost.
 
 Unli Rice is open source and MIT licensed.
 ```

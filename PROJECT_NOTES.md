@@ -2894,3 +2894,8 @@ Founder requested gathering all related assistant sessions under each Unli Rice 
 ## Agent workspace becomes a cross-platform open-source proposal (2026-11-03)
 
 Founder chose a new open-source app for macOS and Windows, distributed outside the Mac App Store through GitHub, superseding the conditional Mac-only fallback. They asked whether to embed Unli Rice features. The draft recommendation is basic local project memory plus optional consented Unli Rice integration, not a full product transplant; this recommendation is not yet accepted. Existing code is reference, Windows integration is unproven, new name/repo/license/runtime and external demand evidence are unsettled. Draft documents and Idea Clinic record reflect this; no app bootstrap, implementation, publishing or additional Claude run occurred.
+
+
+## Existing-app release work resumed and public privacy corrected (2026-11-03)
+
+Founder requested publishing both existing apps with the new iCloud settings, pausing the separate open-source workspace exploration. Fresh ASC reads found Mac 1.5.1 (13) Ready to Submit, public Mac1.5, public Capture1.1 and old internal-only Capture1.3(9). The public privacy URL still served July copy. A target-only GitHub update published the reviewed local native-iCloud policy in e74bc25274a6518226a2c8e2405a4b4cf611c302; fresh file read exactly matched local PRIVACY.md. No source branch was pushed. Local release copy and bounded readiness/prelaunch assessment were updated. Actual store metadata/screenshots, Capture exact candidate and independent concealed-editor accessibility acceptance remain gates; no review submission is claimed here.
