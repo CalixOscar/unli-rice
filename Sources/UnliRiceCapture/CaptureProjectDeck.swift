@@ -26,12 +26,21 @@ struct CaptureProjectDeck: View {
                 ForEach(visibleIndices, id: \.self) { index in
                     let project = projects[index]
                     let distance = index - front
-                    Button {
-                        if distance == 0 { open(project) } else if distance > 0 { select(index) }
-                    } label: {
-                        sleeve(project)
-                    }
-                    .buttonStyle(.plain)
+                    sleeve(project)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 40).exclusively(before: TapGesture()).onEnded { result in
+                            switch result {
+                            case .first(let value):
+                                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                                select(front + (value.translation.width < 0 ? 1 : -1))
+                            case .second:
+                                tap(project, index: index, distance: distance)
+                            }
+                        }
+                    )
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { tap(project, index: index, distance: distance) }
                     .scaleEffect(distance < 0 ? 0.94 : 1 - 0.06 * Double(distance))
                     .offset(x: distance < 0 ? -side * 0.6 : peek / 3 * CGFloat(distance))
                     .opacity(distance < 0 ? 0 : 1)
@@ -44,10 +53,6 @@ struct CaptureProjectDeck: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .simultaneousGesture(DragGesture(minimumDistance: 40).onEnded { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                select(front + (value.translation.width < 0 ? 1 : -1))
-            })
             .accessibilityAdjustableAction { direction in
                 switch direction {
                 case .increment: select(front + 1)
@@ -93,6 +98,10 @@ struct CaptureProjectDeck: View {
         .background(CaptureStudioStyle.color(covers[GardenCrate.stableIndex(project.id, modulo: 8)], scheme), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
         .contentShape(Rectangle())
+    }
+
+    private func tap(_ project: StudioOverviewFile.Project, index: Int, distance: Int) {
+        if distance == 0 { open(project) } else if distance > 0 { select(index) }
     }
 
     private func select(_ index: Int) {

@@ -2853,3 +2853,24 @@ concealed+keyboardhidden, reopened editor restored; no physical microphone proof
 Q5 deck swipes/tap/selection now pass; retained editor native identity/drafts pass
 2folds, but3 strict concealed editor accessibility queries still fail. Matched
 QA-only proxy/concrete experiment is next; no claim of VoiceOver acceptance.
+
+
+### Capture Duo source checkpoint and verification gate — 2026-11-02
+
+Hinge presentation uses public UIHingeInteraction27.1+ with generation/window
+guards and closed-safe initial state; standard iOS26 devices retain navigation.
+Opened Duo ArrangementView shows Studio+Todo; workspace/sheets remain mounted
+under closed/lock covers so drafts persist. Exclusive deck drag/tap prevents
+swipes from also opening detail; one semantic button per front sleeve. Capture
+explicit migration consent mirrors Mac generation/work-lock guards. Root combined
+Simulator build passed (/tmp/unlirice-production-capture-root-final-local.log).
+
+Q5 strict6/9 pass,3 concealed editor.exists queries unresolved; separate3native/
+draft diagnostics pass2folds/dismissal and iPadordinary1/1pass. Root actual DeviceHub
+public-init hinge callbacks coldclosed/open/partial/editorfold/reopen verified.
+ABproxy/concrete equalstrictfailure, ordinarySwiftUI hidden editor alsoqueryable,
+plainUIKitnot. No production rewrite justified or actualVoiceOver verdict. Source
+changes paused pending independent Inspector verification, currently blocked by
+CUA DeviceHub ScreenCaptureKit -3812 after viewer WindowFill; user reconnect asked.
+ASCbrowserlogin expired, user signin asked. No app replacement, link migration,
+new upload/public review or real recorded-capture receipt acceptance performed.

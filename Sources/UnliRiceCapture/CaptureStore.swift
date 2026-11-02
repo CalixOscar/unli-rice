@@ -58,6 +58,11 @@ private final class NativeGeneration: @unchecked Sendable {
     func isValid() -> Bool { lock.lock(); defer { lock.unlock() }; return valid }
 }
 
+private func withNativeWorkLock<T>(_ lock: NSLock, _ work: () throws -> T) rethrows -> T {
+    lock.lock(); defer { lock.unlock() }
+    return try work()
+}
+
 @MainActor
 public final class CaptureStore: ObservableObject {
     /// The store the app and the Action Button intent both work through.
@@ -97,6 +102,13 @@ public final class CaptureStore: ObservableObject {
     @Published public private(set) var receivedCaptureIDs: Set<UUID> = []
     @Published public var sharedFolderURL: URL?
     @Published public private(set) var nativeSyncMode: NativeSyncMode = .privateDevice
+    @Published public private(set) var nativeEnvironmentMismatch = false
+    @Published public private(set) var nativeMigrationBusy = false
+    @Published public var nativeMigrationConfirmation = false
+    private var nativeMigrationOffer: NativeCloudEnvironmentMigration.Offer?
+    private var nativeMigrationTask: Task<Void, Never>?
+    private var nativeMigrationConfirmed = false
+    private let nativeWorkLock = NSLock()
     @Published public private(set) var overviewRevision = 0
     private var nativeOverview: StudioOverviewFile?
     private var nativeOverviewError: String?
@@ -368,6 +380,10 @@ public final class CaptureStore: ObservableObject {
     /// nothing leaves the device.
     private func invalidateNative() {
         nativeGeneration.cancel()
+        nativeMigrationTask?.cancel(); nativeMigrationTask = nil
+        nativeMigrationOffer = nil; nativeMigrationConfirmation = false
+        nativeMigrationBusy = false; nativeMigrationConfirmed = false
+        nativeEnvironmentMismatch = false
         nativeExplicitRetryPending = false
         nativeGeneration = NativeGeneration()
         discovery?.stop(); discovery = nil
@@ -557,29 +573,37 @@ public final class CaptureStore: ObservableObject {
     }
 
     private func startNativeSync(allowCreate: Bool) {
-        guard nativeSyncMode == .iCloud, preferenceError == nil else { return }
+        guard nativeSyncMode == .iCloud, preferenceError == nil, !nativeEnvironmentMismatch, !nativeMigrationBusy, nativeMigrationOffer == nil else { return }
         if nativeWorking { nativeRetryPending = true; nativeExplicitRetryPending = nativeExplicitRetryPending || allowCreate; return }
         nativeWorking = true
         syncStatus = "Syncing with iCloud…"
         showProjectionWarning()
-        let generation = nativeGeneration, log = logURL, device = deviceIdentity.id
+        let generation = nativeGeneration, log = logURL, device = deviceIdentity.id, workLock = nativeWorkLock
         let discovered = discovery?.urls ?? []
         Task.detached { [weak self] in
-            do {
+            let outcome: Result<(NativeCloudSession, NativeCloudTransport.Result, NativeCloudTransport.OverviewResult, Set<UUID>), Error> = {
+              do {
+                return try withNativeWorkLock(workLock) {
                 let session = try NativeCloudSession.resolve(eventLogURL: log, allowCreate: allowCreate, isValid: { generation.isValid() })
                 let current = { generation.isValid() && session.isCurrentAccount() }
                 let result = try NativeCloudTransport.synchronize(eventLogURL: log, rootURL: session.rootURL, binding: session.binding, deviceID: device, accountIsCurrent: current, discoveredURLs: discovered)
                 let overview = try NativeCloudTransport.latestOverview(rootURL: session.rootURL, accountIsCurrent: current, discoveredURLs: discovered)
                 let receipts = try NativeCloudTransport.receivedCaptureIDs(rootURL: session.rootURL, accountIsCurrent: current, discoveredURLs: discovered)
                 guard current() else { throw NativeCloudTransport.TransportError.accountChanged }
+                return .success((session, result, overview, receipts))
+                }
+              } catch { return .failure(error) }
+            }()
+            switch outcome {
+            case .success(let (session, result, overview, receipts)):
                 await self?.finishNative(generation: generation, root: session.rootURL, session: session, result: result, overview: overview, receipts: receipts, error: nil)
-            } catch {
-                await self?.finishNative(generation: generation, root: nil, session: nil, result: nil, overview: nil, receipts: [], error: error.localizedDescription)
+            case .failure(let error):
+                await self?.finishNative(generation: generation, root: nil, session: nil, result: nil, overview: nil, receipts: [], error: error)
             }
         }
     }
 
-    private func finishNative(generation: NativeGeneration, root: URL?, session: NativeCloudSession?, result: NativeCloudTransport.Result?, overview: NativeCloudTransport.OverviewResult?, receipts: Set<UUID>, error: String?) {
+    private func finishNative(generation: NativeGeneration, root: URL?, session: NativeCloudSession?, result: NativeCloudTransport.Result?, overview: NativeCloudTransport.OverviewResult?, receipts: Set<UUID>, error: Error?) {
         nativeWorking = false
         guard generation.isValid(), nativeSyncMode == .iCloud else {
             if nativeRetryPending { let explicit = nativeExplicitRetryPending; nativeRetryPending = false; nativeExplicitRetryPending = false; if explicit { startNativeSync(allowCreate: true) } else { sync() } }
@@ -590,9 +614,10 @@ public final class CaptureStore: ObservableObject {
         }
         if let error {
             maintainLocal()
-            nativeOverview = nil; nativeOverviewError = error; receivedCaptureIDs = []
+            if case NativeCloudError.environmentMismatch(source: "Development", destination: "Production") = error { nativeEnvironmentMismatch = true }
+            nativeOverview = nil; nativeOverviewError = error.localizedDescription; receivedCaptureIDs = []
             discovery?.stop(); discovery = nil
-            syncStatus = "iCloud sync paused: \(error)"
+            syncStatus = "iCloud sync paused: \(error.localizedDescription)"
         } else if let result, let overview, let root {
             nativeOverview = overview.overview; nativeOverviewError = overview.overview == nil ? overview.issues.first : nil
             maintainLocal()
@@ -608,6 +633,62 @@ public final class CaptureStore: ObservableObject {
         showProjectionWarning()
         overviewRevision += 1
         if nativeRetryPending { let explicit = nativeExplicitRetryPending; nativeRetryPending = false; nativeExplicitRetryPending = false; if explicit { startNativeSync(allowCreate: true) } else { sync() } }
+    }
+
+    public func requestNativeMigration() {
+        guard nativeSyncMode == .iCloud, nativeEnvironmentMismatch, !nativeMigrationBusy, !nativeMigrationConfirmation else { return }
+        nativeMigrationOffer = nil
+        invalidateNative(); nativeEnvironmentMismatch = true; nativeMigrationBusy = true
+        let generation = nativeGeneration, log = logURL, workLock = nativeWorkLock
+        nativeMigrationTask = Task { [weak self] in
+            let result = await Task.detached { () -> Result<NativeCloudEnvironmentMigration.Offer, Error> in
+                do {
+                    return try withNativeWorkLock(workLock) {
+                    let folder = log.deletingLastPathComponent()
+                    let scoped = folder.startAccessingSecurityScopedResource()
+                    defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+                    return .success(try NativeCloudEnvironmentMigration.offer(eventLogURL: log, isValid: { generation.isValid() }))
+                    }
+                } catch { return .failure(error) }
+            }.value
+            guard let self, generation.isValid(), self.logURL == log, self.nativeSyncMode == .iCloud else { return }
+            self.nativeMigrationTask = nil; self.nativeMigrationBusy = false
+            switch result {
+            case .success(let offer): self.nativeMigrationOffer = offer; self.nativeMigrationConfirmation = true
+            case .failure(let error): self.syncStatus = "iCloud sync paused: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    public func cancelNativeMigrationPreparation() {
+        guard !nativeMigrationConfirmed, nativeMigrationBusy || nativeMigrationOffer != nil || nativeMigrationConfirmation else { return }
+        invalidateNative(); nativeEnvironmentMismatch = true
+    }
+
+    public func confirmNativeMigration() {
+        guard nativeSyncMode == .iCloud, nativeEnvironmentMismatch, !nativeMigrationBusy, let offer = nativeMigrationOffer else { return }
+        invalidateNative(); nativeEnvironmentMismatch = true; nativeMigrationBusy = true; nativeMigrationConfirmed = true
+        let generation = nativeGeneration, log = logURL, workLock = nativeWorkLock
+        nativeMigrationTask = Task { [weak self] in
+            let result = await Task.detached { () -> Result<Void, Error> in
+                do {
+                    return try withNativeWorkLock(workLock) {
+                    let folder = log.deletingLastPathComponent()
+                    let scoped = folder.startAccessingSecurityScopedResource()
+                    defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+                    _ = try NativeCloudEnvironmentMigration.migrate(offer: offer, isValid: { generation.isValid() })
+                    return .success(())
+                    }
+                } catch { return .failure(error) }
+            }.value
+            guard let self, generation.isValid(), self.logURL == log, self.nativeSyncMode == .iCloud else { return }
+            self.nativeMigrationTask = nil; self.nativeMigrationBusy = false; self.nativeMigrationConfirmed = false
+            switch result {
+            case .success:
+                self.nativeEnvironmentMismatch = false; self.maintainLocal(); self.startNativeSync(allowCreate: false)
+            case .failure(let error): self.syncStatus = "iCloud sync paused: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// Writes the open to-dos where the iPhone widget reads them, and asks it to redraw.

@@ -44,9 +44,13 @@ extension View {
 
 struct CapturePrivacyCover: ViewModifier {
     @ObservedObject private var lock = AppLock.shared
+    @EnvironmentObject private var store: CaptureStore
+    @EnvironmentObject private var presentation: CapturePresentation
     func body(content: Content) -> some View {
         ZStack {
-            content.accessibilityHidden(lock.isLocked)
+            CapturePrivateContentHost(content: content, concealed: lock.isLocked || presentation.voiceOnly)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if presentation.voiceOnly && !lock.isLocked { CaptureVoiceControls(store: store) }
             if lock.isLocked {
                 ZStack {
                     Theme.bgMain.ignoresSafeArea()
@@ -61,5 +65,6 @@ struct CapturePrivacyCover: ViewModifier {
                 .zIndex(1)
             }
         }
+        .presentationDetents(presentation.voiceOnly ? [.large] : [.medium, .large])
     }
 }

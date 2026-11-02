@@ -82,7 +82,7 @@ inside coordinated accessors fences new code as far as the existing contract all
 ## Ordered bounded steps
 
 - [x] P0 — planner: intent/spec, peer pre-mortem and settled dialogue.
-- [ ] B1 — build: iOS project sleeve deck (U1). Allowed CaptureStudioView.swift,
+- [x] B1 — build: iOS project sleeve deck (U1). Allowed CaptureStudioView.swift,
   CaptureView.swift, new CaptureProjectDeck.swift and CaptureStore.swift (only the transient studioSelectedProjectID field). Pass Binding into Studio. Do not alter sync or recorder semantics.
   Verify signed-out fixture Simulator build and synthetic three-project UI checks.
 - [ ] B2 — build: Duo presentation and workspace (U2–U4). Allowed CaptureView.swift,
@@ -96,7 +96,7 @@ inside coordinated accessors fences new code as far as the existing contract all
   NativeCloudTransport.swift (namespace only); focused migration/binding/transport
   tests and identity fixture. No changes to event fold or existing cursor bytes.
   Verify focused tests then root full suite.
-- [ ] B4 — build: explicit migration consent/status hosts (S1/S3). Allowed
+- [x] B4 — build: explicit migration consent/status hosts (S1/S3). Allowed
   Mac AppStore.swift, AppStore+NativeSync.swift, ConnectView.swift; CaptureStore.swift,
   CaptureView.swift; focused host/UI fixtures. No migration on retry or launch.
 - [ ] P5 — planner: review diffs and Claude post-mortem; full suite, signed builds,
@@ -511,3 +511,35 @@ identity/keyboard/hit-test and screenshots. If concrete succeeds and proxy fails
 settle explicit generic wrapper design before builder touches production. If both
 fail, inspect Accessibility Inspector/actual VoiceOver, no speculative rewrite or
 assertion weakening. Only existing /tmp Q5 harness files may change.
+
+
+## Current verification gate — 2026-11-02
+
+Root final combined Capture build passed (/tmp/unlirice-production-capture-root-final-local.log),
+Mac rootbuild passed; core633tests2skipped0failed. Q5 currentstrictsuite6of9pass:
+deckboundary/swipe/tap/selection, large type, ordinaryphone, closedvoice, lockedclosed,
+syntheticrecordingstates. Three concealed editor.exists assertions fail; all3 separate
+native/draftdiagnostics pass. iPadordinary1of1pass. Real DeviceHub public-init cold
+closed/open/partiallyopen/editorfold/reopen/finalclosed callbacks observed by root.
+No physical mic or actual VoiceOver acceptance. B2 and P5 remain open.
+
+Matched proxy/concrete A/B both failstrictqueries identically but preserve draft
+identity2folds/Cancel/nativehidden+AXhidden/no keyboard/no hit. Ordinary SwiftUI
+TextEditor with opacity0/accessibilityHidden/nohit remains queryable in XCT, even
+reports hittable; plain UIKit calibration disappears. Root inspected harness: hidden
+state is @Published, not a missing observation bug. This does not prove actual
+VoiceOver disclosure or justify a proxy-only rewrite. Evidence under /tmp/unlirice-
+production-ui-qa/{attachments-ab,native-ab,result-ab.xcresult,ab.log}. Source changes
+STOP pending independent Accessibility Inspector/actual VoiceOver verification.
+
+Root launched Accessibility Inspector and selected synthetic QA process only;
+no element traversal obtained. CUA DeviceHub pointer click failed windowNotFound;
+WindowFill then caused ScreenCaptureKit -3812 invalid-parameter on all DeviceHub
+reads, including rebind/reset. Other apps remain accessible. Asked founder to reopen
+DeviceHub. QAapp remains synthetic fixture, current unsaved draft marker typed by
+root is Inspector draft sentinel; CaptureKeyboard toggled on in QAviewer. No real
+notes/accounts/apps changed. AppStoreConnect browser session also expired at
+authResult=FAILED; founder asked to sign in. Capture latest9/1.3 was read immediately
+before expiry, Maclatest12 only priorverified context, must recheck before counters.
+No speculative release bump, archive/upload or live migration. Original purple
+lantern targeted MCP search remains empty.

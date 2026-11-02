@@ -142,3 +142,19 @@ shared missing lifecycle cancellation with finding3 is accepted. B4d unifies Mac
 preparation cancellation with Capture: generation invalidation for unconfirmed
 work on pane disappearance, preserve already-confirmed work. No new migration
 without Continue. Reviewer review did not establish a consent-bypass hole.
+
+
+## codex — verification gate — 2026-11-02
+
+B1b exclusive card gestures fixed simultaneous flip+detail-opening and B1b1
+collapses card semantic children; Q5 deck now passes both swipe directions,
+selectionrefresh/fold and deliberate tap. B2e retains both UIKit and SwiftUI
+concealment and drafts2folds/dismissal pass. Three strict XCUI editor-absence
+queries still fail. Astra stopped further production changes; proxy/concrete
+matched A/B fails identically, so no generic-wrapper rewrite authorized. Ordinary
+SwiftUI hidden-editor calibration is also queryable, plain UIKit calibration is
+not. No actual VoiceOver verdict. Root real hinge public-init callback checks pass
+with private synthetic fixture. Independent Inspector traversal blocked by CUA
+ScreenCaptureKit -3812 after QAviewer resize; user asked reopen. AppStoreConnect
+auth expired and login asked. No source readiness/release/realcapture acceptance
+claimed. See plan Current verification gate and QA artifacts for exact evidence.

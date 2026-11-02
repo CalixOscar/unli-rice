@@ -7,6 +7,8 @@ public struct CaptureView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var store: CaptureStore
     @StateObject private var player = CapturePlayer()
+    @StateObject private var presentation: CapturePresentation
+    private let observesHinge: Bool
     @StateObject private var lock = AppLock.shared
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
@@ -29,17 +31,29 @@ public struct CaptureView: View {
         // The shared store, so the mic button and the Action Button are two
         // controls over one recording rather than two independent ones.
         _store = StateObject(wrappedValue: store ?? CaptureStore.shared)
+        _presentation = StateObject(wrappedValue: CapturePresentation())
+        observesHinge = true
+    }
+
+    @MainActor
+    init(store: CaptureStore, presentation: CapturePresentation) {
+        _store = StateObject(wrappedValue: store)
+        _presentation = StateObject(wrappedValue: presentation)
+        observesHinge = false
     }
 
     public var body: some View {
         ZStack {
             mainContent
+                .accessibilityElement(children: lock.isLocked ? .ignore : .contain)
+                .accessibilityHidden(lock.isLocked)
+                .allowsHitTesting(!lock.isLocked)
 
             if lock.isLocked {
                 lockScreen
             }
 
-            if showWelcomeSplash {
+            if showWelcomeSplash && !presentation.voiceOnly && !lock.isLocked && !store.captureInFlight {
                 WelcomeSplashView {
                     hasSeenWelcomeSplash = true
                     showWelcomeSplash = false
@@ -49,6 +63,28 @@ public struct CaptureView: View {
                 .zIndex(1)
             }
         }
+        .environmentObject(store)
+        .environmentObject(presentation)
+        .background {
+            if observesHinge { CaptureHingeObserver(presentation: presentation).frame(width: 0, height: 0) }
+        }
+        .onChange(of: presentation.voiceOnly) { _, voiceOnly in
+            if voiceOnly { store.cancelNativeMigrationPreparation() }
+        }
+        .onChange(of: lock.isLocked) { _, locked in
+            if locked { store.cancelNativeMigrationPreparation() }
+        }
+    }
+
+    private var folderChoicePresentation: Binding<Bool> {
+        Binding(
+            get: { showFolderChoice && !presentation.voiceOnly && !lock.isLocked && !store.captureInFlight },
+            set: { value in
+                if !presentation.voiceOnly && !lock.isLocked && !store.captureInFlight {
+                    showFolderChoice = value
+                }
+            }
+        )
     }
 
     private func recordForProject(_ project: StudioOverviewFile.Project) {
@@ -64,18 +100,23 @@ public struct CaptureView: View {
             Theme.bgMain
                 .ignoresSafeArea()
 
+            ZStack {
             VStack(spacing: 16) {
                 header
-                Picker("Page", selection: $page) {
-                    Text("Studio").tag("Studio")
-                    Text("Capture").tag("Capture")
-                    Text("To do").tag("To do")
+                if !presentation.hasSeenHinge {
+                    Picker("Page", selection: $page) {
+                        Text("Studio").tag("Studio")
+                        Text("Capture").tag("Capture")
+                        Text("To do").tag("To do")
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
                 Text(store.syncStatus).font(.caption).foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                if page == "Studio" {
+                if presentation.hasSeenHinge {
+                    duoWorkspace
+                } else if page == "Studio" {
                     CaptureStudioView(store: store, onRecordForProject: recordForProject,
                                       selectedID: $store.studioSelectedProjectID)
                     if store.captureInFlight {
@@ -121,6 +162,12 @@ public struct CaptureView: View {
                 }
             }
             .padding(horizontalSizeClass == .regular ? 24 : 16)
+            .opacity(presentation.voiceOnly ? 0 : 1)
+            .allowsHitTesting(!presentation.voiceOnly)
+            .accessibilityElement(children: presentation.voiceOnly ? .ignore : .contain)
+            .accessibilityHidden(presentation.voiceOnly)
+            if presentation.voiceOnly { CaptureVoiceControls(store: store) }
+            }
         }
         .onAppear {
             store.resyncRecordingState()
@@ -141,7 +188,7 @@ public struct CaptureView: View {
             // content is already covered in the app switcher snapshot.
             lock.lockOnBackground()
         }
-        .alert("Where should captures go?", isPresented: $showFolderChoice) {
+        .alert("Where should captures go?", isPresented: folderChoicePresentation) {
             Button("Sync with iCloud") { store.enableNativeSync() }
             Button("Advanced: choose a folder") { showFolderPicker = true }
             Button("Keep on this device only") { store.choosePrivateMode() }
@@ -177,7 +224,7 @@ public struct CaptureView: View {
             if phase == .active { store.sync() }
         }
         .sheet(isPresented: $showSettings) {
-            settingsSheet
+            settingsSheet.modifier(CapturePrivacyCover())
         }
         .sheet(item: $selectedCapture) { capture in
             VStack(spacing: 0) {
@@ -224,6 +271,19 @@ public struct CaptureView: View {
             }
         } message: { tab in
             Text("Are you sure you want to archive '\(tab)'? Captures will remain in the vault.")
+        }
+    }
+
+    @ViewBuilder private var duoWorkspace: some View {
+        if #available(iOS 27.1, *) {
+            ArrangementView {
+                CaptureStudioView(store: store, onRecordForProject: recordForProject,
+                                  selectedID: $store.studioSelectedProjectID)
+            } secondary: {
+                TodoView(store: store)
+            }
+            .arrangementViewStyle(.split)
+            if store.captureInFlight { recordSection } else { typeNoteButton }
         }
     }
 
@@ -355,6 +415,7 @@ public struct CaptureView: View {
             .foregroundStyle(Theme.accentColor)
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
+            .frame(minHeight: 44)
             .solidControl(cornerRadius: 10)
         }
         .buttonStyle(.plain)
@@ -369,7 +430,7 @@ public struct CaptureView: View {
         // nothing at all when tapped. Attaching each sheet to the view that opens
         // it is what keeps them from competing.
         .sheet(isPresented: $showTypedNote) {
-            TypedNoteSheet(store: store)
+            TypedNoteSheet(store: store).modifier(CapturePrivacyCover())
         }
     }
 
@@ -710,7 +771,12 @@ public struct CaptureView: View {
                             Text("Existing notes, transcripts, to-dos and project summaries sync with the same Apple account. Recordings and repositories stay local.").font(.caption)
                         } else {
                             Button("Retry iCloud setup") { store.enableNativeSync() }
+                                .disabled(store.nativeEnvironmentMismatch || store.nativeMigrationBusy || store.nativeMigrationConfirmation)
                             Button("Stop syncing — keep on this device", role: .destructive) { store.choosePrivateMode() }
+                            if store.nativeEnvironmentMismatch {
+                                Button("Move to released iCloud connection…") { store.requestNativeMigration() }
+                                    .disabled(lock.isLocked || presentation.voiceOnly || store.nativeMigrationBusy || store.nativeMigrationConfirmation)
+                            }
                         }
                         Button(action: { showFileImporter = true }) {
                             HStack {
@@ -870,6 +936,12 @@ public struct CaptureView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .alert("Move this device to the released iCloud connection?", isPresented: $store.nativeMigrationConfirmation) {
+            Button("Continue") { store.confirmNativeMigration() }
+            Button("Cancel", role: .cancel) { store.cancelNativeMigrationPreparation() }
+        } message: {
+            Text("Your notes stay on this device, with a recovery copy. Notes, transcripts, to-dos and project summaries will sync with the same Apple account. Other devices may need this update too. Recordings and repositories stay local.")
+        }
         .fileImporter(
             isPresented: $showFileImporter,
             allowedContentTypes: [.folder],
@@ -882,6 +954,7 @@ public struct CaptureView: View {
         .onAppear {
             store.loadAvailableLocalesIfNeeded()
         }
+        .onDisappear { store.cancelNativeMigrationPreparation() }
     }
 }
 
