@@ -197,3 +197,19 @@ Capture 1.3 (9). This supersedes candidate 1.5 (13) for public update packaging.
 Account access and Xcode Organizer responsiveness remain unresolved.
 
 Mac 1.5.1 (13) archive succeeded at /tmp/unlirice-studio-mac-151-13/UnliRice.xcarchive; host deep/strict codesign verification passed. This is development signed, not uploaded or installed; Apple-managed distribution export remains blocked by Xcode account access. Capture remains 1.3 (9).
+
+
+### Installed Mac migration and capture receipt — 2026-11-03
+
+ASC shows Mac 1.5.1 (13) Ready to Submit in existing Family test group;
+TestFlight update installed and opened. Founder explicitly approved moving the
+existing development binding to the released iCloud connection and reading Nuptia
+context for receipt verification. GUI offer described an on-device recovery copy;
+Continue completed and the app reports iCloud sync on. Original human capture
+80688A57-D1ED-4DA6-9AD7-DA9C498BB888 is present unassigned in installed-store
+search and fresh installed-helper project context. No conversion to a to-do.
+Existing registered MCP process reported unsupported binding v3; fresh installed
+helper accepts it and reports no sync error. Reconnect the old session helper.
+Claude runtime, physical microphone/phone production sync and independent Capture
+accessibility remain unverified; no public review submission. Minimal fresh-helper
+check: /tmp/unlirice-fresh-helper-check.py and /tmp/unlirice-fresh-helper-check.log.
