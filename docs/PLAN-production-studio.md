@@ -543,3 +543,43 @@ authResult=FAILED; founder asked to sign in. Capture latest9/1.3 was read immedi
 before expiry, Maclatest12 only priorverified context, must recheck before counters.
 No speculative release bump, archive/upload or live migration. Original purple
 lantern targeted MCP search remains empty.
+
+
+### B6a — build-light: Mac candidate counters after live check
+
+Founder restored browser and DeviceHub, then requested “just use Terra until done”.
+Live ASC Nov2 confirms Mac1.5latest12, Capture1.3latest9. Mac source/consent/core
+checks pass independently of Capture's unresolved AX gate. Prepare Mac-only
+candidate13 for signed local capture/MCP acceptance; no public submission or
+Capture upload approval inferred from this preparation. Change exactly three Mac
+CURRENT_PROJECT_VERSION12 values to13 (MCP, widget, app); keep marketing1.5 and
+Capture9 unchanged. project.yml only; xcodegen generate, show Release buildsettings
+for version/env, diffcheck. Root archives/verifies candidate and reviews resulting
+build/runtime before any installation/upload. Capture AX verification continues
+on Terra; no speculative privacy-source changes.
+
+
+B6a verification: exactly3 Mac counters12→13, Capture9unchanged; generatedproject
+and Release settings pass. Root signed Mac archive succeeded at
+/tmp/unlirice-studio-mac-candidate-13/UnliRice.xcarchive. Host deepstrict signature
+passes, all5executablesuniversal, app/MCPProduction cloud entitlements/correctgroup/
+container/no taskallow. Widgetmatches13/group-only. Terra independent read-only
+review found no new source issue; sandboxtrusterror differs from passinghostcheck.
+No install/upload/submission yet. Source checkpoint candidate can support Mac
+runtime acceptance while Capture's separate AX gate remains unresolved.
+
+
+### Mac candidate 13 distribution checkpoint — 2026-11-02
+
+The candidate archive remains at /tmp/unlirice-studio-mac-candidate-13/UnliRice.xcarchive.
+Xcode GUI lookup by name and bundle ID hung and was aborted without any action. One
+host CLI export with automatic signing and provisioning updates failed exit 70:
+“Failed to Use Accounts”; App Store Connect access for team 22SNGN5JYD is required
+in Accounts settings. No upload or installation was verified. Log:
+/tmp/unlirice-studio-mac-candidate-13-export.log. Restore Xcode Organizer/account
+access before retrying; do not replace the installed App Store app with the
+development-signed archive. Independent Capture accessibility and real receipt
+gates remain open. ASC previously showed 1.5 build 11 waiting for review with
+automatic release; founder subsequently reported it went live, not independently
+verified at this checkpoint. Founder authorized review withdrawal if still possible,
+not removal from sale.

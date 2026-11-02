@@ -158,3 +158,32 @@ with private synthetic fixture. Independent Inspector traversal blocked by CUA
 ScreenCaptureKit -3812 after QAviewer resize; user asked reopen. AppStoreConnect
 auth expired and login asked. No source readiness/release/realcapture acceptance
 claimed. See plan Current verification gate and QA artifacts for exact evidence.
+
+
+## codex — Terra-only continuation and Mac candidate review — 2026-11-02
+
+Founder restored DeviceHub/ASC then instructed “just use Terra until done”.
+Remaining delegated work uses Terra medium; no new Astra or Claude calls.
+Terra independent Mac source/candidate review found no new migration invariant
+defect. Its sandbox codesign reported CSSMERR_TP_NOT_TRUSTED; root host deep/strict
+verification passed on the same untouched archive (known sandbox trust limitation,
+not waived trust). Root verified app/MCP Production CloudKit+CloudDocuments, shared
+container/group, sandbox, no get-task-allow; widgetgroup-only; all5binaries
+x86_64+arm64. Maccandidate13 signed/archivepass, not uploaded/installed. Capture
+AX independent navigation still in progress. Live ASC confirms latestMac12/Capture9.
+
+
+### Mac candidate 13 distribution checkpoint — 2026-11-02
+
+The candidate archive remains at /tmp/unlirice-studio-mac-candidate-13/UnliRice.xcarchive.
+Xcode GUI lookup by name and bundle ID hung and was aborted without any action. One
+host CLI export with automatic signing and provisioning updates failed exit 70:
+“Failed to Use Accounts”; App Store Connect access for team 22SNGN5JYD is required
+in Accounts settings. No upload or installation was verified. Log:
+/tmp/unlirice-studio-mac-candidate-13-export.log. Restore Xcode Organizer/account
+access before retrying; do not replace the installed App Store app with the
+development-signed archive. Independent Capture accessibility and real receipt
+gates remain open. ASC previously showed 1.5 build 11 waiting for review with
+automatic release; founder subsequently reported it went live, not independently
+verified at this checkpoint. Founder authorized review withdrawal if still possible,
+not removal from sale.
