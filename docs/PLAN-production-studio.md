@@ -583,3 +583,15 @@ gates remain open. ASC previously showed 1.5 build 11 waiting for review with
 automatic release; founder subsequently reported it went live, not independently
 verified at this checkpoint. Founder authorized review withdrawal if still possible,
 not removal from sale.
+
+### B6b — build-light: Mac public update version after 1.5 release
+
+Fresh ASC read confirms 1.5 (11) Ready for Distribution; it can no longer be
+withdrawn from review. Use 1.5.1 (13) for the next Mac update. In project.yml
+change exactly the three Mac MARKETING_VERSION values 1.5→1.5.1 for MCP,
+widget and app. Keep their build counters 13 and both Capture targets 1.3 (9).
+No other edits. Run xcodegen generate, verify generated Release settings and
+`git diff --check`. Root reviews before archiving; old 1.5 (13) archive remains
+an unuploaded candidate, not the public update archive.
+
+Mac 1.5.1 (13) archive succeeded at /tmp/unlirice-studio-mac-151-13/UnliRice.xcarchive; host deep/strict codesign verification passed. This is development signed, not uploaded or installed; Apple-managed distribution export remains blocked by Xcode account access. Capture remains 1.3 (9).

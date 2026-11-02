@@ -187,3 +187,13 @@ gates remain open. ASC previously showed 1.5 build 11 waiting for review with
 automatic release; founder subsequently reported it went live, not independently
 verified at this checkpoint. Founder authorized review withdrawal if still possible,
 not removal from sale.
+
+## codex — Mac public update version — 2026-11-02
+
+Fresh ASC confirms Mac 1.5 (11) Ready for Distribution; the prior review
+withdrawal is no longer possible. No removal from sale authorized or attempted.
+Set the next Mac marketing version to 1.5.1 with unused build number 13; leave
+Capture 1.3 (9). This supersedes candidate 1.5 (13) for public update packaging.
+Account access and Xcode Organizer responsiveness remain unresolved.
+
+Mac 1.5.1 (13) archive succeeded at /tmp/unlirice-studio-mac-151-13/UnliRice.xcarchive; host deep/strict codesign verification passed. This is development signed, not uploaded or installed; Apple-managed distribution export remains blocked by Xcode account access. Capture remains 1.3 (9).
