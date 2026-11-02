@@ -51,6 +51,14 @@ public struct CaptureView: View {
         }
     }
 
+    private func recordForProject(_ project: StudioOverviewFile.Project) {
+        let existing = store.projectTabs.first { $0.caseInsensitiveCompare(project.name) == .orderedSame }
+        if existing == nil { store.projectTabs.append(project.name) }
+        store.currentProjectTab = existing ?? project.name
+        page = "Capture"
+        if !store.captureInFlight { store.startRecording() }
+    }
+
     private var mainContent: some View {
         ZStack {
             Theme.bgMain
@@ -68,13 +76,8 @@ public struct CaptureView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 if page == "Studio" {
-                    CaptureStudioView(store: store) { project in
-                        let existing = store.projectTabs.first { $0.caseInsensitiveCompare(project.name) == .orderedSame }
-                        if existing == nil { store.projectTabs.append(project.name) }
-                        store.currentProjectTab = existing ?? project.name
-                        page = "Capture"
-                        if !store.captureInFlight { store.startRecording() }
-                    }
+                    CaptureStudioView(store: store, onRecordForProject: recordForProject,
+                                      selectedID: $store.studioSelectedProjectID)
                     if store.captureInFlight {
                         recordSection
                     } else {

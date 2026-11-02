@@ -84,6 +84,7 @@ public final class CaptureStore: ObservableObject {
     private static let audioRetentionKey = "UnliRiceCapture_audioRetention"
     private static let transcriptionLocaleKey = "UnliRiceCapture_transcriptionLocale"
 
+    @Published var studioSelectedProjectID: String?
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
     @Published public var recordingDuration: TimeInterval = 0

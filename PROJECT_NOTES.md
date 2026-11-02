@@ -2806,3 +2806,15 @@ builds; no review submission or replacement happened. Capture has no internal
 tester group yet. Existing physical-device acceptance remains open; no actual
 corpus was opted in. The canonical-account fix passed signed Production probes,
 both archives and620tests (2skipped,0failures). See native sync plan/dialogue.
+
+
+## Production Studio and folding-phone intent (2026-11-02)
+
+Founder requests Mac-style project flipping on iOS and voice-only capture while
+Duo is closed, revealing Studio and To Do when open. New production-studio intent,
+spec, plan and Claude pre-mortem are settled. First deck source step is compiled
+and root-reviewed; interaction/pose acceptance remains. An actual recorded-capture
+test still fails Production MCP visibility despite Capture publication progress.
+Mac's local binding is Development while installed build is Production. Planned
+recovery is explicit GUI-only verified migration with local recovery snapshot;
+no existing connection or notes were changed. See docs/PLAN-production-studio.md.

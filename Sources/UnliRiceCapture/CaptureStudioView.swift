@@ -11,7 +11,7 @@ struct CaptureStudioView: View {
     @State private var notes: [Note] = []
     @State private var message: String?
     @State private var notesError: String?
-    @State private var selectedID: String?
+    @Binding var selectedID: String?
     @State private var detail: StudioOverviewFile.Project?
     @State private var selectedNote: Note?
     private var projects: [StudioOverviewFile.Project] { overview?.projects ?? [] }
@@ -49,36 +49,10 @@ struct CaptureStudioView: View {
 
     private var projectsDeck: some View {
         StudioDeck(title: "Projects", symbol: "square.stack.3d.up.fill", accent: .garden) {
-            if let project = selected, let index = projects.firstIndex(where: { $0.id == project.id }) {
-                ZStack {
-                    ForEach(Array((0..<min(3, projects.count)).reversed()), id: \.self) { offset in
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(CaptureStudioStyle.color([.cover0, .cover1, .cover2, .cover3, .cover4, .cover5, .cover6, .cover7][(index + offset) % 8], scheme))
-                            .offset(x: CGFloat(offset * 5), y: CGFloat(-offset * 5))
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
-                    Button { detail = project } label: {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Image(systemName: "folder.fill").font(.title2)
-                            Text(project.name).font(.title2.bold())
-                            Text(sticker(project)).font(.caption.bold()).padding(.horizontal, 10).padding(.vertical, 5)
-                                .background(.white.opacity(0.18), in: Capsule())
-                            Text(project.status ?? "Status unknown").font(.subheadline)
-                            Text("\(CaptureContext.pendingNotes(in: notes, project: project.projectTag).count) pending \(CaptureContext.pendingNotes(in: notes, project: project.projectTag).count == 1 ? "capture" : "captures") · \(projectTodos(project).count) \(projectTodos(project).count == 1 ? "to-do" : "to-dos")")
-                                .font(.caption)
-                        }.foregroundStyle(.white).frame(maxWidth: .infinity, alignment: .leading).padding(20).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                        .accessibilityIdentifier("studio-project-\(project.id)")
-                        .accessibilityLabel("Open project \(project.name)")
-                }.padding(.top, 10).padding(.trailing, 10)
-                HStack {
-                    Button { select(index - 1) } label: { Label("Previous project", systemImage: "chevron.left").labelStyle(.iconOnly).frame(width: 44, height: 44) }.studioControl().disabled(index == 0)
-                    Spacer()
-                    Text("\(index + 1) of \(projects.count)").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button { select(index + 1) } label: { Label("Next project", systemImage: "chevron.right").labelStyle(.iconOnly).frame(width: 44, height: 44) }.studioControl().disabled(index + 1 == projects.count)
-                }
+            if let project = selected {
+                CaptureProjectDeck(projects: projects, selectedID: $selectedID, notes: notes,
+                                   sticker: sticker, todoCount: { projectTodos($0).count },
+                                   open: { detail = $0 })
                 Button { onRecordForProject(project) } label: {
                     Label("Record for \(project.name)", systemImage: "mic.fill").frame(maxWidth: .infinity, minHeight: 44)
                 }.buttonStyle(.plain).studioControl().disabled(store.captureInFlight)
@@ -126,7 +100,6 @@ struct CaptureStudioView: View {
     private func projectTodos(_ project: StudioOverviewFile.Project) -> [Note] {
         notes.filter { !$0.archived && $0.tags.contains("todo") && $0.tags.contains { CaptureContext.normalizedProject($0) == CaptureContext.normalizedProject(project.projectTag) } }
     }
-    private func select(_ index: Int) { if projects.indices.contains(index) { selectedID = projects[index].id } }
     private func reload() {
         store.sync()
         refreshData()
