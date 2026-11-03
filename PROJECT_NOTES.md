@@ -2899,3 +2899,13 @@ Founder chose a new open-source app for macOS and Windows, distributed outside t
 ## Existing-app release work resumed and public privacy corrected (2026-11-03)
 
 Founder requested publishing both existing apps with the new iCloud settings, pausing the separate open-source workspace exploration. Fresh ASC reads found Mac 1.5.1 (13) Ready to Submit, public Mac1.5, public Capture1.1 and old internal-only Capture1.3(9). The public privacy URL still served July copy. A target-only GitHub update published the reviewed local native-iCloud policy in e74bc25274a6518226a2c8e2405a4b4cf611c302; fresh file read exactly matched local PRIVACY.md. No source branch was pushed. Local release copy and bounded readiness/prelaunch assessment were updated. Actual store metadata/screenshots, Capture exact candidate and independent concealed-editor accessibility acceptance remain gates; no review submission is claimed here.
+
+
+## Production release submission preparation checkpoint (2026-11-03)
+
+Mac1.5.1 draft metadata was saved; installed1.5.1(13) Production passed fresh deep/strict signature validation. Screenshot07 is stale and build13 unselected; automatic approval review rejected those controls and Capture Build Uploads as unidentified, so founder manual changes/inventory were requested. No review submission or counter change occurred. B6c records a conditional current Capture candidate step, not a waiver of privacy gates. The disposable QA environment was reopened, and independent iOS AX trees positively showed synthetic typed/todo drafts concealed while folded and restored on reopening; repeated/lock coverage was still being extended at this checkpoint. No VoiceOver-sequence pass or raw artifact files claimed.
+
+
+## Mac1.5.1 submitted and Capture10 prepared (2026-11-03)
+
+Mac1.5.1(13) submitted, live Waiting for Review confirmed; manual release saved, six current screenshots retained. Submission c4639080-2dd9-49d8-9bcc-de4d0a68220d. Fresh visual UI checks resolved prior upload-history ambiguity; complete Capture history4–9 allowed counter-only1.3(10) archive. Host signing/Production/version checks passed, Organizer validation succeeded and upload began. Development-signed archive requires distribution export; no Capture upload completion/public release claimed here. Independent synthetic AX observations are recorded with limitations in docs/QA-capture-accessibility-2026-11-03.md.

@@ -213,3 +213,13 @@ helper accepts it and reports no sync error. Reconnect the old session helper.
 Claude runtime, physical microphone/phone production sync and independent Capture
 accessibility remain unverified; no public review submission. Minimal fresh-helper
 check: /tmp/unlirice-fresh-helper-check.py and /tmp/unlirice-fresh-helper-check.log.
+
+
+## codex — response/settled — 2026-11-03
+
+Release resumption permits preparing exact current Capture candidate1.3(10) for testing, after complete upload inventory confirms unused counter. B6c is counter-only, two project.yml values; privacy source changes remain stopped and public Capture submission remains blocked on independent concealed-editor and physical candidate checks. This does not settle or waive B2/P5. Mac metadata prepared; stale screenshot07 removal and build13 selection remain tool-blocked on ambiguous/offscreen controls and founder manual assistance was requested. Public privacy policy updated target-only in e74bc25274a6518226a2c8e2405a4b4cf611c302; no general source push.
+
+
+## codex — response — 2026-11-03
+
+Mac1.5.1(13) submitted; live Waiting for Review confirmed, manual release selected. This is not public release or Capture submission. Fresh visual browser targets resolved prior UI identification blockers; complete Capture upload history4–9 permitted B6c1.3(10). Counter-only diff reviewed; signed archive and app/widget versions/Production checked. Source privacy assertions were not changed; independent AX summary remains scoped, and exact phone candidate acceptance remains required. Organizer validation passed and Capture upload started using the verified archive; awaiting actual completion/ASC evidence.

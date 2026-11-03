@@ -611,3 +611,19 @@ helper accepts it and reports no sync error. Reconnect the old session helper.
 Claude runtime, physical microphone/phone production sync and independent Capture
 accessibility remain unverified; no public review submission. Minimal fresh-helper
 check: /tmp/unlirice-fresh-helper-check.py and /tmp/unlirice-fresh-helper-check.log.
+
+
+### B6c — build-light: current Capture candidate for exact-build acceptance
+
+Founder resumed publishing both existing apps 2026-11-03. Fresh ASC shows Capture public1.1 and latest TestFlight1.3(9), which is older source and internal-only. Before editing, confirm complete Build Uploads inventory has no build10 or later. If unused, change exactly the two Capture CURRENT_PROJECT_VERSION values9→10 in project.yml; leave Capture marketing1.3 and all Mac versions unchanged. No product/privacy source changes. Run xcodegen generate, inspect Release settings and diffcheck, then archive scheme UnliRiceCapture for generic iOS in a new /tmp path and verify versions, embedded widget, Production cloud configuration, signing and entitlements. This is a test candidate, not public submission acceptance; unresolved independent accessibility and phone voice/sync gates remain. No repeat full core tests for a counter-only edit.
+
+Allowed file: project.yml only for the bounded builder, on CalixOscar/Unli-rice-Capture. Root/planner retains plan/dialogue/memory ownership. Prior matching code builds/core checks are in this plan; signed candidate must still pass its own artifact checks. Never upload old internal-only build9 as the update, reset production data or weaken privacy assertions. Distribution may require the already-established manual Organizer path if native control remains unavailable.
+
+
+### Release continuation — 2026-11-03
+
+Root obtained fresh browser pixels and labeled targets, resolving the earlier Capture Build Uploads ambiguity. Complete All Statuses history after See More exhausted showed only builds4–9, all Complete; build10 unused. B6c root-reviewed exact two Capture counters9→10; xcodegen and Release settings pass. Signed host archive `/tmp/unlirice-capture-1.3-10-20261103/UnliRiceCapture.xcarchive` succeeded, root deep/strict codesign passed and root inspected app/widget Info1.3(10), appProduction. Archive is development signed with get-task-allow true, requiring managed distribution export; do not install this archive over the user's app. Initial sandbox archive lacked accessible profiles; host retry succeeded. No product source edits or full core-test rerun for this counter change.
+
+Independent AX observations are summarized (not raw artifacts) in docs/QA-capture-accessibility-2026-11-03.md; typed/todo fold-reopen and typed lock positive, settings two cycles positive, full VoiceOver and todo lock cover not verified. B2/P5 and physical exact-candidate acceptance remain open.
+
+Mac draft now persisted six screenshots01–06 and selected1.5.1(13). Root set/saved manual release, added for review, submitted and independently observed Waiting for Review and 1 Item Submitted at2026-11-03 00:35UTC. Submission c4639080-2dd9-49d8-9bcc-de4d0a68220d. It will not automatically release ahead of Capture. Capture Organizer became accessible after opening the verified archive foreground and using `orca computer --no-screenshot`; validation succeeded and upload began. No Capture upload completion claimed at this checkpoint.
