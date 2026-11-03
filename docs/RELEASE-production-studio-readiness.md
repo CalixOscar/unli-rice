@@ -57,3 +57,8 @@ Capture1.3(10) archive prepared from current source by counter-only edit, root r
 ### Capture review submission — 2026-11-03 00:48 UTC
 
 Founder explicitly requested “get 1.3 10 submit for review”. Live ASC verified build1.3(10) processed and eligible, selected/saved in the1.3 draft. Manual release was reselected and confirmed by both labeled state and screenshot; the separate phased-update “all users immediately” choice does not select automatic App Store version release. Initial automatic approval review rejected that ambiguity; the manual-selection check resolved it through the requested safer action, then Add for Review and Submit for Review completed. Live Waiting for Review, Draft Submissions(0), and1 Item Submitted confirmed. Submission ac00454a-409f-4e70-83d0-d0810793da7a; build84ef2fbb-ca76-45ed-ad81-591018d68369. Mac1.5.1(13) independently rechecked Waiting for Review, manual release. Neither update is publicly released. Earlier physical/complete accessibility acceptance is not claimed passed; retain the manual release hold and existing acceptance item. No new source or test changes in this submission step.
+
+
+### Automatic release selected — 2026-11-03 00:51 UTC
+
+Founder explicitly requested “Set both to auto distribute”, superseding the manual release hold. Root selected Automatically release this version and saved it for Mac1.5.1(13) and Capture1.3(10). Fresh page reloads confirmed automatic checked/manual unchecked, both still Waiting for Review. Existing all-users-immediately phased-update setting retained. Each update can release independently after Apple approval; no public-release or completed-QA claim is made. No build, source or data change.

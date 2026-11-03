@@ -24,13 +24,13 @@
 
 
 
-**Status:** Both updates submitted: Mac Unli Rice1.5.1(13) and Capture1.3(10) live ASC Waiting for Review, manual release selected for both. Capture submission confirmed2026-11-03 00:48UTC. Neither update publicly released.
-**Task:** Await Apple review, complete remaining exact-device/accessibility acceptance, then release both production iCloud updates under existing founder publishing authorization. Separate open-source workspace remains planning-only/inactive.
-**Files touched:** Submission receipt appended to production plan/dialogue/readiness, memory and PROJECT_NOTES. No new source/test/version edits in this step. Prior Capture counter-only build10 checkpoint5ef9321 remains source/packaging authority.
-**Next step:** Respond to Apple review if needed; keep both on manual release pending remaining physical/complete accessibility acceptance. Do not re-upload/re-submit build10, reset sync or claim review approval/public release. Existing acceptance to-do stays open.
-**Gotchas:** Capture submission ac00454a-409f-4e70-83d0-d0810793da7a, build84ef2fbb-ca76-45ed-ad81-591018d68369, selected1.3(10), manual radio verified by fresh UI and screenshot. Mac submission c4639080-2dd9-49d8-9bcc-de4d0a68220d,1.5.1(13), manual. Separate phased-update all-users-immediately choice is not automatic version release; initial approval-review ambiguity was resolved by reselecting/visually verifying manual release. Scoped synthetic AX observations remain in QA-capture-accessibility-2026-11-03.md; no fullVoiceOver/todolock/physical pass claimed. No token/fullcorpus exports, personal simulator changes or extra tester invitations.
-**To-dos:** none filed/closed this checkpoint. Physical acceptance BBC01BEE-FE38-4D53-9999-59422F498AD8 remains open; submission is not completion of that item. No handoff note without a new deferred to-do.
-**Left by:** codex 2026-11-03 (both exact builds submitted; Waiting for Review/manual release confirmed)
+**Status:** Mac Unli Rice1.5.1(13) and Capture1.3(10) are both Waiting for Review with AUTOMATIC release selected and saved. Fresh page reloads confirmed automatic checked/manual unchecked at2026-11-03 00:51UTC. Neither public release is yet confirmed.
+**Task:** Await Apple approval and automatic distribution of both production iCloud updates, per founder explicit latest instruction “Set both to auto distribute”. This supersedes the previous manual-release hold. Separate open-source workspace remains planning-only/inactive.
+**Files touched:** Production plan/readiness, memory and PROJECT_NOTES record the saved release-preference change. App Store Connect release settings only; no code, version, build, test or user-data changes.
+**Next step:** Respond to Apple review if needed and verify actual public availability after approval. Do not restore manual hold or re-submit/re-upload builds without a new reason. Preserve outstanding acceptance records; auto release does not prove those checks passed.
+**Gotchas:** Each app may release independently after its own approval. Mac submission c4639080-2dd9-49d8-9bcc-de4d0a68220d; Capture ac00454a-409f-4e70-83d0-d0810793da7a/build84ef2fbb-ca76-45ed-ad81-591018d68369. Both automatically-release choices verified by readback after reload, all-users-immediately retained. Old manual-hold entries are historical and superseded. Scoped AX/physical limitations remain documented in QA-capture-accessibility-2026-11-03.md and readiness; no retrospective pass or acceptance-item closure.
+**To-dos:** none filed/closed this checkpoint. Physical acceptance BBC01BEE-FE38-4D53-9999-59422F498AD8 remains open. No handoff note without a new deferred to-do.
+**Left by:** codex 2026-11-03 (both submitted updates set to automatic release, persisted settings verified)
 
 ## Earlier branch follow-ups
 

@@ -2914,3 +2914,8 @@ Mac1.5.1(13) submitted, live Waiting for Review confirmed; manual release saved,
 ## Capture1.3(10) submitted; both updates awaiting review (2026-11-03)
 
 Founder explicitly requested Capture1.3(10) review submission. Processed public-eligible build selected and saved; manual release verified before Add for Review/Submit for Review. Live ASC Waiting for Review and1 Item Submitted confirmed at00:48UTC, submission ac00454a-409f-4e70-83d0-d0810793da7a. Mac1.5.1(13) rechecked Waiting for Review/manual release. Neither update is publicly released, and remaining physical/complete accessibility acceptance is not claimed passed. No source or assertion changes in this step.
+
+
+## Automatic release requested for both updates (2026-11-03)
+
+Founder explicitly requested auto distribution for Mac1.5.1(13) and Capture1.3(10), replacing the earlier manual hold. Both automatic-release choices were saved and independently verified after page reload at00:51UTC; both remained Waiting for Review. Release follows each app's Apple approval, without another manual release step. Remaining acceptance is not retroactively marked passed. No app source or user data changed.
