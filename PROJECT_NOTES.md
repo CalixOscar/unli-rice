@@ -2909,3 +2909,8 @@ Mac1.5.1 draft metadata was saved; installed1.5.1(13) Production passed fresh de
 ## Mac1.5.1 submitted and Capture10 prepared (2026-11-03)
 
 Mac1.5.1(13) submitted, live Waiting for Review confirmed; manual release saved, six current screenshots retained. Submission c4639080-2dd9-49d8-9bcc-de4d0a68220d. Fresh visual UI checks resolved prior upload-history ambiguity; complete Capture history4–9 allowed counter-only1.3(10) archive. Host signing/Production/version checks passed, Organizer validation succeeded and upload began. Development-signed archive requires distribution export; no Capture upload completion/public release claimed here. Independent synthetic AX observations are recorded with limitations in docs/QA-capture-accessibility-2026-11-03.md.
+
+
+## Capture1.3(10) submitted; both updates awaiting review (2026-11-03)
+
+Founder explicitly requested Capture1.3(10) review submission. Processed public-eligible build selected and saved; manual release verified before Add for Review/Submit for Review. Live ASC Waiting for Review and1 Item Submitted confirmed at00:48UTC, submission ac00454a-409f-4e70-83d0-d0810793da7a. Mac1.5.1(13) rechecked Waiting for Review/manual release. Neither update is publicly released, and remaining physical/complete accessibility acceptance is not claimed passed. No source or assertion changes in this step.
