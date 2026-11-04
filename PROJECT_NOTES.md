@@ -2919,3 +2919,30 @@ Founder explicitly requested Capture1.3(10) review submission. Processed public-
 ## Automatic release requested for both updates (2026-11-03)
 
 Founder explicitly requested auto distribution for Mac1.5.1(13) and Capture1.3(10), replacing the earlier manual hold. Both automatic-release choices were saved and independently verified after page reload at00:51UTC; both remained Waiting for Review. Release follows each app's Apple approval, without another manual release step. Remaining acceptance is not retroactively marked passed. No app source or user data changed.
+
+
+## Capture startup registration recovery (2026-11-04)
+
+Ordinary iOS27.2 devices need not emit an initial nil hinge callback. The old awaiting
+state therefore hid onboarding, navigation and Settings indefinitely, independent
+of Mac/iCloud connection. A default-ordinary prototype was rejected after native
+closed-Duo onboarding disclosure. Final correction retains awaiting concealment,
+registers/enables in the attached hierarchy, suppresses unobserved nil, records
+nonnil before queued updates and completes at a guarded active/visible end-of-runloop
+boundary. Known-hinged uncertainty stays closed; activation and visibility retry
+registration, and invalidation cancels stale work. Timing is runtime-tested policy,
+not a documented synchronous UIKit capability query.
+
+Capture/widget bumped to1.3.1(13), independent of Mac13. Actual CaptureApp entry-point
+checks pass on ordinary phone/iPad with typed local-note save/relaunch, and native
+Duo open/closed; hidden→visible and reattachment probe also passes (verified:
+/private/tmp/capture-startup-regression/final-ordinary.xcresult,
+final-native-open.xcresult, final-native-closed.xcresult;
+/private/tmp/capture-lifecycle-probe/runtime.log, 2026-11-04). Three prior final-policy
+closed-launch frame audits examined127/104/118 encoded frames without full-interface
+text; final visibility-retry video OCR is pending. Exact final archive is
+/private/tmp/capture13-release/UnliRiceCapture-final.xcarchive; signed archive
+version/Production checks passed. No upload/review submission yet; ASC1.3.1 draft
+and correction notes are saved, browser owner sign-in is pending. Source peer review
+used independent Codex because Claude's weekly quota was exhausted. No broad source
+push, cloud/account reset, physical sync claim or unrelated to-do closure.
