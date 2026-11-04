@@ -646,3 +646,13 @@ Verify synthetic data, exact source provenance, actual PNG dimensions accepted f
 ### Automatic release selected — 2026-11-03 00:51 UTC
 
 Founder explicitly requested “Set both to auto distribute”, superseding the manual release hold. Root selected Automatically release this version and saved it for Mac1.5.1(13) and Capture1.3(10). Fresh page reloads confirmed automatic checked/manual unchecked, both still Waiting for Review. Existing all-users-immediately phased-update setting retained. Each update can release independently after Apple approval; no public-release or completed-QA claim is made. No build, source or data change.
+
+
+### Ordinary-device startup correction — 2026-11-04
+
+The initial-nil callback assumption in the original Duo plan was contradicted by
+ordinary-device runtime testing. Source1e178ef implements guarded attached
+registration recovery, retaining initial privacy. Authority: PLAN-capture-startup-
+recovery.md and RELEASE-capture-1.3.1-build13.md. Capture1.3.1(13) uploaded successfully;
+App Review awaits owner browser login. This does not close original physical-sync,
+full VoiceOver or screenshot replacement items.

@@ -62,3 +62,16 @@ Founder explicitly requested “get 1.3 10 submit for review”. Live ASC verifi
 ### Automatic release selected — 2026-11-03 00:51 UTC
 
 Founder explicitly requested “Set both to auto distribute”, superseding the manual release hold. Root selected Automatically release this version and saved it for Mac1.5.1(13) and Capture1.3(10). Fresh page reloads confirmed automatic checked/manual unchecked, both still Waiting for Review. Existing all-users-immediately phased-update setting retained. Each update can release independently after Apple approval; no public-release or completed-QA claim is made. No build, source or data change.
+
+
+## Capture startup recovery upload — 2026-11-04
+
+Capture1.3(10) reached Ready for Distribution. Founder then reported microphone-only
+startup without a Mac connection. Source1e178ef fixes the incorrect hinge registration
+assumption; final ordinary phone/iPad local-note persistence and native Duo open/
+closed checks pass. Capture1.3.1(13) uploaded at09:28Asia/Manila, confirmed by Organizer
+and ContentDelivery. Final payload is distribution-signed, matching app/widget13
+and Production. Authority: RELEASE-capture-1.3.1-build13.md and
+docs/qa/capture-startup-build13.json. App Review is NOT submitted; Chrome and Connect
+require owner login. Mac13 review remains independent; no new screenshot or tester
+invitation was sent.

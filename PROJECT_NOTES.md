@@ -2946,3 +2946,22 @@ version/Production checks passed. No upload/review submission yet; ASC1.3.1 draf
 and correction notes are saved, browser owner sign-in is pending. Source peer review
 used independent Codex because Claude's weekly quota was exhausted. No broad source
 push, cloud/account reset, physical sync claim or unrelated to-do closure.
+
+
+## Capture build13 upload receipt (2026-11-04)
+
+Source1e178ef is uploaded as Capture1.3.1(13). Xcode Organizer and ContentDelivery
+confirmed upload success at09:28Asia/Manila without errors. Actual upload payload
+app/widget pass deep/strict signature, matching1.3.1/13, team22SNGN5JYD, no debug
+entitlement and Production app environment audits; UUIDs match final archive and
+all138 archived source/config hashes remain unchanged (verified: distribution-upload-
+receipt.json/final-provenance.json under /private/tmp/capture13-qa). Final native
+closed video482 encoded frames were all visually reviewed via eight contact sheets;
+no full-interface/onboarding flash. Separate automated OCR stalled in Apple's
+TextRecognition semaphore and was stopped, so no final OCR pass is claimed.
+
+App Review remains NOT submitted: both Chrome and Connect browser sessions require
+owner sign-in; request is pending. Capture1.3.1 draft and release notes were saved
+before expiry. No further build/upload needed if13 processes normally. Final signed
+IPA is /private/tmp/capture13-release/UnliRiceCapture-1.3.1-13.ipa. Existing physical
+acceptance/screenshot tasks were not closed; no broad source push.
