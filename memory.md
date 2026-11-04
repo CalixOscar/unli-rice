@@ -24,13 +24,13 @@
 
 
 
-**Status:** Capture1.3.1(13) startup fix is committed as1e178ef and UPLOADED successfully. Xcode Organizer and ContentDelivery confirmed13/no upload errors at2026-11-04 09:28 Asia/Manila. Final phone/iPad/native Duo/lifecycle checks pass; final482-frame visual audit shows no full-interface flash. App Review is NOT submitted: owner browser login expired.
-**Task:** Complete founder goal by selecting uploaded Capture build13 in the1.3.1 draft and submitting it for App Review after owner sign-in. The microphone-only standalone startup is fixed and tested; preserve unrelated sync/Mac/screenshots work.
-**Files touched:** Source checkpoint1e178ef contains CapturePresentation.swift, Capture/widget1.3.1(13), actual-entry-point UI tests/isolated runner, plan/dialogue/release record and memory. This checkpoint adds final visual/distribution receipt docs/qa/capture-startup-build13.json and records upload. Earlier dirty production docs/screenshot drafts remain preserved.
-**Next step:** Owner sign-in request is pending for Chrome ASC tab1066562979 (currently /login); Connect web app also requires login. Once signed in, inspect Capture1.3.1 draft and live TestFlight processing/public eligibility, select13, save and Submit for Review; reload and verify Waiting for Review or In Review plus submission ID. No need to rebuild or re-upload absent actual failure.
-**Gotchas:** FINAL uploaded archive /private/tmp/capture13-release/UnliRiceCapture-final.xcarchive; signed IPA UnliRiceCapture-1.3.1-13.ipa in same directory. Final upload app/widget strict signatures,1.3.1/13, team22SNGN5JYD, get-task-allow false, Production entitlement and matching archive UUIDs pass. All138 source/config hashes unchanged. Earlier two prototype archives are superseded; never upload them.349 prior frames OCR passed; final482 frames were ALL visually reviewed after Apple TextRecognition checker stalled and was intentionally stopped—no final OCR pass. The runloop boundary is tested runtime policy, not universal callback-order guarantee. No broad source push or personal-data/account changes.
-**To-dos:** none filed/closed this checkpoint. Existing physical acceptance BBC01BEE-FE38-4D53-9999-59422F498AD8 and B6d screenshot task remain open; no retrospective closure. Ordinary phone/iPad note persistence, native open/closed and hidden/visible/reattach are verified in final xcresults and lifecycle runtime.log.
-**Left by:** codex 2026-11-04 (corrected Capture13 uploaded successfully; final App Review submission awaits owner browser sign-in)
+**Status:** Capture 1.3.1 build 13 is submitted and Waiting for Review (verified in App Store Connect 2026-11-04). Startup fix committed as 1e178ef; Apple confirmed 1 Item Submitted.
+**Task:** Monitor Apple's review of Capture 1.3.1 (13). The microphone-only standalone startup is fixed and tested; preserve unrelated sync/Mac/screenshots work.
+**Files touched:** Source checkpoint 1e178ef and release evidence in docs/RELEASE-capture-1.3.1-build13.md and docs/qa/capture-startup-build13.json; this checkpoint records the confirmed submission. Earlier dirty production docs and screenshot drafts remain preserved.
+**Next step:** Await Apple's review decision. Automatic release to all users is selected in App Store Connect. Submission ID bda33754-5e0d-4223-8e37-d246f3ef75c6.
+**Gotchas:** Final signed IPA and archive are in /private/tmp/capture13-release/. Simulator tests and the final 482-frame visual audit passed; the final OCR checker stalled and was stopped, so no OCR pass is claimed. Physical-device acceptance remains open.
+**To-dos:** none filed or closed this checkpoint. Existing physical acceptance BBC01BEE-FE38-4D53-9999-59422F498AD8 and B6d screenshot task remain open.
+**Left by:** codex 2026-11-04 (Capture 1.3.1 build 13 submitted; Waiting for Review confirmed)
 
 ## Earlier branch follow-ups
 

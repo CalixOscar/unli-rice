@@ -103,3 +103,12 @@ NOT submitted for App Review. Both Chrome and existing Connect web app are at
 owner login; sign-in request is pending. After login inspect processing/eligibility,
 select13 in1.3.1 draft, save, submit and verify server review state and submission ID.
 No implicit success from upload, no need to re-upload a successful build.
+
+
+## App Review submission receipt
+
+On 2026-11-04, App Store Connect confirmed version 1.3.1, build 13,
+was submitted: “1 Item Submitted” and “Waiting for Review”. Submission ID:
+bda33754-5e0d-4223-8e37-d246f3ef75c6. Automatic release and immediate
+release to all users were selected. The earlier login-blocked status above is
+superseded by this receipt; Apple approval and public release remain pending.
