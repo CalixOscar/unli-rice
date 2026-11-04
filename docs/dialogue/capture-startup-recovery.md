@@ -3,7 +3,7 @@
 **Plan:** docs/PLAN-capture-startup-recovery.md
 **Planner:** codex
 **Reviewer:** independent codex peer (Claude quota unavailable)
-**State:** settled
+**State:** built
 
 ## codex peer — pre-mortem — 2026-11-04
 
@@ -77,3 +77,12 @@ exact same guarded boundary and removes token on invalidation. No other behavior
 ## codex — settled — 2026-11-04 (B4)
 
 Exact scoped visibility retry approved. Rebuild candidate and rerun acceptance.
+
+## codex — post-mortem — 2026-11-04 (final B4)
+
+Peer approved same-window visibility retry. Root final phone/iPad typed-note
+persistence, native open/three closed launches and actual-observer lifecycle
+checks pass. All482 final video frames visually reviewed without full-interface
+flash; automated OCR stalled and was stopped, not counted as a pass. Distribution
+payload/UUID/version/Production audit passes; code1e178ef uploaded as1.3.1(13).
+Review submission is pending owner browser login, not declared complete.

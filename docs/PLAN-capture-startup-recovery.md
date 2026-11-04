@@ -115,3 +115,13 @@ window-specific UIWindow.didBecomeVisibleNotification observer, scheduling the
 same guarded registration boundary; remove it during invalidation. Exact text
 supplied in the desired source. No relaxation of visible/active/hinge guards.
 Verify git diff --check. Root reruns startup acceptance and rebuilds archive.
+
+
+## Current release state
+
+B2/B3/B4 built and independently verified; source1e178ef. Final native frame audit
+is visual across ALL482 encoded frames, not a claimed OCR pass.1.3.1(13) successfully
+uploaded with distribution signature and version/Production audits. P1 submission
+remains open until owner browser login, live build selection and verified review
+submission. Preserve successful upload; do not rebuild or upload again without
+actual failure evidence. Details: RELEASE-capture-1.3.1-build13.md.

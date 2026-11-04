@@ -80,3 +80,26 @@ B4 upload validation remains to verify. No source change after final build.
 
 Chrome and the existing Connect web app are both at owner login; a sign-in request
 is pending. No App Review success is claimed.
+
+
+## Final receipt — uploaded, browser login gates review
+
+Code matches1e178ef. Final B4 phone/iPad local-note persistence, native open and
+three cold-closed launches pass. Actual observer hidden/visible/reattachment probe
+passes. Final native recording has482 encoded frames: ALL visually reviewed in
+contact sheets1–8, with only launch cover/voice controls/system transitions. Apple's
+text-recognition checker stalled on its semaphore (sample saved) and was deliberately
+stopped; final visual audit, not an OCR pass, is the evidence. No source changes
+followed final archive. Source/config manifest138 inputs remains exact.
+
+Organizer: “UnliRiceCapture1.3.1(13) uploaded”, build number13,09:28Asia/Manila.
+ContentDelivery: “UPLOAD SUCCEEDED with no errors”. Actual distribution app/widget
+pass deep/strict signature, version1.3.1/build13, team22SNGN5JYD, get-task-allow false;
+app environment Production. Uploaded executable UUIDs match final archive. Signed
+IPA preserved at /private/tmp/capture13-release/UnliRiceCapture-1.3.1-13.ipa.
+Machine-readable receipt: docs/qa/capture-startup-build13.json.
+
+NOT submitted for App Review. Both Chrome and existing Connect web app are at
+owner login; sign-in request is pending. After login inspect processing/eligibility,
+select13 in1.3.1 draft, save, submit and verify server review state and submission ID.
+No implicit success from upload, no need to re-upload a successful build.
