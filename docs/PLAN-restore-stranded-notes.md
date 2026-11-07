@@ -2,8 +2,8 @@
 
 **Intent:** none. This is a data repair, not a feature; §0 is the brief.
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 2 draft, founder decisions taken (§2); in pre-mortem
-**Pre-mortem:** requested from codex 2026-11-08, `docs/dialogue/restore-stranded-notes.md`
+**Stage:** 4 settled, ready to run
+**Pre-mortem:** `docs/dialogue/restore-stranded-notes.md` (codex, 2026-11-08: ship with changes), answered there and in §9
 **Founder decisions (2026-11-08):** "go with the recommended options". D1 = the six
 hand-written notes, D2 = re-create through the connector, D3 = move the old file to
 `Backups/` after verification.
@@ -56,10 +56,15 @@ links / live / old store only / nowhere:
   `Application Support/Unli Rice/events.jsonl` and `Application Support/SecondBrain/events.jsonl`
   (`DataLocation.swift:122-130`). It posts the "Found notes in an older location" notice
   (`NoticeFactory.swift:175`).
-- **The notice clears only when every missing id reaches the live log, or the old file is no
-  longer at that path.** Re-creating notes under new ids does not clear it.
-- Sync publishes appended events by cursor, and treats events with no `device` as from this
-  Mac (`Sync/ShardPublisher.swift:63-72`). Restored events would therefore sync to the phone.
+- **A new warning stops appearing** only when every missing id reaches the live log, or the
+  old file is no longer at that path. Re-creating notes under new ids does not do it.
+  **A warning already saved is never taken back.** `checkCorpusHealth` returns early when
+  there are no findings (`AppStore+Notices.swift:95-97`), and `NoticeStore` keeps notices
+  until the founder uses Clear (`NoticeStore.swift:49-93`). Clear removes every notice.
+- Sync: the connector stamps its own device label on new events (`unlirice-mcp/main.swift:74`),
+  and which path carries them to the phone depends on the sync mode: the shared folder
+  (`AppStore.swift:836-856`) or native iCloud (`AppStore+NativeSync.swift:71-95`).
+  Reading the code proves neither the mode nor delivery, so phone delivery is checked in A3b.
 - Duplicate titles are tolerated, but the oldest note wins resolution (`Projector.swift:161`).
   A restored July `Wiki: index` would quietly replace the live one in every `[[link]]`.
   That is the reason title clashes are excluded.
@@ -88,7 +93,8 @@ links / live / old store only / nowhere:
 **D3: the old file afterwards.** It has to move for the warning to clear (see §1).
 - Recommended: move it, never delete it, to
   `~/Library/Application Support/Unli Rice/Backups/events-stranded-2026-07-20.jsonl`
-  after the restore is verified. The 228 notes left behind remain readable there.
+  after the restore is verified. The backup keeps all 237 original notes and their
+  history; six of them are re-created in the live store.
 - Alternative: leave it, and keep a permanent warning in the app.
 
 **Decided by the planner (dated, so they don't age):** the restored hubs keep their July
@@ -101,8 +107,9 @@ No user-facing surface.
 
 ## 4. Journey and states
 
-No user-facing surface. The only visible effect is the stranded-notes notice going away
-after A4.
+No user-facing surface. Visible effects: six notes appear in the app; after A4 the
+stranded-notes warning stops being raised, and the old saved copy goes when the founder
+uses Clear in Notices (A4, step 5).
 
 ## 5. Tasks
 
@@ -119,30 +126,61 @@ Assumes D1 = six notes, D2 = connector, D3 = move. Re-plan if any answer differs
       exists. Verify: `shasum -a 256` of the original and the copy match.
 
 ### A1. Dry run
-- [ ] `planner` Rebuild each chosen note from the old log: the `created` text plus its
-      `appended` texts in order, with its tags. Done when: six files in the scratchpad hold
-      the body and tags each note would get, with the provenance line on top. Verify: the
-      founder reads the list of titles; every body is non-empty.
+- [ ] `planner` Rebuild each chosen note from the old log: the `created` text, then each
+      `appended` text in order, joined with the projector's exact `\n\n---\n` separator
+      (`Projector.swift:82-85`). Keep the tags as well. Done when: six files in the
+      scratchpad hold the body and tags each note would get, with the provenance line on
+      top (original id, author, date, "may be out of date"). Verify: every body is
+      non-empty and its link count matches §1.
 - [ ] `planner` Re-check clashes right before writing. Done when: none of the chosen titles
-      are live. Verify: `search_notes(<title>)` returns no exact title match for each.
+      are live, archived notes included, compared case-insensitively. Verify:
+      `search_notes(<title>, include_archived: true)` has no exact match for each.
+- [ ] `planner` Start the ledger: one JSON row per note in the scratchpad with original id,
+      title, the expected body's SHA-256, new id (empty) and tags done (empty).
 
 ### A2. Restore
-- [ ] `planner` For each note: one `create_note`, then a `tag_note` per original tag
-      (`wiki` or `changelog`). Done when: each `create_note` returns an id; record them.
-      Verify: `get_note(<new id>)` body equals the dry-run file byte for byte;
-      `note_history` shows `source: claude`.
+- [ ] `planner` For each note in turn: `create_note`, then **write the returned id to the
+      ledger at once**, then one `tag_note` per original tag, logging each. Done when: the
+      ledger has six ids with all their tags. Verify: `get_note(<new id>)` body equals the
+      dry-run file byte for byte; `note_history` shows `source: claude`. A later janitor
+      tag is not corruption.
+- [ ] **On any error or unclear reply: stop. Do not start A3 or A4.** Before retrying a
+      note, search for its title (archived included, case-insensitive) and read the body
+      and history of any match. If it is our note, record the id and finish its tags. Create
+      a note only once it is confirmed missing. If a match differs from the expected note,
+      stop and report it; do not fix, merge or archive it. Rollback is "stop with the ledger
+      and the old file intact". The live log is never overwritten from a backup.
 
 ### A3. Wire up
-- [ ] `planner` Append to `Wiki: index` one dated block linking the restored notes.
-      Done when: `get_note(Wiki: index)` shows `outboundLinks` containing all restored ids.
-      Verify: `danglingLinks` on each restored hub matches §1 (only the old-store-only links
-      dangle).
+- [ ] `planner` Check `Wiki: index` for an existing restore block first. If there is none,
+      append one dated block linking the six titles. Done when: `get_note(Wiki: index)`
+      lists all six new ids in `outboundLinks`.
+- [ ] `planner` Verify each hub's `danglingLinks` against the post-restore expectation,
+      recomputed now against live titles plus the six: Nuptia 0, ClearSpace 3,
+      CalmdownOscar 0, Architecturally 0, studio context 9, Corpus reset 1 (computed
+      2026-11-08). Any difference: stop and explain it before A4.
+
+### A3b. Phone check (founder)
+- [ ] Record the sync mode shown in the Mac app's settings. On the phone, open Capture and
+      check that `Wiki: Nuptia` and the `Wiki: index` block are there. If the phone isn't
+      checked, record phone sync as **unverified** in the record. A4 does not touch the
+      restored notes either way.
 
 ### A4. Retire the old file (founder approves this step separately)
-- [ ] `planner` Move the old log into `Backups/` under the D3 name. Done when: the original
-      path no longer exists and the moved file's SHA-256 equals the A0 copy. Verify:
-      `shasum -a 256`, then relaunch Unli Rice; the "Found notes in an older location"
-      notice is gone. `CorpusHealth` runs at launch.
+- [ ] `planner` 1. Before the move, check that every running Unli Rice process (app, agent,
+      each `unlirice-mcp`) reports the App Group log, and that no override or chosen
+      folder points elsewhere: the `UNLIRICE_DATA_PATH` environment variable or the app's
+      folder setting.
+      2. Recheck the old file's SHA-256 against A0. Abort if it changed, or if the backup
+      name already exists. Never overwrite a backup.
+      3. Move it with `mv -n` into `Backups/` under the D3 name. Done when: the old path is
+      gone and the moved file's hash equals A0's.
+      4. Relaunch Unli Rice. Verify: the old path is still absent, and the six restored
+      notes still read back byte for byte. If the old path reappears, stop and find what
+      wrote it; do not move it again.
+      5. The saved warning stays in Notices: the app never takes one back (§1). The founder
+      chooses whether to use Clear, which removes **every** notice. Nobody edits
+      `notices.json` by hand.
 
 ## 6. Acceptance — against reality, not a report
 
@@ -161,8 +199,12 @@ Assumes D1 = six notes, D2 = connector, D3 = move. Re-plan if any answer differs
 ## 7. Known limits, accepted
 - Restored notes carry today's timestamp and `claude` as creator; the original attribution
   lives in the provenance line and the backup file.
-- The 1 old-store-only link in `Wiki: Nuptia`, 3 in ClearSpace and 1 in CalmdownOscar will
-  dangle, because they point at July ingest summaries that stay in the backup.
+- After restore, 13 links stay dangling: 3 in ClearSpace, 9 in studio context and 1 in
+  Corpus reset. They point at July `Doc:` copies that stay in the backup, plus one that
+  was missing even in July. The Nuptia and CalmdownOscar gaps close, because they point at
+  restored notes.
+- The move stops this file from raising a new warning. It does not prevent a fork on every
+  possible launch path, for example an unsigned build that falls back to Application Support.
 - The vault's own `events.jsonl` (242 lines, 2026-07-20) is a separate, abandoned store and
   out of scope.
 
@@ -172,7 +214,22 @@ Assumes D1 = six notes, D2 = connector, D3 = move. Re-plan if any answer differs
 
 ## 9. Pre-mortem responses
 
-Not run yet.
+Codex, 2026-11-08, ship with changes. All six findings were accepted. Findings 1 and 3
+were re-checked by Claude against the code and the old log before being accepted.
+1. Blocker, the saved notice is never removed: accepted. A4 now separates "no new
+   warning" from "old warning cleared", and Clear is the founder's call. No code change.
+2. No restart path after a partial A2: accepted. A ledger was added, plus a stop-and-check
+   retry rule.
+3. Wrong dangling-link expectations: accepted. A3 and §7 now use post-restore counts
+   0/3/0/0/9/1.
+4. Sync delivery unproven: accepted. A3b was added, and phone sync stays "unverified"
+   unless checked.
+5. A4 needs writer checks and a no-overwrite rule: accepted, as A4 steps 1–4.
+6. The "228" count: accepted. D3 now says all 237 stay in the backup.
+
+Not acted on: Codex's test run (638 executed, 24 failure reports in the NativeCloud tests,
+inside its sandbox). This plan changes no code. The suite was re-run outside the sandbox
+and the result is recorded under Build notes.
 
 ## Handoff
 
@@ -180,3 +237,6 @@ Every step is `planner`: each one writes the founder's data through the connecto
 a data file, and none of it is code. No builder is used.
 
 ## Build notes
+- 2026-11-08, Claude: `swift test` outside Codex's sandbox on `d51e528` ran 638 tests,
+  2 skipped, 0 failures. Codex's 24 NativeCloud failures were sandbox-only (file
+  coordination errors 256/512).
