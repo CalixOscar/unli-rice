@@ -71,7 +71,7 @@ The gear menu holds Setup, the Trust Center and archived notes. Setup › Extras
 STAYS OUT OF YOUR WAY
 Background work is off unless you turn it on, and each background job has its own switch. Nothing running unattended can exceed the app's own limits: it may only tag and flag, imports may only create and append, and every structural question is yours to answer.
 
-Unli Rice runs entirely on your Mac. No account, no analytics, no cloud sync, no bundled model. The reasoning comes from whichever AI tool you connect, and the optional embedding connection is restricted to localhost.
+Unli Rice stores notes locally by default. Optional iCloud sync shares note text, transcribed captures, tags, to-dos and project summaries with your devices using the same Apple account. Recordings and repository source files stay local. There is no separate Unli Rice account, analytics, tracking or bundled model. The reasoning comes from whichever AI tool you connect, and the optional embedding connection is restricted to localhost.
 
 Unli Rice is open source and MIT licensed.
 ```
@@ -149,3 +149,32 @@ team wildcard profile and does not grant the App Group, so complete identifiers
    warning, then choose **Distribute App → App Store Connect**.
 5. Test the exact uploaded build through TestFlight before submitting it for
    review.
+
+## Native iCloud candidate — uploaded for internal TestFlight testing
+
+Uploaded and processed 2026-11-01 through Xcode Organizer from the verified
+`/tmp/unlirice-native-final-archives/` archives:
+
+- Mac 1.5 (12), app6792837485: Internal / Testing (existing Family group).
+- Capture 1.3 (9), app6800863948: Internal / Ready to Test (no tester group yet).
+
+Source checkpoint `7df815e`; verification and peer review are in
+`docs/PLAN-native-icloud-sync.md` and its dialogue. Both use Production cloud
+configuration with CloudKit and CloudDocuments. The canonical account check
+replaces the defective cross-app ubiquity-token comparison. Pre-B7 archives
+under `/tmp/unlirice-native-signed-release/` must never be uploaded.
+
+These internal-only builds are not public App Store releases and cannot be
+submitted for review. No Submit for Review, withdrawal or selected review-build
+replacement was performed. Future submission needs new verified build counters.
+No test invitations were sent. Capture requires internal tester/group assignment
+before installation through TestFlight. Physical two-device delivery remains
+unverified under the existing acceptance to-do.
+
+Native sync is optional for note text, transcripts, to-dos and project summaries;
+audio and repositories remain local. Replace the older description's
+unconditional “no cloud sync” claim before any public release. Local privacy and
+reviewer documents are revised; public URLs/listings were not changed.
+Account Holder agreement acceptance and shared-container approval are complete.
+GUI automatic/cloud-managed distribution succeeded despite command-line export's
+No Accounts/missing distribution-key errors. No further sign-in request is needed.

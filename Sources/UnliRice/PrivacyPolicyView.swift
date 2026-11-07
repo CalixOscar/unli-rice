@@ -12,11 +12,15 @@ struct PrivacyPolicyView: View {
 
                 policySection(
                     "No collection",
-                    "Unli Rice has no account, analytics, advertising, tracking, purchases, or developer-operated server. Your notes and settings stay on your Mac. calmdownoscar does not receive them."
+                    "Unli Rice has no app account, analytics, advertising, tracking, purchases, or developer-operated server. Notes are stored locally by default. Optional iCloud sync uses your Apple account; calmdownoscar does not receive your notes."
                 )
                 policySection(
                     "Files you choose",
-                    "Unli Rice reads or writes outside its own container only after you select a folder in the macOS file picker. It stores a security-scoped bookmark so scheduled work can keep using that folder. You can remove Claude session access in Automation and switch the note store in Connect."
+                    "Apart from optional iCloud sync, Unli Rice reads or writes outside its own container only after you select a folder in the macOS file picker. It stores a security-scoped bookmark so scheduled work can keep using that folder. You can remove Claude session access in Automation and switch the note store in Connect."
+                )
+                policySection(
+                    "Optional iCloud sync",
+                    "When you enable sync, existing and future note text, transcripts, tags, to-dos and project summaries are shared with devices using the same Apple account. Recordings and repository files stay local. Turning sync off stops new transfers; it does not erase copies already delivered to iCloud or other devices. Account changes pause sync."
                 )
                 policySection(
                     "AI tools",
@@ -28,7 +32,7 @@ struct PrivacyPolicyView: View {
                 )
                 policySection(
                     "Retention and deletion",
-                    "Notes remain in the store you control until you archive and permanently remove them from Trash. Removing the app does not delete a store you placed in another folder. You can export your notes at any time."
+                    "Archiving is reversible. Once a note store has been linked to native iCloud, it uses archive only, even after sync is turned off. Stores never linked to native iCloud retain their existing Trash and backup controls. Removing the app does not delete a store you placed in another folder. You can export notes at any time."
                 )
                 policySection(
                     "Questions",
@@ -47,7 +51,7 @@ struct PrivacyPolicyView: View {
                 }
                 .font(.body.weight(.medium))
 
-                Text("Effective July 21, 2026")
+                Text("Effective November 1, 2026")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)

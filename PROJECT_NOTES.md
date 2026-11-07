@@ -2764,3 +2764,209 @@ branch `claude/guardrails-template-refresh`.
 archived 1.5 (11), re-shot screenshot 05 (only its token and character counter changed) and replaced
 the App Store set; the founder uploaded build 11 from Organizer and said "Submit". 1.5 (11) is Waiting
 for Review. The tier-2 pipeline was waived by the founder for this release work.
+
+
+## Capture Studio shares project context with the phone and AI tools (2026-11-01)
+
+Capture adopts the Mac Studio palette and project sleeves, preserving one-tap
+recording. Pending ideas, deferred ideas and to-dos share the existing note/event
+model; converting an idea tags the original note instead of duplicating it.
+The Mac publishes a separate versioned overview without replacing `repos.json`.
+Connector synchronization imports phone captures and exports AI decisions through
+the chosen shared folder, with separate import/export cursors and a bounded lock.
+Remote comparison remains recorded refs, never live GitHub. Legacy phone import
+positions migrate once before folder changes. The founder approved intent/spec
+and waived pre-mortem only ("Proceed skip pre mortem and implement"); Claude's
+post-mortem drove recovery fixes. See `docs/PLAN-capture-studio.md` and dialogue.
+Physical-device acceptance remains before release; no version or upload changed.
+
+
+## Native iCloud transport and shared AI context (2026-11-01)
+
+Mac, Capture and a provisioned MCP wrapper share immutable iCloud event batches
+with strict cursors and causal projection. Pending/conflicted histories isolate
+individual notes; healthy notes remain available. Project summaries refresh
+without opening Studio. Sync is explicit opt-in; audio/repos remain local and
+cloud-bound notes archive reversibly. Signed probes exposed app-scoped ubiquity
+tokens; canonical CloudKit identity with per-client tokens fixes enrollment while
+preserving account-change pauses and migration UUIDs. Claude's reviews and root
+verification are in `docs/PLAN-native-icloud-sync.md` and its dialogue. Root ran
+620 tests (2 skipped, 0 failures); both signed Release archives and Production
+cross-app identity checks passed. Mac1.5(12)/Capture1.3(9) are not yet uploaded:
+Organizer access is unavailable. No review submission or actual corpus opt-in
+occurred. Two-device delivery remains unverified.
+
+
+## Native iCloud candidates uploaded for internal testing (2026-11-01)
+
+Xcode Organizer automatically signed and uploaded the final Mac1.5(12) and
+Capture1.3(9) archives from source7df815e. Live App Store Connect verification:
+Mac12 Internal/Testing, Capture9 Internal/Ready to Test. These are internal-only
+builds; no review submission or replacement happened. Capture has no internal
+tester group yet. Existing physical-device acceptance remains open; no actual
+corpus was opted in. The canonical-account fix passed signed Production probes,
+both archives and620tests (2skipped,0failures). See native sync plan/dialogue.
+
+
+## Production Studio and folding-phone intent (2026-11-02)
+
+Founder requests Mac-style project flipping on iOS and voice-only capture while
+Duo is closed, revealing Studio and To Do when open. New production-studio intent,
+spec, plan and Claude pre-mortem are settled. First deck source step is compiled
+and root-reviewed; interaction/pose acceptance remains. An actual recorded-capture
+test still fails Production MCP visibility despite Capture publication progress.
+Mac's local binding is Development while installed build is Production. Planned
+recovery is explicit GUI-only verified migration with local recovery snapshot;
+no existing connection or notes were changed. See docs/PLAN-production-studio.md.
+
+
+### Production Studio migration core — 2026-11-02
+
+B3/B3a implements explicit known-GUI Development→Production migration without
+resetting source events, binding identity, archived client tokens, old cursors or
+cloud batches. An opaque GUI-only offer ties consent to exact source binding and
+corpus. Fresh Production identity plus unchanged own token is mandatory. Schema3
+uses fresh local transport progress namespace; old cloud root remains unchanged.
+Private retained recovery snapshots use per-attempt directories, byte verification,
+SHA256 manifest and fsync before binding commit. Same-offer retries tolerate partial
+snapshot attempts; concurrent binding enrollment fails closed and needs fresh offer.
+Founder authorized Claude source-only review; retry collision, Data slice indexing
+and namespace alias findings addressed. Root full suite633 tests,2 skipped,0failed
+(`/tmp/unlirice-production-core-root-full.log`). UI/consent hosts and real voice
+capture acceptance are unfinished; no new release/runtime migration performed.
+
+
+### Explicit Mac migration consent host — 2026-11-02
+
+Mac typed Development→Production mismatch offers an explicit action, nonmutating
+offer then modal alert and separate Continue. Retry/startup never migrate. Account,
+mode/corpus changes invalidate work; Connect pane departure cancels unconfirmed
+preparation by generation, while confirmed work may finish. Existing work lock
+serializes sync and transition. Authorized source-only Claude review identified
+preparation lifecycle gap; B4d addresses it. Root macOS build passed
+(`/tmp/unlirice-production-mac-root-b4d.log`). Capture consent source/UI and editor
+AX investigation remain uncommitted; no runtime migration or release performed.
+
+Root also checked real public-init Duo simulator hinge callbacks with synthetic
+QA app: cold closedvoiceonly, opened Studio+Todo, folded presented emptyeditor
+concealed+keyboardhidden, reopened editor restored; no physical microphone proof.
+Q5 deck swipes/tap/selection now pass; retained editor native identity/drafts pass
+2folds, but3 strict concealed editor accessibility queries still fail. Matched
+QA-only proxy/concrete experiment is next; no claim of VoiceOver acceptance.
+
+
+### Capture Duo source checkpoint and verification gate — 2026-11-02
+
+Hinge presentation uses public UIHingeInteraction27.1+ with generation/window
+guards and closed-safe initial state; standard iOS26 devices retain navigation.
+Opened Duo ArrangementView shows Studio+Todo; workspace/sheets remain mounted
+under closed/lock covers so drafts persist. Exclusive deck drag/tap prevents
+swipes from also opening detail; one semantic button per front sleeve. Capture
+explicit migration consent mirrors Mac generation/work-lock guards. Root combined
+Simulator build passed (/tmp/unlirice-production-capture-root-final-local.log).
+
+Q5 strict6/9 pass,3 concealed editor.exists queries unresolved; separate3native/
+draft diagnostics pass2folds/dismissal and iPadordinary1/1pass. Root actual DeviceHub
+public-init hinge callbacks coldclosed/open/partial/editorfold/reopen verified.
+ABproxy/concrete equalstrictfailure, ordinarySwiftUI hidden editor alsoqueryable,
+plainUIKitnot. No production rewrite justified or actualVoiceOver verdict. Source
+changes paused pending independent Inspector verification, currently blocked by
+CUA DeviceHub ScreenCaptureKit -3812 after viewer WindowFill; user reconnect asked.
+ASCbrowserlogin expired, user signin asked. No app replacement, link migration,
+new upload/public review or real recorded-capture receipt acceptance performed.
+
+
+## Agent workspace exploration — planning only (2026-11-03)
+
+Founder requested “Start a plan, hand the plan to Claude but do not build anything yet,” with remaining assistant usage limited. Draft intent `docs/intent/INTENT-013-agent-workspace.md`, proposed `docs/SPEC-agent-workspace.md`, and `docs/PLAN-agent-workspace.md` record the exploration at baseline `aa91d60`. The founder wants existing repo tiles to make branches visible in plain language, plus understandable conversation state, prioritized usage pauses, scoped shared memory and manual bridges between assistants. One editing agent per project initially was accepted; default navigation, actual provider capabilities and execution/distribution boundary remain open. Drafts are not founder approval, a settled pre-mortem or authorization to build. No product source or runtime changes were made in preparing them.
+
+
+## Agent workspace distribution fallback clarified (2026-11-03)
+
+Founder confirmed that if the Mac App Store path cannot deliver the necessary capabilities, the fallback is a separate desktop app distributed through GitHub initially. This means the download channel, not a restriction to GitHub repositories. Claude's preliminary discovery critique is preserved in `docs/dialogue/agent-workspace.md`; Codex appended this clarification without starting another Claude run. Standalone versus companion, safe shared-note access and provider feasibility remain open. No new app, repo, target, signing change or data migration was created.
+
+
+## Project session folders and favorites proposed (2026-11-03)
+
+Founder requested gathering all related assistant sessions under each Unli Rice project folder and starring that folder as a favorite. Draft requirement AW-13 and the agent-workspace intent/plan record this as logical UI organization across providers and checkouts, retaining per-session branch evidence. No provider transcript moves or implementation occurred. Association, persistence and default navigation still require design; Claude was not rerun for this planning addition.
+
+
+## Agent workspace becomes a cross-platform open-source proposal (2026-11-03)
+
+Founder chose a new open-source app for macOS and Windows, distributed outside the Mac App Store through GitHub, superseding the conditional Mac-only fallback. They asked whether to embed Unli Rice features. The draft recommendation is basic local project memory plus optional consented Unli Rice integration, not a full product transplant; this recommendation is not yet accepted. Existing code is reference, Windows integration is unproven, new name/repo/license/runtime and external demand evidence are unsettled. Draft documents and Idea Clinic record reflect this; no app bootstrap, implementation, publishing or additional Claude run occurred.
+
+
+## Existing-app release work resumed and public privacy corrected (2026-11-03)
+
+Founder requested publishing both existing apps with the new iCloud settings, pausing the separate open-source workspace exploration. Fresh ASC reads found Mac 1.5.1 (13) Ready to Submit, public Mac1.5, public Capture1.1 and old internal-only Capture1.3(9). The public privacy URL still served July copy. A target-only GitHub update published the reviewed local native-iCloud policy in e74bc25274a6518226a2c8e2405a4b4cf611c302; fresh file read exactly matched local PRIVACY.md. No source branch was pushed. Local release copy and bounded readiness/prelaunch assessment were updated. Actual store metadata/screenshots, Capture exact candidate and independent concealed-editor accessibility acceptance remain gates; no review submission is claimed here.
+
+
+## Production release submission preparation checkpoint (2026-11-03)
+
+Mac1.5.1 draft metadata was saved; installed1.5.1(13) Production passed fresh deep/strict signature validation. Screenshot07 is stale and build13 unselected; automatic approval review rejected those controls and Capture Build Uploads as unidentified, so founder manual changes/inventory were requested. No review submission or counter change occurred. B6c records a conditional current Capture candidate step, not a waiver of privacy gates. The disposable QA environment was reopened, and independent iOS AX trees positively showed synthetic typed/todo drafts concealed while folded and restored on reopening; repeated/lock coverage was still being extended at this checkpoint. No VoiceOver-sequence pass or raw artifact files claimed.
+
+
+## Mac1.5.1 submitted and Capture10 prepared (2026-11-03)
+
+Mac1.5.1(13) submitted, live Waiting for Review confirmed; manual release saved, six current screenshots retained. Submission c4639080-2dd9-49d8-9bcc-de4d0a68220d. Fresh visual UI checks resolved prior upload-history ambiguity; complete Capture history4–9 allowed counter-only1.3(10) archive. Host signing/Production/version checks passed, Organizer validation succeeded and upload began. Development-signed archive requires distribution export; no Capture upload completion/public release claimed here. Independent synthetic AX observations are recorded with limitations in docs/QA-capture-accessibility-2026-11-03.md.
+
+
+## Capture1.3(10) submitted; both updates awaiting review (2026-11-03)
+
+Founder explicitly requested Capture1.3(10) review submission. Processed public-eligible build selected and saved; manual release verified before Add for Review/Submit for Review. Live ASC Waiting for Review and1 Item Submitted confirmed at00:48UTC, submission ac00454a-409f-4e70-83d0-d0810793da7a. Mac1.5.1(13) rechecked Waiting for Review/manual release. Neither update is publicly released, and remaining physical/complete accessibility acceptance is not claimed passed. No source or assertion changes in this step.
+
+
+## Automatic release requested for both updates (2026-11-03)
+
+Founder explicitly requested auto distribution for Mac1.5.1(13) and Capture1.3(10), replacing the earlier manual hold. Both automatic-release choices were saved and independently verified after page reload at00:51UTC; both remained Waiting for Review. Release follows each app's Apple approval, without another manual release step. Remaining acceptance is not retroactively marked passed. No app source or user data changed.
+
+
+## Release continuation preserves newer submission settings (2026-11-03)
+
+Capture10 processed public-eligible and was selected in the1.3 draft. Its metadata and test notes were saved; public reviewer guide updated target-only in1b74d88e590dd1696602cece6948954a7314c828, confirmed by readback. Concurrent checkpoints3947176/a2f3971 record founder-requested Capture submission and automatic distribution for both apps; this continuation verified Capture Waiting for Review/automatic and did not override the newer state. Six draft synthetic-data screenshot candidates were prepared and preserved unedited; smaller native dimensions still need slot validation. No new screenshot upload, invite, public release or physical/full-accessibility acceptance claim.
+
+
+## Capture startup registration recovery (2026-11-04)
+
+Ordinary iOS27.2 devices need not emit an initial nil hinge callback. The old awaiting
+state therefore hid onboarding, navigation and Settings indefinitely, independent
+of Mac/iCloud connection. A default-ordinary prototype was rejected after native
+closed-Duo onboarding disclosure. Final correction retains awaiting concealment,
+registers/enables in the attached hierarchy, suppresses unobserved nil, records
+nonnil before queued updates and completes at a guarded active/visible end-of-runloop
+boundary. Known-hinged uncertainty stays closed; activation and visibility retry
+registration, and invalidation cancels stale work. Timing is runtime-tested policy,
+not a documented synchronous UIKit capability query.
+
+Capture/widget bumped to1.3.1(13), independent of Mac13. Actual CaptureApp entry-point
+checks pass on ordinary phone/iPad with typed local-note save/relaunch, and native
+Duo open/closed; hidden→visible and reattachment probe also passes (verified:
+/private/tmp/capture-startup-regression/final-ordinary.xcresult,
+final-native-open.xcresult, final-native-closed.xcresult;
+/private/tmp/capture-lifecycle-probe/runtime.log, 2026-11-04). Three prior final-policy
+closed-launch frame audits examined127/104/118 encoded frames without full-interface
+text; final visibility-retry video OCR is pending. Exact final archive is
+/private/tmp/capture13-release/UnliRiceCapture-final.xcarchive; signed archive
+version/Production checks passed. No upload/review submission yet; ASC1.3.1 draft
+and correction notes are saved, browser owner sign-in is pending. Source peer review
+used independent Codex because Claude's weekly quota was exhausted. No broad source
+push, cloud/account reset, physical sync claim or unrelated to-do closure.
+
+
+## Capture build13 upload receipt (2026-11-04)
+
+Source1e178ef is uploaded as Capture1.3.1(13). Xcode Organizer and ContentDelivery
+confirmed upload success at09:28Asia/Manila without errors. Actual upload payload
+app/widget pass deep/strict signature, matching1.3.1/13, team22SNGN5JYD, no debug
+entitlement and Production app environment audits; UUIDs match final archive and
+all138 archived source/config hashes remain unchanged (verified: distribution-upload-
+receipt.json/final-provenance.json under /private/tmp/capture13-qa). Final native
+closed video482 encoded frames were all visually reviewed via eight contact sheets;
+no full-interface/onboarding flash. Separate automated OCR stalled in Apple's
+TextRecognition semaphore and was stopped, so no final OCR pass is claimed.
+
+App Review remains NOT submitted: both Chrome and Connect browser sessions require
+owner sign-in; request is pending. Capture1.3.1 draft and release notes were saved
+before expiry. No further build/upload needed if13 processes normally. Final signed
+IPA is /private/tmp/capture13-release/UnliRiceCapture-1.3.1-13.ipa. Existing physical
+acceptance/screenshot tasks were not closed; no broad source push.

@@ -22,17 +22,19 @@
 
 # Unli Rice — Working Memory
 
-**Status:** Released: Mac **1.5.1 (13)** and Capture iOS **1.3.1 (13)** are both Ready for Distribution, and nothing is waiting for review (App Store Connect screenshot from the founder, 2026-11-07; not re-checked in App Store Connect by this session). Both builds came from the unmerged branch `CalixOscar/Unli-rice-Capture` (Orca workspace "Unli rice Capture", Codex), which is 30+ commits ahead of `main` and carries native iCloud sync. **`main` does not contain the released source.** 1.5.1 ships the Engineering Guardrails template from guardrails `7cf36bd`, so the 2026-10-31 screenshot 05 (`d84990f`) matches it. GitHub release `v1.5` is still build 10's source.
-**Task:** None in flight. On `main` only (not in any released build): the Engineering Guardrails template is refreshed from guardrails `299cb26`, and `AGENTS.md` carries the studio rules block.
-**Files touched:** `Sources/UnliRiceCore/HouseRulesPreset.swift` (template refreshed, stamp `299cb26`), `AGENTS.md` (studio rules block), `CLAUDE.md` (search PROJECT_NOTES, don't read it whole), `memory.md`.
-**Next step:** The founder decides when to merge `CalixOscar/Unli-rice-Capture` into `main`, so `main` holds the released source again.
+**Status:** Released: Mac **1.5.1 (13)** and Capture iOS **1.3.1 (13)** are both Ready for Distribution, and nothing is waiting for review (App Store Connect screenshot from the founder, 2026-11-07; not re-checked in App Store Connect by this session). Their source branch `CalixOscar/Unli-rice-Capture` is now merged into `main` (2026-11-07), so `main` holds the released code plus today's guardrails changes. 1.5.1 ships the Engineering Guardrails template from guardrails `7cf36bd`, so the 2026-10-31 screenshot 05 (`d84990f`) matches it. GitHub release `v1.5` is still build 10's source.
+**Task:** None in flight. Not yet in any released build: the Engineering Guardrails template refreshed from guardrails `299cb26`, and the studio rules block in `AGENTS.md`.
+**Files touched:** `memory.md` (merge of `CalixOscar/Unli-rice-Capture`, whose last checkpoint added `PROJECT_NOTES.md`, the production-studio plan and readiness docs, and `Screenshots/AppStore-iOS-2026-11-03/`). Earlier today: `Sources/UnliRiceCore/HouseRulesPreset.swift`, `AGENTS.md`, `CLAUDE.md`.
+**Next step:** Nothing is waiting on the founder; the next release is a founder decision.
 
-That branch's workspace has uncommitted edits (`PROJECT_NOTES.md`, two `docs/` files, untracked `Screenshots/AppStore-iOS-2026-11-03/`); commit them there first. Of today's `main` changes, only `memory.md` overlaps the branch, so expect a conflict there and nowhere else.
+The merge was not independently reviewed before it landed: the code had already shipped, and the founder asked for the merge on 2026-11-07. The production-studio work has a pre-mortem (`docs/dialogue/production-studio.md`) but no post-mortem yet; write it before planning 1.6.
 
 Before archiving the next build: re-shoot App Store screenshot 05, because the template text and counter changed.
 
 Decide with the founder whether a GitHub release should be cut from 1.5.1's source. Later (1.6), unchanged: premortem takeaways 1, 3, 4, 5; Developer ID for a downloadable build; fix the command-line upload; keywords still include "second brain".
 **Gotchas:**
+- Capture 1.3.1 (13): the final signed IPA and archive are in `/private/tmp/capture13-release/` (temporary). Simulator tests and the final 482-frame visual audit passed; the OCR checker stalled and was stopped, so no OCR pass is claimed. Physical-device acceptance is still open.
+- The draft iOS screenshots in `Screenshots/AppStore-iOS-2026-11-03/` use sample data and are not store-ready: their sizes may not fit the large screenshot slots.
 - App Store screenshot 05 (`Screenshots/AppStore-Mac-2026-10-31/05-house-rules.png`) shows the Engineering Guardrails template: build 11 shows ~900 tokens · 3,593 characters. The 2026-11-07 refresh keeps the first four paragraphs word for word but changes the later ones and the counter (~984 tokens · 3,930 characters), so re-shoot 05 with any build that carries it. The template is capped under 1,000 tokens by `HouseRulesTests`; only ~16 tokens of room are left.
 - Chrome's file picker is a separate macOS service the accessibility tree can't see: open it from the page, then drive it with `orca computer … --restore-window` keys (Cmd+Shift+G, path, Return, Cmd+A, Return); header clicks fail with window_not_focused.
 - App Store Connect keeps the picker's display order, and the picker sorts by Date Added, newest first, so stage files newest-last (copy 07 first, 01 last, a second apart).
@@ -73,8 +75,8 @@ Decide with the founder whether a GitHub release should be cut from 1.5.1's sour
 - `Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents; check before citing one.
 - **INTENT-008 (shared spec) exists only on Codex's local branch `codex/shared-spec`**; reconcile it with INTENT-009 before planning either.
 - The vault's `04_Guardrails.md` wins over the new build-gate rule in `AGENTS.md` until it is updated.
-**To-dos:** filed none; closed 1 ("Add two tidy-up rules to the guardrails", vault `9edef20`). `BC9A8A42` stays open.
-**Left by:** Claude Code (desktop app, Opus) 2026-11-07. Tests: 540 run, 0 failed, 2 skipped (verified: `swift test` 2026-11-07).
+**To-dos:** filed none; closed 1 ("Add two tidy-up rules to the guardrails", vault `9edef20`). Still open: `BC9A8A42`, physical-device acceptance `BBC01BEE-FE38-4D53-9999-59422F498AD8`, and the B6d store-screenshot task.
+**Left by:** Claude Code (desktop app, Opus) 2026-11-07, after merging `CalixOscar/Unli-rice-Capture`. Tests on the merged tree: 633 run, 0 failed, 2 skipped (verified: `swift test` 2026-11-07); Xcode app targets not built.
 ## Earlier branch follow-ups
 
 The previous session's handoff (not revalidated in this session) left: restart Claude sessions for bridge changes; the older shipped-guardrails post-mortem; founder decision on pushing/merging chore/plan-high-build-low and its relationship with local main; committing vault changes; first two builder-model observations; and watching the sidebar before a release. These are separate from Garden and remain deferred.

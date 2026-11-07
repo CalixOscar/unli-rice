@@ -1,4 +1,5 @@
 import Foundation
+import CloudKit
 import SwiftUI
 import UnliRiceCore
 import WidgetKit
@@ -50,6 +51,18 @@ public enum LayoutPlacement: String, Codable, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
+private final class NativeGeneration: @unchecked Sendable {
+    private let lock = NSLock()
+    private var valid = true
+    func cancel() { lock.lock(); valid = false; lock.unlock() }
+    func isValid() -> Bool { lock.lock(); defer { lock.unlock() }; return valid }
+}
+
+private func withNativeWorkLock<T>(_ lock: NSLock, _ work: () throws -> T) rethrows -> T {
+    lock.lock(); defer { lock.unlock() }
+    return try work()
+}
+
 @MainActor
 public final class CaptureStore: ObservableObject {
     /// The store the app and the Action Button intent both work through.
@@ -76,13 +89,39 @@ public final class CaptureStore: ObservableObject {
     private static let audioRetentionKey = "UnliRiceCapture_audioRetention"
     private static let transcriptionLocaleKey = "UnliRiceCapture_transcriptionLocale"
 
+    @Published var studioSelectedProjectID: String?
     @Published public var state: State = .idle
     @Published public var partialTranscript: String = ""
     @Published public var recordingDuration: TimeInterval = 0
     @Published public var captures: [SentCaptureItem] = []
     @Published public var archivedCaptures: [SentCaptureItem] = []
     @Published public var pulledNotes: [Note] = []
+    private var projectionDiagnostics = ProjectionDiagnostics()
+    private var projectionError: String?
+    @Published public private(set) var syncStatus: String = "Saved on this device"
+    @Published public private(set) var receivedCaptureIDs: Set<UUID> = []
     @Published public var sharedFolderURL: URL?
+    @Published public private(set) var nativeSyncMode: NativeSyncMode = .privateDevice
+    @Published public private(set) var nativeEnvironmentMismatch = false
+    @Published public private(set) var nativeMigrationBusy = false
+    @Published public var nativeMigrationConfirmation = false
+    private var nativeMigrationOffer: NativeCloudEnvironmentMigration.Offer?
+    private var nativeMigrationTask: Task<Void, Never>?
+    private var nativeMigrationConfirmed = false
+    private let nativeWorkLock = NSLock()
+    @Published public private(set) var overviewRevision = 0
+    private var nativeOverview: StudioOverviewFile?
+    private var nativeOverviewError: String?
+    private var nativeGeneration = NativeGeneration()
+    private var nativeWorking = false
+    private var nativeRetryPending = false
+    private var nativeExplicitRetryPending = false
+    private var discovery: NativeCloudDiscovery?
+    private var accountObserver: NSObjectProtocol?
+    private var cloudAccountObserver: NSObjectProtocol?
+    private var preferenceError: String?
+    private var logURL: URL { storageDir.appendingPathComponent("events.jsonl") }
+    public var archiveOnly: Bool { NativeCloudBinding.exists(besideEventLog: logURL) }
     @Published public var appendTargetNoteID: UUID? = nil
 
     @Published public var availableLocales: [Locale] = []
@@ -138,7 +177,7 @@ public final class CaptureStore: ObservableObject {
     /// same, complete list of every recording ever made — which is what "the
     /// notes stay on screen in the same folder" was.
     public var visibleCaptures: [SentCaptureItem] {
-        captures.filter { $0.tags.contains(currentProjectTab) }
+        captures.filter { item in item.tags.contains { $0.caseInsensitiveCompare(currentProjectTab) == .orderedSame } }
     }
 
     /// Where recordings live. Also the unit retention operates on.
@@ -241,12 +280,29 @@ public final class CaptureStore: ObservableObject {
         self.audioIndex = CaptureAudioIndex.load(from: CaptureAudioIndex.url(inDirectory: baseDir))
 
         self.sharedFolderURL = SharedFolderManager.shared.resolveBookmark()
+        do {
+            self.nativeSyncMode = try NativeSyncPreferences.load(besideEventLog: logURL, legacyFolderChosen: self.sharedFolderURL != nil).mode
+            if self.nativeSyncMode == .iCloud { SharedFolderManager.shared.markChosen() }
+        } catch {
+            self.preferenceError = error.localizedDescription
+        }
+        self.accountObserver = NotificationCenter.default.addObserver(forName: .NSUbiquityIdentityDidChange, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.accountChanged() }
+        }
+        self.cloudAccountObserver = NotificationCenter.default.addObserver(forName: .CKAccountChanged, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.accountChanged() }
+        }
         if let initError = initError {
             self.state = .error(initError)
         } else {
             sweepExpiredAudio()
             sync()
         }
+    }
+
+    deinit {
+        if let accountObserver { NotificationCenter.default.removeObserver(accountObserver) }
+        if let cloudAccountObserver { NotificationCenter.default.removeObserver(cloudAccountObserver) }
     }
 
     /// Rebuilds the on-device list from the event log.
@@ -322,23 +378,89 @@ public final class CaptureStore: ObservableObject {
     /// only by accident, and left the user with no way to say so. This records
     /// the intent, so the prompt stops asking and the UI can state plainly that
     /// nothing leaves the device.
-    public func choosePrivateMode() {
+    private func invalidateNative() {
+        nativeGeneration.cancel()
+        nativeMigrationTask?.cancel(); nativeMigrationTask = nil
+        nativeMigrationOffer = nil; nativeMigrationConfirmation = false
+        nativeMigrationBusy = false; nativeMigrationConfirmed = false
+        nativeEnvironmentMismatch = false
+        nativeExplicitRetryPending = false
+        nativeGeneration = NativeGeneration()
+        discovery?.stop(); discovery = nil
+        nativeOverview = nil; nativeOverviewError = nil; overviewRevision += 1
+        receivedCaptureIDs = []
+    }
+
+    private func accountChanged() {
+        invalidateNative()
+        if nativeSyncMode == .iCloud { syncStatus = "iCloud account changed; retrying sync"; sync() }
+    }
+
+    public func enableNativeSync() {
+        do {
+            try NativeSyncPreferences(mode: .iCloud).save(besideEventLog: logURL)
+            invalidateNative()
+            preferenceError = nil
+            nativeSyncMode = .iCloud
+            SharedFolderManager.shared.markChosen()
+            startNativeSync(allowCreate: true)
+        } catch { syncStatus = "Could not enable iCloud sync: \(error.localizedDescription)" }
+    }
+
+    public func loadStudioOverview() throws -> StudioOverviewFile? {
+        if nativeSyncMode == .iCloud {
+            if let nativeOverviewError { throw NSError(domain: "NativeOverview", code: 1, userInfo: [NSLocalizedDescriptionKey: nativeOverviewError]) }
+            return nativeOverview
+        }
+        guard nativeSyncMode == .folder, let folder = sharedFolderURL else { return nil }
+        let access = folder.startAccessingSecurityScopedResource()
+        defer { if access { folder.stopAccessingSecurityScopedResource() } }
+        return try StudioOverviewFile.read(fromFolder: folder)
+    }
+
+    @discardableResult public func choosePrivateMode() -> Bool {
+        do { try NativeSyncPreferences(mode: .privateDevice).save(besideEventLog: logURL) }
+        catch { syncStatus = "Could not change sync mode: \(error.localizedDescription)"; return false }
+        invalidateNative(); preferenceError = nil; nativeSyncMode = .privateDevice
+        var migrationSucceeded = false
+        do {
+            let stateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+            try SyncState.prepareScopedImports(at: stateURL, currentNamespace: sharedFolderURL?.standardizedFileURL.path)
+            migrationSucceeded = true
+        } catch {
+            syncStatus = "Import cursor migration failed: \(error.localizedDescription)"
+        }
         SharedFolderManager.shared.chooseNoFolder()
         sharedFolderURL = nil
+        receivedCaptureIDs = []
+        if migrationSucceeded { syncStatus = "Saved on this device" }
+        showProjectionWarning()
         objectWillChange.send()
+        return true
     }
 
     /// Forgets the current folder and asks again on next launch.
     public func clearSharedFolder() {
+        do { try NativeSyncPreferences(mode: .privateDevice).save(besideEventLog: logURL) }
+        catch { syncStatus = "Could not change sync mode: \(error.localizedDescription)"; return }
+        invalidateNative(); preferenceError = nil; nativeSyncMode = .privateDevice
         SharedFolderManager.shared.clearBookmark()
         SharedFolderManager.shared.resetChoice()
         sharedFolderURL = nil
+        syncStatus = "Saved on this device"
+        showProjectionWarning()
         objectWillChange.send()
     }
 
     public func setSharedFolder(_ url: URL) {
         do {
+            let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
+            // Adopt legacy imports for the old folder before selecting a different one.
+            // The existing publication reset below remains separate from this migration.
+            try SyncState.prepareScopedImports(at: syncStateURL, currentNamespace: sharedFolderURL?.standardizedFileURL.path)
             try SharedFolderManager.shared.saveBookmark(for: url)
+            try NativeSyncPreferences(mode: .folder).save(besideEventLog: logURL)
+            invalidateNative(); preferenceError = nil; nativeSyncMode = .folder
             self.sharedFolderURL = url
 
             // Rewinding the cursor republishes the whole log into the new
@@ -354,7 +476,6 @@ public final class CaptureStore: ObservableObject {
             }
             if needsStop { url.stopAccessingSecurityScopedResource() }
 
-            let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
             var syncState = SyncState.load(from: syncStateURL)
             syncState.publishedCursor = nil
             try? syncState.save(to: syncStateURL)
@@ -366,6 +487,10 @@ public final class CaptureStore: ObservableObject {
     }
 
     public func sync() {
+        if let preferenceError { maintainLocal(); syncStatus = "Sync paused: \(preferenceError)"; showProjectionWarning(); return }
+        if nativeSyncMode == .iCloud { maintainLocal(); startNativeSync(allowCreate: false); return }
+        if nativeSyncMode == .privateDevice { maintainLocal(); syncStatus = "Saved on this device"; showProjectionWarning(); return }
+        guard sharedFolderURL != nil else { maintainLocal(); syncStatus = "Shared folder unavailable"; showProjectionWarning(); return }
         let syncFolder = sharedFolderURL ?? storageDir.appendingPathComponent("shards", isDirectory: true)
         let needsStop = syncFolder.startAccessingSecurityScopedResource()
         defer { if needsStop { syncFolder.stopAccessingSecurityScopedResource() } }
@@ -373,11 +498,15 @@ public final class CaptureStore: ObservableObject {
         let syncStateURL = SyncState.url(besideEventLog: storageDir.appendingPathComponent("events.jsonl"))
         let ownShardFilename = "events-phone-\(deviceIdentity.id).jsonl"
 
-        _ = try? ShardImporter.importShards(
+        do {
+        let namespace = sharedFolderURL?.standardizedFileURL.path
+        try SyncState.prepareScopedImports(at: syncStateURL, currentNamespace: namespace)
+        _ = try ShardImporter.importShards(
             from: syncFolder,
             into: eventStore,
             syncStateURL: syncStateURL,
-            ownShardFilename: ownShardFilename
+            ownShardFilename: ownShardFilename,
+            cursorNamespace: namespace
         )
 
         // Done taps queued by the To Do widget become archive events here, before the
@@ -390,10 +519,11 @@ public final class CaptureStore: ObservableObject {
         noteService.rebuild()
         updatePulledNotesForCurrentTab()
         rebuildCaptures()
+        refreshProjectionDiagnostics()
 
         let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
         let ownDeviceLabel = deviceIdentity.label
-        _ = try? ShardPublisher.publishLocalEvents(
+        _ = try ShardPublisher.publishLocalEvents(
             eventLogURL: storageDir.appendingPathComponent("events.jsonl"),
             to: ownShardFileURL,
             syncStateURL: syncStateURL,
@@ -405,7 +535,160 @@ public final class CaptureStore: ObservableObject {
             }
         )
 
+        if sharedFolderURL != nil {
+            syncStatus = "Published to shared folder; Mac receipt not confirmed"
+            do {
+                receivedCaptureIDs = Set(try CaptureReceiptFile.readAll(fromFolder: syncFolder).flatMap(\.receivedNoteIDs)).subtracting(projectionDiagnostics.incompleteNoteIDs)
+            } catch {
+                receivedCaptureIDs = []
+                syncStatus = "Published to shared folder; Mac receipt could not be read: \(error.localizedDescription)"
+            }
+        } else {
+            receivedCaptureIDs = []
+            syncStatus = "Saved on this device"
+        }
+        } catch {
+            refreshProjectionDiagnostics()
+            receivedCaptureIDs = []
+            syncStatus = "Saved on this device; sync failed: \(error.localizedDescription)"
+        }
+        if projectionError != nil { receivedCaptureIDs = [] }
+        showProjectionWarning()
         publishTodoWidget()
+    }
+
+    private func refreshProjectionDiagnostics() {
+        do { projectionDiagnostics = try noteService.projectionSnapshot(includeArchived: true).diagnostics; projectionError = nil }
+        catch { projectionError = "Note projection unavailable: \(error.localizedDescription)" }
+    }
+
+    private func showProjectionWarning() {
+        if let warning = projectionError ?? projectionDiagnostics.summary { syncStatus = warning + " " + syncStatus }
+    }
+
+    private func maintainLocal() {
+        noteService.rebuild()
+        if let dir = PhoneTodoWidget.containerURL() { PhoneTodoWidget.applyPendingDone(in: dir, service: noteService) }
+        noteService.rebuild(); refreshProjectionDiagnostics(); updatePulledNotesForCurrentTab(); rebuildCaptures(); publishTodoWidget()
+    }
+
+    private func startNativeSync(allowCreate: Bool) {
+        guard nativeSyncMode == .iCloud, preferenceError == nil, !nativeEnvironmentMismatch, !nativeMigrationBusy, nativeMigrationOffer == nil else { return }
+        if nativeWorking { nativeRetryPending = true; nativeExplicitRetryPending = nativeExplicitRetryPending || allowCreate; return }
+        nativeWorking = true
+        syncStatus = "Syncing with iCloud…"
+        showProjectionWarning()
+        let generation = nativeGeneration, log = logURL, device = deviceIdentity.id, workLock = nativeWorkLock
+        let discovered = discovery?.urls ?? []
+        Task.detached { [weak self] in
+            let outcome: Result<(NativeCloudSession, NativeCloudTransport.Result, NativeCloudTransport.OverviewResult, Set<UUID>), Error> = {
+              do {
+                return try withNativeWorkLock(workLock) {
+                let session = try NativeCloudSession.resolve(eventLogURL: log, allowCreate: allowCreate, isValid: { generation.isValid() })
+                let current = { generation.isValid() && session.isCurrentAccount() }
+                let result = try NativeCloudTransport.synchronize(eventLogURL: log, rootURL: session.rootURL, binding: session.binding, deviceID: device, accountIsCurrent: current, discoveredURLs: discovered)
+                let overview = try NativeCloudTransport.latestOverview(rootURL: session.rootURL, accountIsCurrent: current, discoveredURLs: discovered)
+                let receipts = try NativeCloudTransport.receivedCaptureIDs(rootURL: session.rootURL, accountIsCurrent: current, discoveredURLs: discovered)
+                guard current() else { throw NativeCloudTransport.TransportError.accountChanged }
+                return .success((session, result, overview, receipts))
+                }
+              } catch { return .failure(error) }
+            }()
+            switch outcome {
+            case .success(let (session, result, overview, receipts)):
+                await self?.finishNative(generation: generation, root: session.rootURL, session: session, result: result, overview: overview, receipts: receipts, error: nil)
+            case .failure(let error):
+                await self?.finishNative(generation: generation, root: nil, session: nil, result: nil, overview: nil, receipts: [], error: error)
+            }
+        }
+    }
+
+    private func finishNative(generation: NativeGeneration, root: URL?, session: NativeCloudSession?, result: NativeCloudTransport.Result?, overview: NativeCloudTransport.OverviewResult?, receipts: Set<UUID>, error: Error?) {
+        nativeWorking = false
+        guard generation.isValid(), nativeSyncMode == .iCloud else {
+            if nativeRetryPending { let explicit = nativeExplicitRetryPending; nativeRetryPending = false; nativeExplicitRetryPending = false; if explicit { startNativeSync(allowCreate: true) } else { sync() } }
+            return
+        }
+        if let session, !session.isCurrentAccount() {
+            invalidateNative(); maintainLocal(); syncStatus = "iCloud account changed; sync paused"; showProjectionWarning(); return
+        }
+        if let error {
+            maintainLocal()
+            if case NativeCloudError.environmentMismatch(source: "Development", destination: "Production") = error { nativeEnvironmentMismatch = true }
+            nativeOverview = nil; nativeOverviewError = error.localizedDescription; receivedCaptureIDs = []
+            discovery?.stop(); discovery = nil
+            syncStatus = "iCloud sync paused: \(error.localizedDescription)"
+        } else if let result, let overview, let root {
+            nativeOverview = overview.overview; nativeOverviewError = overview.overview == nil ? overview.issues.first : nil
+            maintainLocal()
+            receivedCaptureIDs = projectionError == nil ? receipts.subtracting(projectionDiagnostics.incompleteNoteIDs) : []
+            let issues = result.issues + overview.issues
+            syncStatus = issues.first ?? ((result.waitingForDownloads || overview.waitingForDownloads) ? "Waiting for iCloud downloads" : (receipts.isEmpty ? "Published to iCloud; Mac receipt not confirmed" : "Published to iCloud; Mac receipts available"))
+            if result.hasMoreWork { nativeRetryPending = true }
+            if discovery == nil {
+                let watcher = NativeCloudDiscovery(); discovery = watcher
+                watcher.start(rootURL: root) { [weak self] in self?.sync() }
+            }
+        }
+        showProjectionWarning()
+        overviewRevision += 1
+        if nativeRetryPending { let explicit = nativeExplicitRetryPending; nativeRetryPending = false; nativeExplicitRetryPending = false; if explicit { startNativeSync(allowCreate: true) } else { sync() } }
+    }
+
+    public func requestNativeMigration() {
+        guard nativeSyncMode == .iCloud, nativeEnvironmentMismatch, !nativeMigrationBusy, !nativeMigrationConfirmation else { return }
+        nativeMigrationOffer = nil
+        invalidateNative(); nativeEnvironmentMismatch = true; nativeMigrationBusy = true
+        let generation = nativeGeneration, log = logURL, workLock = nativeWorkLock
+        nativeMigrationTask = Task { [weak self] in
+            let result = await Task.detached { () -> Result<NativeCloudEnvironmentMigration.Offer, Error> in
+                do {
+                    return try withNativeWorkLock(workLock) {
+                    let folder = log.deletingLastPathComponent()
+                    let scoped = folder.startAccessingSecurityScopedResource()
+                    defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+                    return .success(try NativeCloudEnvironmentMigration.offer(eventLogURL: log, isValid: { generation.isValid() }))
+                    }
+                } catch { return .failure(error) }
+            }.value
+            guard let self, generation.isValid(), self.logURL == log, self.nativeSyncMode == .iCloud else { return }
+            self.nativeMigrationTask = nil; self.nativeMigrationBusy = false
+            switch result {
+            case .success(let offer): self.nativeMigrationOffer = offer; self.nativeMigrationConfirmation = true
+            case .failure(let error): self.syncStatus = "iCloud sync paused: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    public func cancelNativeMigrationPreparation() {
+        guard !nativeMigrationConfirmed, nativeMigrationBusy || nativeMigrationOffer != nil || nativeMigrationConfirmation else { return }
+        invalidateNative(); nativeEnvironmentMismatch = true
+    }
+
+    public func confirmNativeMigration() {
+        guard nativeSyncMode == .iCloud, nativeEnvironmentMismatch, !nativeMigrationBusy, let offer = nativeMigrationOffer else { return }
+        invalidateNative(); nativeEnvironmentMismatch = true; nativeMigrationBusy = true; nativeMigrationConfirmed = true
+        let generation = nativeGeneration, log = logURL, workLock = nativeWorkLock
+        nativeMigrationTask = Task { [weak self] in
+            let result = await Task.detached { () -> Result<Void, Error> in
+                do {
+                    return try withNativeWorkLock(workLock) {
+                    let folder = log.deletingLastPathComponent()
+                    let scoped = folder.startAccessingSecurityScopedResource()
+                    defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
+                    _ = try NativeCloudEnvironmentMigration.migrate(offer: offer, isValid: { generation.isValid() })
+                    return .success(())
+                    }
+                } catch { return .failure(error) }
+            }.value
+            guard let self, generation.isValid(), self.logURL == log, self.nativeSyncMode == .iCloud else { return }
+            self.nativeMigrationTask = nil; self.nativeMigrationBusy = false; self.nativeMigrationConfirmed = false
+            switch result {
+            case .success:
+                self.nativeEnvironmentMismatch = false; self.maintainLocal(); self.startNativeSync(allowCreate: false)
+            case .failure(let error): self.syncStatus = "iCloud sync paused: \(error.localizedDescription)"
+            }
+        }
     }
 
     /// Writes the open to-dos where the iPhone widget reads them, and asks it to redraw.
@@ -420,11 +703,12 @@ public final class CaptureStore: ObservableObject {
     public func updatePulledNotesForCurrentTab() {
         let allNotes = (try? noteService.listNotes()) ?? []
         self.pulledNotes = allNotes.filter { note in
-            note.tags.contains(currentProjectTab)
+            note.tags.contains { $0.caseInsensitiveCompare(currentProjectTab) == .orderedSame }
         }
     }
 
     public func deleteCapture(id: UUID) {
+        if archiveOnly { archiveCapture(id: id); return }
         captures.removeAll { $0.id == id }
         pulledNotes.removeAll { $0.id == id }
 
@@ -442,6 +726,10 @@ public final class CaptureStore: ObservableObject {
             _ = try? TrashService.purge(noteIDs: [id], logURL: logURL)
         }
 
+        guard nativeSyncMode == .folder, sharedFolderURL != nil else {
+            sync()
+            return
+        }
         let ownShardFilename = "events-phone-\(deviceIdentity.id).jsonl"
         let syncFolder = sharedFolderURL ?? storageDir.appendingPathComponent("shards", isDirectory: true)
         let ownShardFileURL = syncFolder.appendingPathComponent(ownShardFilename)
@@ -673,7 +961,10 @@ public final class CaptureStore: ObservableObject {
     /// same case reached from the other direction.
     @discardableResult
     private func saveCapturedText(_ text: String, audioURL: URL?) throws -> SentCaptureItem {
-        let written = try shardWriter.writeCaptureEvents(text: text, tags: [currentProjectTab])
+        let projectTag = currentProjectTab.trimmingCharacters(in: .whitespacesAndNewlines)
+        let tag = projectTag.caseInsensitiveCompare("Unli Thoughts") == .orderedSame ? "Unli Thoughts" : projectTag.lowercased()
+        let captureTags = [tag, CaptureContext.captureTag, CaptureContext.pendingTag]
+        let written = try shardWriter.writeCaptureEvents(text: text, tags: captureTags)
         guard let event = written.first else {
             throw RecorderShardError.nothingWritten
         }
@@ -715,7 +1006,7 @@ public final class CaptureStore: ObservableObject {
             title: event.title ?? ShardWriter.timestampedFallbackTitle(for: event.timestamp),
             timestamp: event.timestamp,
             audioURL: audioURL,
-            tags: [currentProjectTab]
+            tags: captureTags
         )
         captures.insert(item, at: 0)
         state = .completed(title: item.title)

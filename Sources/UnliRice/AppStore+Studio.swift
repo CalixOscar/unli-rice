@@ -19,9 +19,12 @@ extension AppStore {
 
     func refreshStudioGarden() async {
         studioGardenState = .loading
+        _ = runShardImportIfNeeded()
         let roots = scanRoots
         let corpusFolder = dataURL.deletingLastPathComponent()
         let service = service
+        let identity = DeviceIdentity.current(inDirectory: corpusFolder)
+        let exportFolder = nativeSyncMode == .folder ? exportFolderURL : nil
 
         do {
             let worker = Task.detached(priority: .userInitiated) {
@@ -30,24 +33,26 @@ extension AppStore {
                 defer { if corpusAccess { corpusFolder.stopAccessingSecurityScopedResource() } }
                 let openedRoots = roots.map { ($0, $0.startAccessingSecurityScopedResource()) }
                 defer { for (root, opened) in openedRoots where opened { root.stopAccessingSecurityScopedResource() } }
-                let notes = try service.listNotes(includeArchived: false)
-                try Task.checkCancellation()
-                let snapshotURL = corpusFolder.appendingPathComponent(RepoSnapshotFile.filename)
-                var snapshot: RepoSnapshotFile?
-                var issues: [String] = []
-                if FileManager.default.fileExists(atPath: snapshotURL.path) {
-                    do { snapshot = try RepoSnapshotFile.read(fromFolder: corpusFolder) }
-                    catch { issues.append("Saved repository details could not be read. Available notes and folders are shown. \(error.localizedDescription)") }
-                }
-                let loaded = ProjectGarden.load(roots: roots, notes: notes, publishedSnapshot: snapshot)
-                try Task.checkCancellation()
-                return ProjectGarden.Report(projects: loaded.projects, scannedAt: loaded.scannedAt,
-                                            issues: loaded.issues + issues)
+                return try NativeOverviewGatherer.gather(roots: roots, service: service, corpusFolder: corpusFolder, identity: identity)
             }
-            let report = try await withTaskCancellationHandler(operation: {
+            let result = try await withTaskCancellationHandler(operation: {
                 try await worker.value
             }, onCancel: { worker.cancel() })
             guard !Task.isCancelled else { return }
+            let report = result.report, overview = result.overview, ids = result.receivedCaptureIDs
+            var failures: [String] = []
+            let corpusAccess = corpusFolder.startAccessingSecurityScopedResource()
+            do { try overview.write(toFolder: corpusFolder) } catch { failures.append("local overview: \(error.localizedDescription)") }
+            if corpusAccess { corpusFolder.stopAccessingSecurityScopedResource() }
+            if let exportFolder {
+                let scoped = exportFolder.startAccessingSecurityScopedResource()
+                do { try overview.write(toFolder: exportFolder) } catch { failures.append("shared overview: \(error.localizedDescription)") }
+                do {
+                    try CaptureReceiptFile(deviceLabel: identity.label, receivedNoteIDs: ids).write(toFolder: exportFolder, deviceID: identity.id)
+                } catch { failures.append("capture receipt: \(error.localizedDescription)") }
+                if scoped { exportFolder.stopAccessingSecurityScopedResource() }
+            }
+            if !failures.isEmpty { statusMessage = "Studio sync needs retry: " + failures.joined(separator: "; ") }
             studioSleeves = GardenCrate.sleeves(from: report)
             studioFrontIndex = min(studioFrontIndex, max(studioSleeves.count - 1, 0))
             studioGardenState = .loaded

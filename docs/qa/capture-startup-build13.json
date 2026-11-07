@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-11-04T01:30:06.150250+00:00",
+  "sourceCommit": "1e178ef",
+  "version": "1.3.1",
+  "build": "13",
+  "tests": {
+    "ordinaryPhoneAndIPad": "PASS: typed local note survives relaunch; final-ordinary.xcresult",
+    "nativeDuoOpen": "PASS: final-native-open.xcresult",
+    "nativeDuoClosed": "PASS: three cold launches in final-native-closed.xcresult",
+    "observerLifecycle": "PASS: 5 checks, hidden/visible/reattach; lifecycle-probe/runtime.log"
+  },
+  "frames": {
+    "auditedAt": "2026-11-04T01:28:12.625184+00:00",
+    "sourceCommit": "1e178ef",
+    "video": "final-closed-test.mp4",
+    "videoSHA256": "d11e3324761db7324099e045e7b2a3a50b03e2b5239823a5e113e9d7d76293ea",
+    "frameCount": 482,
+    "method": "All encoded frames decoded and visually reviewed in contact sheets 1 through 8; actual production observer, three closed cold launches",
+    "result": "No full interface/onboarding flash observed; launch covers, voice controls and system home/transition frames only",
+    "automatedOCR": "Cancelled after process sample established TextRecognition semaphore wait; no OCR pass claimed",
+    "contacts": [
+      "final-closed-frames/contact-1.jpg",
+      "final-closed-frames/contact-2.jpg",
+      "final-closed-frames/contact-3.jpg",
+      "final-closed-frames/contact-4.jpg",
+      "final-closed-frames/contact-5.jpg",
+      "final-closed-frames/contact-6.jpg",
+      "final-closed-frames/contact-7.jpg",
+      "final-closed-frames/contact-8.jpg"
+    ]
+  },
+  "distribution": {
+    "sourceCommit": "1e178ef",
+    "verifiedAt": "2026-11-04T01:29:05.944814+00:00",
+    "uploadObserved": "Xcode Organizer: UnliRiceCapture 1.3.1(13) uploaded; ContentDelivery: UPLOAD SUCCEEDED with no errors at 2026-11-04 09:28:32 Asia/Manila",
+    "products": [
+      {
+        "bundle": "com.calmdownoscar.unlirice.capture",
+        "version": "1.3.1",
+        "build": "13",
+        "getTaskAllow": false,
+        "uuid": "UUID: 5394884B-9454-3751-AFFB-E0A53E2248C6",
+        "cloudEnvironment": "Production"
+      },
+      {
+        "bundle": "com.calmdownoscar.unlirice.capture.widget",
+        "version": "1.3.1",
+        "build": "13",
+        "getTaskAllow": false,
+        "uuid": "UUID: 9D4281C2-CC93-3FE2-9D5A-4FCC38CDB724",
+        "cloudEnvironment": null
+      }
+    ],
+    "ipa": "/private/tmp/capture13-release/UnliRiceCapture-1.3.1-13.ipa",
+    "ipaSHA256": "2ae2e829305e8781a642ebc831dc7b5a4f54d42b6042985f1884491f5faf8c43"
+  },
+  "appReview": "NOT SUBMITTED: owner browser login expired; request pending"
+}

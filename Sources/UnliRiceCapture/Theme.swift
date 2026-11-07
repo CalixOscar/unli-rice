@@ -1,4 +1,5 @@
 import SwiftUI
+import UnliRiceCore
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -12,32 +13,32 @@ public struct Theme {
     /// - Dark Mode: Dark Indigo/Slate Space (`#0B0E17`)
     /// - Light Mode: Luminous Indigo-Slate (`#F0F4F9`)
     public static let bgMain: Color = adaptiveColor(
-        light: Color(red: 0.941, green: 0.957, blue: 0.976),
-        dark:  Color(red: 0.043, green: 0.055, blue: 0.090)
+        light: CaptureStudioStyle.color(.background, .light),
+        dark: CaptureStudioStyle.color(.background, .dark)
     )
 
     /// Card background:
     /// - Dark Mode: Translucent Slate Glass (`#131722`)
     /// - Light Mode: Crisp White (`#FFFFFF`)
     public static let bgCard: Color = adaptiveColor(
-        light: .white,
-        dark:  Color(red: 0.075, green: 0.090, blue: 0.133)
+        light: CaptureStudioStyle.color(.surface, .light),
+        dark: CaptureStudioStyle.color(.surface, .dark)
     )
 
     /// Primary Text:
     /// - Dark Mode: Crisp Off-White (`#F8FAFC`) — contrast ratio vs bgMain ~15:1
     /// - Light Mode: Deep Slate Navy (`#0F172A`) — contrast ratio vs bgMain ~14:1
     public static let textPrimary: Color = adaptiveColor(
-        light: Color(red: 0.059, green: 0.090, blue: 0.165),
-        dark:  Color(red: 0.973, green: 0.980, blue: 0.988)
+        light: CaptureStudioStyle.color(.textPrimary, .light),
+        dark: CaptureStudioStyle.color(.textPrimary, .dark)
     )
 
     /// Secondary Text:
     /// - Dark Mode: Cool Slate (`#94A3B8`) — contrast ratio vs bgMain ~6.5:1
     /// - Light Mode: Sky Slate (`#475569`) — contrast ratio vs bgMain ~7:1
     public static let textSecondary: Color = adaptiveColor(
-        light: Color(red: 0.278, green: 0.333, blue: 0.412),
-        dark:  Color(red: 0.580, green: 0.639, blue: 0.722)
+        light: CaptureStudioStyle.color(.textSecondary, .light),
+        dark: CaptureStudioStyle.color(.textSecondary, .dark)
     )
 
     /// Subtle / Muted Text:

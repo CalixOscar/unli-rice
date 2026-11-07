@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 import UnliRiceCore
 
 enum ToolDispatchError: Error, CustomStringConvertible {
@@ -21,6 +22,8 @@ enum ToolDispatchError: Error, CustomStringConvertible {
 /// public methods, so the exposed capability surface is easy to audit.
 struct ToolDispatcher {
     let service: NoteService
+    var overviewFolder: URL? = nil
+    var syncIssue: String? = nil
 
     func dispatch(name: String, arguments: [String: Any]) -> [String: Any] {
         do {
@@ -29,6 +32,28 @@ struct ToolDispatcher {
             }
             let payload: Any
             switch tool {
+            case .projectContext:
+                if arguments["project"] != nil && !(arguments["project"] is String) {
+                    throw ToolDispatchError.invalidArgument("project")
+                }
+                var offset = 0
+                if let raw = arguments["offset"] {
+                    guard let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                          number.doubleValue.isFinite, number.doubleValue >= 0,
+                          number.doubleValue.rounded(.towardZero) == number.doubleValue,
+                          number.doubleValue < Double(Int.max) else { throw ToolDispatchError.invalidArgument("offset") }
+                    offset = number.intValue
+                }
+                var overview: StudioOverviewFile?
+                var issue: String?
+                if let folder = overviewFolder {
+                    do { overview = try StudioOverviewFile.read(fromFolder: folder) }
+                    catch { issue = error.localizedDescription }
+                } else { issue = "Studio overview location unavailable." }
+                if let syncIssue { issue = [issue, syncIssue].compactMap { $0 }.joined(separator: " ") }
+                payload = try JSONRPC.plain(ProjectContext.build(notes: try service.listNotes(), overview: overview,
+                    project: arguments["project"] as? String, overviewIssue: issue, offset: offset))
+
             case .createNote:
                 let note = try service.createNote(
                     title: try string(arguments, "title"),
@@ -135,7 +160,15 @@ struct ToolDispatcher {
             }
 
             let text = try jsonString(payload)
-            return ["content": [["type": "text", "text": text]]]
+            var content = [["type": "text", "text": text]]
+            do {
+                if let warning = try service.projectionSnapshot(includeArchived: true).diagnostics.technicalSummary {
+                    content.append(["type": "text", "text": warning])
+                }
+            } catch {
+                content.append(["type": "text", "text": "Note projection unavailable: \(error.localizedDescription)"])
+            }
+            return ["content": content]
         } catch {
             return [
                 "content": [["type": "text", "text": "Error: \(error)"]],

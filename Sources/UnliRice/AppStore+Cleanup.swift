@@ -49,6 +49,13 @@ extension AppStore {
     /// warning that overstates the damage trains people to click through
     /// warnings that don't.
     func moveSelectedToTrash() {
+        if NativeCloudBinding.exists(besideEventLog: dataURL) {
+            let alert = NSAlert()
+            alert.messageText = "This synced library is archive-only"
+            alert.informativeText = "Notes in an iCloud-bound library cannot be permanently removed. Keep them archived instead."
+            alert.runModal()
+            return
+        }
         let victims = selectedArchivedNotes
         guard !victims.isEmpty else { return }
 

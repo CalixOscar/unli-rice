@@ -1265,6 +1265,7 @@ private struct EventHistoryRow: View {
         case .reviewResolved: return "Review resolved"
         // An event from a newer build. History shows the gap honestly rather
         // than hiding the row.
+        case .causalOrder: return "Ordering metadata"
         case .unrecognized: return "Unrecognized event"
         }
     }
@@ -1278,6 +1279,8 @@ private struct EventHistoryRow: View {
         case .archived, .flagged, .reviewResolved:
             return event.reason
         case .unarchived:
+            return nil
+        case .causalOrder:
             return nil
         case .unrecognized:
             return "Written by a newer version of Unli Rice."
@@ -1294,6 +1297,7 @@ private struct EventHistoryRow: View {
         case .unarchived: return "tray.and.arrow.up.fill"
         case .flagged: return "flag.fill"
         case .reviewResolved: return "checkmark.circle.fill"
+        case .causalOrder: return "link"
         case .unrecognized: return "questionmark.circle"
         }
     }

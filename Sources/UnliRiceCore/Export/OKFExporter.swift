@@ -68,6 +68,7 @@ public enum OKFExporter {
         // Written by a newer build. Name it plainly rather than guessing or
         // omitting the row — an export that quietly drops history is worse than
         // one that admits a gap.
+        case .causalOrder: return "Ordering metadata"
         case .unrecognized: return "Unrecognized event"
         }
     }

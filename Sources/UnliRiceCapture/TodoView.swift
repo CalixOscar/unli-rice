@@ -49,7 +49,7 @@ struct TodoView: View {
         }
         .task { load() }
         .refreshable { load() }
-        .sheet(item: $noteFor) { item in noteSheet(item) }
+        .sheet(item: $noteFor) { item in noteSheet(item).modifier(CapturePrivacyCover()) }
     }
 
     // MARK: - Sections

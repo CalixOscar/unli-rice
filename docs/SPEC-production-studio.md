@@ -1,0 +1,15 @@
+# SPEC — Production Studio
+
+**Intent:** docs/intent/INTENT-012-production-studio.md
+
+| ID | Required outcome | Verification |
+|---|---|---|
+| U1 | iOS project sleeves mirror Mac stack depth, horizontal swipe, spring motion, tap behind sleeves, bounded previous/next controls and selected project count. Covers use stable project identity colors. | Three-project fixture, first/last boundary, swipe versus vertical scrolling, Reduce Motion and VoiceOver. |
+| U2 | Actual Duo closed/outer mode exposes voice capture only. Open/partially-open inner mode shows full Studio and To Do workspace. Ordinary phones and iPad keep existing navigation. | Real Duo simulator hinge poses; normal phone and iPad regression; do not use orientation, fixed model names or width as a fold detector. |
+| U3 | Folding/unfolding retains the singleton recorder, paused/transcribing states, project selection, form drafts and sheet context. Nonvoice content is hidden from touch and accessibility while folded; app lock covers all presentations. | Fold during recording/pause/transcription and while editing a project/todo; reopen with draft retained; locked app-switcher and accessibility checks. |
+| U4 | Layout follows current scene space and safe/reserved regions, including landscape, split view, large text and asymmetric bars. No fixed full-screen assumptions. | Duo compact/open/book poses, split view, largest type, light/dark, Reduce Motion/Transparency. |
+| S1 | A valid known GUI client may explicitly migrate its own Development v2 link to Production after unchanged own token and fresh Production identity. No implicit migration, changed-account bypass or helper initiation. | Synthetic authorization, cancellation, corruption, token/account swap and unknown-client cases. |
+| S2 | Migration preserves binding identity, every existing client token, note history and old cursor files; creates private recovery snapshot and fresh transport namespace. Commit is one atomic v3 binding replacement. | Fault injection at persistence boundaries; exact source bytes unchanged on rejection; replay/dedup and crash recovery. |
+| S3 | Normal v2 behavior remains compatible. Migrated known clients retain own-token checks before target enrollment. Sessions detect replaced binding namespace; typed environment errors explain recovery. | Existing suite plus concurrent enrollment/migration and stale-session tests. |
+| A1 | User's recorded Nuptia test capture is found in the installed Mac store and included as a pending capture in fresh MCP project_context. No invented receipt, setup note or automatic action. | Actual capture transcript/identity, native transfer and project-context evidence; distinguish cached tool connection from newly installed helper. |
+| R1 | Both signed release apps use Production; current ASC trains determine versions/build counters. Public versus internal destination is explicit. No public review until required prelaunch gate and exact-build checks pass. | Signature/runtime audit, live ASC inspection, release notes/screenshots, upload acceptance and review status. |

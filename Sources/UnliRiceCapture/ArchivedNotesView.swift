@@ -111,7 +111,9 @@ public struct ArchivedNotesView: View {
             }
             .buttonStyle(.plain)
 
-            Button(action: {
+            if store.archiveOnly {
+                Text("Archive only").font(.caption).foregroundStyle(Theme.textSecondary)
+            } else { Button(action: {
                 if isPlaying { player.stop() }
                 store.deleteCapture(id: item.id)
             }) {
@@ -120,7 +122,7 @@ public struct ArchivedNotesView: View {
                     .foregroundStyle(Theme.crit)
                     .padding(6)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain) }
         }
         .padding(12)
         .cardStyle(cornerRadius: 12)
