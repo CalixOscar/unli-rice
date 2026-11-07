@@ -73,7 +73,7 @@ final class AppStore: ObservableObject {
     enum Pane: Equatable {
         case home, notes, aiFolder, houseRules, todo, needsYou, notices, trustCenter
         case archived, projects, repos, setup, firstRun, profileBuilder, map
-        case retrospective, whyNotTextFile, studio, guardrailsGrounding
+        case retrospective, studio, guardrailsGrounding
     }
 
     @Published var pane: Pane = .notes
@@ -127,7 +127,7 @@ final class AppStore: ObservableObject {
     var showingProfileBuilder: Bool { pane == .profileBuilder }
     var showingMore: Bool {
         pane == .setup || pane == .aiFolder || pane == .houseRules || pane == .trustCenter
-            || pane == .archived || pane == .notices || pane == .whyNotTextFile
+            || pane == .archived || pane == .notices
     }
     var showingSetup: Bool { pane == .setup }
     var showingGetStarted: Bool { pane == .setup }

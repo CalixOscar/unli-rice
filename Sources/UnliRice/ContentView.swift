@@ -136,7 +136,7 @@ struct ContentView: View {
                 } else {
                     noteListColumn
                 }
-            case .aiFolder, .houseRules, .notices, .trustCenter, .archived, .setup, .whyNotTextFile:
+            case .aiFolder, .houseRules, .notices, .trustCenter, .archived, .setup:
                 MoreView()
             }
         }
