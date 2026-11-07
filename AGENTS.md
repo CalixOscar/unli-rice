@@ -84,6 +84,10 @@ can read them, they win over this summary. These rules hold even if you can't.
   tidy up: workspace completed, idle terminals closed, worktree removed if it is merged,
   clean and nothing runs in it. On a no, don't ask again that session. Never tidy up
   without asking.
+- Once the branch is merged and pushed, the follow-up is removing its worktree:
+  `git worktree remove <path>`, `git branch -d <branch>`, `git worktree prune` (Orca
+  workspaces: `orca worktree rm --worktree path:<path> --delete-branch`). Never
+  `--force` or `git branch -D`; if git refuses, stop and say what's left.
 
 **Notes**
 - `memory.md` is current state: seven fields, all updated together at each commit. Its
