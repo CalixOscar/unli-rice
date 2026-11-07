@@ -2,7 +2,7 @@
 
 **Intent:** none. This is a data repair, not a feature; §0 is the brief.
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 4 settled, ready to run
+**Stage:** 5 in progress: A0–A3 done 2026-11-08; A3b (phone) and A4 (move) wait on the founder
 **Pre-mortem:** `docs/dialogue/restore-stranded-notes.md` (codex, 2026-11-08: ship with changes), answered there and in §9
 **Founder decisions (2026-11-08):** "go with the recommended options". D1 = the six
 hand-written notes, D2 = re-create through the connector, D3 = move the old file to
@@ -116,35 +116,35 @@ uses Clear in Notices (A4, step 5).
 Assumes D1 = six notes, D2 = connector, D3 = move. Re-plan if any answer differs.
 
 ### A0. Preconditions
-- [ ] `planner` Confirm the installed app is the one serving the connector. Done when:
+- [x] `planner` Confirm the installed app is the one serving the connector. Done when:
       `unlirice-mcp` stderr names the App Group log. Verify: start the connector and read
       its first stderr line.
-- [ ] `planner` Snapshot before writing. Done when: the live note count and the list of
+- [x] `planner` Snapshot before writing. Done when: the live note count and the list of
       ids and titles are saved to the session scratchpad. Verify: `list_notes(include_archived: true)`
       returns 540 notes (or the current count, recorded).
-- [ ] `planner` Back up the old file, read-only copy. Done when: a byte-identical copy
+- [x] `planner` Back up the old file, read-only copy. Done when: a byte-identical copy
       exists. Verify: `shasum -a 256` of the original and the copy match.
 
 ### A1. Dry run
-- [ ] `planner` Rebuild each chosen note from the old log: the `created` text, then each
+- [x] `planner` Rebuild each chosen note from the old log: the `created` text, then each
       `appended` text in order, joined with the projector's exact `\n\n---\n` separator
       (`Projector.swift:82-85`). Keep the tags as well. Done when: six files in the
       scratchpad hold the body and tags each note would get, with the provenance line on
       top (original id, author, date, "may be out of date"). Verify: every body is
       non-empty and its link count matches §1.
-- [ ] `planner` Re-check clashes right before writing. Done when: none of the chosen titles
+- [x] `planner` Re-check clashes right before writing. Done when: none of the chosen titles
       are live, archived notes included, compared case-insensitively. Verify:
       `search_notes(<title>, include_archived: true)` has no exact match for each.
-- [ ] `planner` Start the ledger: one JSON row per note in the scratchpad with original id,
+- [x] `planner` Start the ledger: one JSON row per note in the scratchpad with original id,
       title, the expected body's SHA-256, new id (empty) and tags done (empty).
 
 ### A2. Restore
-- [ ] `planner` For each note in turn: `create_note`, then **write the returned id to the
+- [x] `planner` For each note in turn: `create_note`, then **write the returned id to the
       ledger at once**, then one `tag_note` per original tag, logging each. Done when: the
       ledger has six ids with all their tags. Verify: `get_note(<new id>)` body equals the
       dry-run file byte for byte; `note_history` shows `source: claude`. A later janitor
       tag is not corruption.
-- [ ] **On any error or unclear reply: stop. Do not start A3 or A4.** Before retrying a
+- [x] **On any error or unclear reply: stop. Do not start A3 or A4.** Before retrying a
       note, search for its title (archived included, case-insensitive) and read the body
       and history of any match. If it is our note, record the id and finish its tags. Create
       a note only once it is confirmed missing. If a match differs from the expected note,
@@ -152,10 +152,10 @@ Assumes D1 = six notes, D2 = connector, D3 = move. Re-plan if any answer differs
       and the old file intact". The live log is never overwritten from a backup.
 
 ### A3. Wire up
-- [ ] `planner` Check `Wiki: index` for an existing restore block first. If there is none,
+- [x] `planner` Check `Wiki: index` for an existing restore block first. If there is none,
       append one dated block linking the six titles. Done when: `get_note(Wiki: index)`
       lists all six new ids in `outboundLinks`.
-- [ ] `planner` Verify each hub's `danglingLinks` against the post-restore expectation,
+- [x] `planner` Verify each hub's `danglingLinks` against the post-restore expectation,
       recomputed now against live titles plus the six: Nuptia 0, ClearSpace 3,
       CalmdownOscar 0, Architecturally 0, studio context 9, Corpus reset 1 (computed
       2026-11-08). Any difference: stop and explain it before A4.
@@ -240,3 +240,12 @@ a data file, and none of it is code. No builder is used.
 - 2026-11-08, Claude: `swift test` outside Codex's sandbox on `d51e528` ran 638 tests,
   2 skipped, 0 failures. Codex's 24 NativeCloud failures were sandbox-only (file
   coordination errors 256/512).
+- 2026-11-08, Claude ran A0–A3 through the installed 1.5.1 (13) connector, which
+  logged the App Group store. A0: 540 live notes; the old log's SHA-256 is `8fb86fd3…0829`,
+  matching Codex's, and a copy is in the session scratchpad. No `UNLIRICE_DATA_PATH`
+  override was found on any running process. A2 new ids: Nuptia `7C598ECB`, ClearSpace
+  `C3D9BBA4`, CalmdownOscar `B753E042`, Architecturally `C7594599`, studio context
+  `CE7B48A0`, Corpus reset `70114150`. Each body read back byte for byte, with its
+  original tag. A3: the `Wiki: index` block links all six. Dangling links are
+  0/3/0/0/9/1, as expected. The live store now has 546 notes and no duplicate titles. The
+  old log's hash is unchanged after the restore.
