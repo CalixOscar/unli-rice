@@ -116,7 +116,7 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Check claims against current evidence; mark what you couldn't check as unverified.
     """
 
-    // guardrails-refreshed-from: 7cf36bd
+    // guardrails-refreshed-from: 299cb26
     // The studio guardrails commit this text was last distilled from, in generic
     // words. Scripts/check-template-drift.sh compares it with the guardrails
     // history before a release; move it forward whenever the text is refreshed.
@@ -129,17 +129,19 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
 
     **Working state and history are different files.** Keep the current state (status, task in flight, files touched, next step, gotchas) in one short working-state file, and update it as a whole when it changes. Keep what was decided, when, and why in an append-only file such as `PROJECT_NOTES.md`. If either disagrees with the repository, the repository wins: check `git log` and `git status` before building on them.
 
-    **Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`. Never leave one at the repository root. Start the work on a fresh branch off the main branch, not on top of unrelated commits.
+    **Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`, never the repository root. Start work on a fresh branch off the main branch.
 
-    **Sort work by risk, not size.** A plan, a review and the full process are for a new app or foundation, servers, auth, secrets or payments, anything persisted, release submission, AI features or a new dependency. Everything else is a branch, a reviewed diff and a real build and test run. Unsure, or the change grows into that list? Use the full process.
+    **Question new ideas first.** Before building a new app or feature, talk it through with the user: the problem, the alternatives, whether software is needed and who wants it. An early build is a proposal; agree the outcome before calling it done.
+
+    **Sort work by risk, not size.** The full process is for a new app or foundation, servers, auth, secrets or payments, anything persisted, release submission, AI features or a new dependency. Everything else is a branch, a reviewed diff and a real build and test run. Unsure, or it grows into that list? Use the full process.
 
     **Plan high, build low.** Plan on your most capable model, in steps labelled as a full build or a small, fully specified edit. Your own cheaper models build them; a builder never makes a design call and stops on any ambiguity.
 
-    **A second tool only reviews.** The assistant that did not plan writes a pre-mortem before the build and a post-mortem after, in `docs/dialogue/<slug>.md`, append-only. Plans and builds never cross between tools. A point still disputed after one rebuttal each goes to the user.
+    **A second tool only reviews.** The assistant that did not plan writes a pre-mortem before the build and a post-mortem after, in `docs/dialogue/<slug>.md`, append-only, and reviews risky work again before it is merged. Plans and builds never cross between tools. A point still disputed after one rebuttal each goes to the user.
 
-    **Evidence or "unverified".** "Tests pass" names the command and result. A check proves only the setup it ran against. After two failed attempts at a fix, write down the diagnosis; try once more only with a new hypothesis, otherwise hand back.
+    **Evidence or "unverified".** "Tests pass" names the command and result; a check proves only the setup it ran against. Walk the whole journey in a running build, including empty, slow and failed states. After two failed fixes, write down the diagnosis; try once more only with a new hypothesis, otherwise hand back.
 
-    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file. Whoever planned the work does this, never the builder. Flag drift: stale branches, local-only commits, uncommitted worktrees.
+    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file. Whoever planned the work does this, never the builder. Flag stale branches, local-only commits and uncommitted worktrees. When the work is done, ask once before tidying up.
 
     **Stay in bounds.** Work only in this project's folder. Never upload a build, submit for review or change pricing unless the user asks in this session, in their own words. Keep secrets out of the repository; a leaked one must be rotated.
 

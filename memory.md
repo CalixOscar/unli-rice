@@ -23,13 +23,15 @@
 # Unli Rice — Working Memory
 
 **Status:** Mac 1.5 (11) is **submitted: Waiting for Review** (submitted 2026-10-31 about 23:13, verified in App Store Connect; submission `68ca3580`). It replaces 1.5 (10), whose submission was cancelled on the founder's word the same evening. Build 11 (`447bb4e`) carries the Engineering Guardrails template refreshed from guardrails `7cf36bd`; the founder uploaded it from Xcode's Organizer (the command-line upload still fails with "Failed to Use Accounts"). App Store Connect has all seven screenshots in order 01-07 with the new 05 (`d84990f`). Release is automatic once approved, to all users immediately. 540 tests, 0 failed, 2 skipped (verified: `swift test` 2026-10-31). GitHub release `v1.5` is still build 10's source.
-**Task:** None in flight. Waiting on App Review.
-**Files touched:** `Sources/UnliRiceCore/HouseRulesPreset.swift`, `Scripts/check-template-drift.sh` (new), `APP_STORE_SUBMISSION.md` (checklist step 1), `project.yml` (build 11), `Screenshots/AppStore-Mac-2026-10-31/05-house-rules.png`, `PROJECT_NOTES.md`, `memory.md`.
+**Task:** None in flight. Waiting on App Review. On `main` (not in build 11): the Engineering Guardrails template is refreshed from guardrails `299cb26`, and `AGENTS.md` carries the studio rules block.
+**Files touched:** `Sources/UnliRiceCore/HouseRulesPreset.swift` (template refreshed, stamp `299cb26`), `AGENTS.md` (studio rules block), `CLAUDE.md` (search PROJECT_NOTES, don't read it whole), `memory.md`.
 **Next step:** Wait for Apple's review email; nothing is needed from the founder before then.
+
+Before archiving the next build: re-shoot App Store screenshot 05, because the template text and counter changed.
 
 If approved: check the App Store page shows 1.5 and the new screenshot 05, and decide with the founder whether GitHub release `v1.5` should move to build 11's source. If rejected: read the resolution notes before changing anything. Later (1.6), unchanged: premortem takeaways 1, 3, 4, 5; Developer ID for a downloadable build; fix the command-line upload; keywords still include "second brain".
 **Gotchas:**
-- App Store screenshot 05 (`Screenshots/AppStore-Mac-2026-10-31/05-house-rules.png`) shows the Engineering Guardrails template: the refresh keeps its four visible paragraphs word for word, but the corner counter changes from ~869 tokens · 3,472 characters to ~900 tokens · 3,593 characters, so re-shoot 05 with any build that carries it.
+- App Store screenshot 05 (`Screenshots/AppStore-Mac-2026-10-31/05-house-rules.png`) shows the Engineering Guardrails template: build 11 shows ~900 tokens · 3,593 characters. The 2026-11-07 refresh keeps the first four paragraphs word for word but changes the later ones and the counter (~984 tokens · 3,930 characters), so re-shoot 05 with any build that carries it. The template is capped under 1,000 tokens by `HouseRulesTests`; only ~16 tokens of room are left.
 - Chrome's file picker is a separate macOS service the accessibility tree can't see: open it from the page, then drive it with `orca computer … --restore-window` keys (Cmd+Shift+G, path, Return, Cmd+A, Return); header clicks fail with window_not_focused.
 - App Store Connect keeps the picker's display order, and the picker sorts by Date Added, newest first, so stage files newest-last (copy 07 first, 01 last, a second apart).
 - `dgo.sh`-style real mouse clicks in the demo app landed on the wrong controls; `dpress` (AXPress) is reliable.
@@ -69,8 +71,8 @@ If approved: check the App Store page shows 1.5 and the new screenshot 05, and d
 - `Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents; check before citing one.
 - **INTENT-008 (shared spec) exists only on Codex's local branch `codex/shared-spec`**; reconcile it with INTENT-009 before planning either.
 - The vault's `04_Guardrails.md` wins over the new build-gate rule in `AGENTS.md` until it is updated.
-**To-dos:** filed none; closed none (`BC9A8A42` stays open).
-**Left by:** Claude Code (Orca session, Opus) 2026-10-31
+**To-dos:** filed none; closed 1 ("Add two tidy-up rules to the guardrails", vault `9edef20`). `BC9A8A42` stays open.
+**Left by:** Claude Code (desktop app, Opus) 2026-11-07. Tests: 540 run, 0 failed, 2 skipped (verified: `swift test` 2026-11-07).
 ## Earlier branch follow-ups
 
 The previous session's handoff (not revalidated in this session) left: restart Claude sessions for bridge changes; the older shipped-guardrails post-mortem; founder decision on pushing/merging chore/plan-high-build-low and its relationship with local main; committing vault changes; first two builder-model observations; and watching the sidebar before a release. These are separate from Garden and remain deferred.
