@@ -12,7 +12,15 @@ The founder wants Idea Clinic and Unli Rice connected by a reusable specificatio
 and the planned LearnPy agent lesson last. First make a useful manual handoff:
 the Clinic's existing AI prompt can ask for a draft after a decision to proceed;
 the person reviews it, then saves and retrieves it as an ordinary Unli Rice note.
-This is a copy/paste handoff, not an automatic integration or synchronized state.
+The website also offers the founder-approved download of an answers-only Markdown
+brief, separate from the AI prompt and the eventual draft spec. This is a manual
+handoff, not an automatic integration or synchronized state.
+
+Founder’s split, 2026-10-30: INTENT-008 owns the reusable spec template and
+website Idea Clinic changes. INTENT-009 owns all Unli Rice app work, including
+the Studio tabs, Garden crate, build-gate lights and in-app Idea Clinic. Every
+repo requires root `AGENTS.md`; `CLAUDE.md` is optional and, when present, must
+import or name `AGENTS.md`. INTENT-009 owns the app’s gate display.
 Then try an Orca planner/reviewer workflow. Do not change the active LearnPy demo.
 
 The website has existing uncommitted and untracked work. Do not overwrite, move,
@@ -42,16 +50,20 @@ No deployment is authorized by this plan.
 2. Suggest a specific permanent title `Draft specification: <idea>`. “Draft”
    describes the original document, not a live approval status. Record later
    decisions as clearly dated append-only additions. A copied note is a snapshot.
-3. Use existing note creation and search; add explanatory guidance and copying
-   only if the independent review confirms this is necessary and safe. Do not
-   parse text, change note schema, overwrite a user's House Rules, or auto-tag.
+3. Use existing note creation and search for the manual handoff. App guidance
+   or copy controls are INTENT-009 decisions, not implementation steps here.
+   Do not parse text, change note schema, overwrite a user's House Rules, or
+   auto-tag.
 4. One planner owns integration and working state; the other tool reviews via
    the append-only dialogue. A worktree does not expose another worktree's
    uncommitted files. Do not auto-dispatch cross-provider builders.
 
 ## Journey and acceptance
 
-1. The person completes the Clinic, copies its prompt and discusses the idea
+1. The person completes the website Clinic and can download an answers-only
+   Markdown brief, headed `# IDEA — <one-sentence idea>`, separately from the
+   existing prompts. They may save it as `docs/idea/IDEA-<slug>.md` in a repo
+   for the app’s Idea light. They copy a prompt and discuss the idea
    with their AI. Only after they choose to proceed and request a spec does the
    AI produce a draft with goals, exclusions, acceptance scenarios, suggested
    verification and unresolved questions.
@@ -80,13 +92,13 @@ dispatching builders.
 - [ ] `planner` Prepare a website-only intent/plan and clean worktree, aligned
   with the approved shared outcome; identify current website base and existing
   changes without moving the in-progress LearnPy work.
+- [ ] `planner` Settle and review the reusable spec template, including explicit
+  unknowns, scope, acceptance scenarios and verification; coordinate its use
+  with INTENT-009 without prescribing app implementation.
 - [ ] `build` Website: add conditional draft-spec instructions to all Clinic
-  routes and the equivalent WebMCP path, plus accurate handoff guidance and
-  meaningful tests. Files and exact copy must be settled in that repo's plan.
-- [ ] `build` Unli Rice: add discoverable manual save guidance and a full-note
-  copy action using existing note behavior; update the user guide and verify
-  ordinary notes, append history, long content, search and copy in a running app.
-  Exact files and copy require pre-mortem and a bounded handoff.
+  routes and the equivalent WebMCP path, accurate handoff guidance, and the
+  approved answers-only Markdown brief download, with meaningful tests. Files,
+  exact copy and download behavior must be settled in that repo's own plan.
 - [ ] `planner` Verify Claude/Codex connectivity to the actual vault from Orca
   read-only before any note write; preserve current permission boundaries and
   ask the founder to complete any needed trust/approval prompt.
@@ -111,15 +123,18 @@ prove a speed or token saving.
 
 ## Verification required before completion
 
-Run the relevant website tests and syntax checks, Swift tests and a running-app
-manual walkthrough; independently inspect both diffs. Review all user-facing
+Run the relevant website tests and syntax checks and manually verify the brief
+download and handoff; independently inspect the template and website diffs.
+INTENT-009 plans and verifies app changes separately. Review all user-facing
 copy for the difference between prompt, draft, reviewed specification and saved
 snapshot. Record actual checks, limitations, and the Claude post-mortem.
 
 ## Open pre-mortem questions
 
-- Is a full-note copy control needed, or does the existing detail view already
-  provide an adequate way to transfer the complete projected note?
+- Is the existing note detail view adequate for the manual handoff? Any app
+  control is for INTENT-009 to decide and implement.
+- How should the website brief’s answer coverage and filename be specified, and
+  how should its question-tree version be coordinated with INTENT-009?
 - What prevents a draft prompt or stale snapshot from being mistaken for an
   approved spec? How are amendments clearly represented without new structure?
 - How will a website worktree and review access the correct tracked base while

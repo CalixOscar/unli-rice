@@ -4,7 +4,7 @@
 **Author:** Codex, from the founder's request
 **Status:** approved by founder 2026-10-30
 **Intent read:** not run
-**Plan:** not yet written
+**Plan:** `docs/PLAN-shared-spec.md` (stage 2 draft; Claude pre-mortem not run)
 
 ## The problem
 
@@ -23,8 +23,26 @@ AI-assisted work, while retaining a clear distinction between a draft and a
 decision. Separately, the founder coordinates Claude and Codex on the same
 project and needs to know who owns the work and where its current state lives.
 
+## Ownership split — founder decision 2026-10-30
+
+INTENT-008 owns the reusable specification template and the website Idea Clinic
+changes, including the approved Markdown “download the brief” output. The brief
+is a read-back of the person’s answers, distinct from the prompt and any draft
+specification later produced by an AI. INTENT-009 owns the Unli Rice app: its
+Studio tabs, Garden crate, build-gate lights and in-app Idea Clinic. The website
+changes need their own plan in the website repository.
+
+Every repo must have a root `AGENTS.md`. `CLAUDE.md` is optional; if present,
+it must import or name `AGENTS.md`. INTENT-009 owns the app’s display of this
+requirement.
+
 ## What “solved” looks like
 
+- The reusable specification template gives an AI or person a consistent way
+  to record the fields below without filling gaps with invented decisions.
+- On the website, the person can download a Markdown brief containing their
+  Clinic answers. It is a separate output from the existing prompts and can be
+  saved as `docs/idea/IDEA-<slug>.md` for the app’s Idea light.
 - After a Clinic discussion, the person can obtain a clearly labelled draft
   specification that captures the problem, intended user and outcome, scope,
   exclusions, observable acceptance scenarios, open questions and ways to
@@ -87,8 +105,9 @@ the person to maintain the same facts in several places.
    MCP have different storage and permission boundaries.
 3. How should the experience distinguish a Clinic prompt requesting a draft
    from a specification actually produced by the person's AI?
-4. How can Unli Rice store or retrieve the spec using existing note behavior
-   without imposing a new structure on unrelated notes?
+4. How can a person use existing Unli Rice note behavior to store or retrieve
+   a spec without imposing a new structure on unrelated notes? App changes
+   belong to INTENT-009, not this intent.
 5. What bounded Orca trial will exercise the real planner/reviewer handoff
    without sharing uncommitted work or weakening permissions?
 6. What baseline and usage data are available for comparing coordination time,
