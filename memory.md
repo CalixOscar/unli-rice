@@ -22,14 +22,16 @@
 
 # Unli Rice — Working Memory
 
-**Status:** Mac 1.5 (11) is **submitted: Waiting for Review** (submitted 2026-10-31 about 23:13, verified in App Store Connect; submission `68ca3580`). It replaces 1.5 (10), whose submission was cancelled on the founder's word the same evening. Build 11 (`447bb4e`) carries the Engineering Guardrails template refreshed from guardrails `7cf36bd`; the founder uploaded it from Xcode's Organizer (the command-line upload still fails with "Failed to Use Accounts"). App Store Connect has all seven screenshots in order 01-07 with the new 05 (`d84990f`). Release is automatic once approved, to all users immediately. 540 tests, 0 failed, 2 skipped (verified: `swift test` 2026-10-31). GitHub release `v1.5` is still build 10's source.
-**Task:** None in flight. Waiting on App Review. On `main` (not in build 11): the Engineering Guardrails template is refreshed from guardrails `299cb26`, and `AGENTS.md` carries the studio rules block.
+**Status:** Released: Mac **1.5.1 (13)** and Capture iOS **1.3.1 (13)** are both Ready for Distribution, and nothing is waiting for review (App Store Connect screenshot from the founder, 2026-11-07; not re-checked in App Store Connect by this session). Both builds came from the unmerged branch `CalixOscar/Unli-rice-Capture` (Orca workspace "Unli rice Capture", Codex), which is 30+ commits ahead of `main` and carries native iCloud sync. **`main` does not contain the released source.** 1.5.1 ships the Engineering Guardrails template from guardrails `7cf36bd`, so the 2026-10-31 screenshot 05 (`d84990f`) matches it. GitHub release `v1.5` is still build 10's source.
+**Task:** None in flight. On `main` only (not in any released build): the Engineering Guardrails template is refreshed from guardrails `299cb26`, and `AGENTS.md` carries the studio rules block.
 **Files touched:** `Sources/UnliRiceCore/HouseRulesPreset.swift` (template refreshed, stamp `299cb26`), `AGENTS.md` (studio rules block), `CLAUDE.md` (search PROJECT_NOTES, don't read it whole), `memory.md`.
-**Next step:** Wait for Apple's review email; nothing is needed from the founder before then.
+**Next step:** The founder decides when to merge `CalixOscar/Unli-rice-Capture` into `main`, so `main` holds the released source again.
+
+That branch's workspace has uncommitted edits (`PROJECT_NOTES.md`, two `docs/` files, untracked `Screenshots/AppStore-iOS-2026-11-03/`); commit them there first. Of today's `main` changes, only `memory.md` overlaps the branch, so expect a conflict there and nowhere else.
 
 Before archiving the next build: re-shoot App Store screenshot 05, because the template text and counter changed.
 
-If approved: check the App Store page shows 1.5 and the new screenshot 05, and decide with the founder whether GitHub release `v1.5` should move to build 11's source. If rejected: read the resolution notes before changing anything. Later (1.6), unchanged: premortem takeaways 1, 3, 4, 5; Developer ID for a downloadable build; fix the command-line upload; keywords still include "second brain".
+Decide with the founder whether a GitHub release should be cut from 1.5.1's source. Later (1.6), unchanged: premortem takeaways 1, 3, 4, 5; Developer ID for a downloadable build; fix the command-line upload; keywords still include "second brain".
 **Gotchas:**
 - App Store screenshot 05 (`Screenshots/AppStore-Mac-2026-10-31/05-house-rules.png`) shows the Engineering Guardrails template: build 11 shows ~900 tokens · 3,593 characters. The 2026-11-07 refresh keeps the first four paragraphs word for word but changes the later ones and the counter (~984 tokens · 3,930 characters), so re-shoot 05 with any build that carries it. The template is capped under 1,000 tokens by `HouseRulesTests`; only ~16 tokens of room are left.
 - Chrome's file picker is a separate macOS service the accessibility tree can't see: open it from the page, then drive it with `orca computer … --restore-window` keys (Cmd+Shift+G, path, Return, Cmd+A, Return); header clicks fail with window_not_focused.
