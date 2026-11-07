@@ -13,7 +13,9 @@ changes several times a session and therefore comes last.
    agent (Claude Code, Codex, Antigravity), which is why the conventions live there
    rather than being duplicated per tool.
 3. `PROJECT_NOTES.md` — the architecture and its locked-in decisions. This is the
-   **historical record**: what was decided, when, and why. Large and append-only.
+   **historical record**: what was decided, when, and why. Large and append-only, so
+   **don't read it in full**: search it (`grep -n`) for the topic at hand and read only
+   the sections that match.
 4. `memory.md` — **current working state.** Status, task in flight, files touched,
    next step, gotchas. Capped at 32,000 characters and enforced in pre-commit. Read
    this one in full; it is the file that tells you where things actually stand.
