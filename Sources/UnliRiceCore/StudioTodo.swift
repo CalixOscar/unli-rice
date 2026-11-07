@@ -286,7 +286,9 @@ public struct StudioTodo: Equatable, Sendable {
         for repo in snapshot.repos {
             let p = repo.name
 
-            // 1. Tips that exist on no remote. The only genuinely unrecoverable state.
+            // 1. Branches holding commits on no remote. The only genuinely unrecoverable
+            //    state. A branch whose commits are all inside a pushed branch is not
+            //    listed, even if its own tip is on no remote (`backedUpBranchNames`).
             let unbacked = repo.branchesNotOnAnyRemote
             if !unbacked.isEmpty {
                 let names = unbacked.map(\.name).sorted()

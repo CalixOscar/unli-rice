@@ -173,7 +173,44 @@ public struct RepoSnapshotFile: Codable, Equatable, Sendable {
             self.nextStep = nextStep
         }
 
-        public var branchesNotOnAnyRemote: [Branch] { branches.filter { !$0.tipOnRemote } }
+        /// Branches that may hold commits no fetched remote has — work that would be
+        /// lost with the disk. A branch is cleared only when that can be PROVEN from
+        /// the snapshot (see `backedUpBranchNames`); anything unproven stays listed.
+        public var branchesNotOnAnyRemote: [Branch] {
+            let safe = backedUpBranchNames
+            return branches.filter { !safe.contains($0.name) }
+        }
+
+        /// Branches every commit of which is provably on a remote.
+        ///
+        /// Exact tip matching alone overcounted badly: an old branch that was later
+        /// merged into main and pushed has a tip no remote ref points at, yet nothing
+        /// on it is unique to this Mac. On 2026-11-07 Unli Rice showed 15 such
+        /// branches when only 3 held unpushed commits. So a branch also counts as
+        /// backed up when it is contained in a branch that is:
+        ///   - `aheadOfTrunk == 0` — every commit is on the trunk, and the trunk is
+        ///     backed up;
+        ///   - another branch names it as `parent` — it is a strict ancestor of that
+        ///     branch, and that branch is backed up.
+        /// Applied until nothing changes, so containment chains through. Without
+        /// ancestry (the in-app scan, or a v1 file) only exact tips can be proven,
+        /// which is the old conservative answer, never a false "safe".
+        var backedUpBranchNames: Set<String> {
+            var safe = Set(branches.filter(\.tipOnRemote).map(\.name))
+            var changed = true
+            while changed {
+                changed = false
+                for b in branches where !safe.contains(b.name) {
+                    let inTrunk = b.aheadOfTrunk == 0 && trunk.map { safe.contains($0) } == true
+                    let inChild = branches.contains { $0.parent == b.name && safe.contains($0.name) }
+                    if inTrunk || inChild {
+                        safe.insert(b.name)
+                        changed = true
+                    }
+                }
+            }
+            return safe
+        }
     }
 
     public let version: Int

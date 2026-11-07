@@ -59,7 +59,7 @@ public enum TodoPrompt {
 
             let unbacked = r.branchesNotOnAnyRemote
             if unbacked.isEmpty {
-                body += "- Every branch tip is on a remote.\n"
+                body += "- Every branch's commits are on a remote.\n"
             } else {
                 body += "- On NO remote (\(unbacked.count)): "
                      + unbacked.map(\.name).sorted().joined(separator: ", ") + "\n"
