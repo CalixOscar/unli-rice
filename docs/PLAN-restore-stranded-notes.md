@@ -2,7 +2,7 @@
 
 **Intent:** none. This is a data repair, not a feature; §0 is the brief.
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 5 in progress: A0–A3 done 2026-11-08; A3b (phone) and A4 (move) wait on the founder
+**Stage:** 5 built: A0–A4 done 2026-11-08; Clear in Notices is the founder's call
 **Pre-mortem:** `docs/dialogue/restore-stranded-notes.md` (codex, 2026-11-08: ship with changes), answered there and in §9
 **Founder decisions (2026-11-08):** "go with the recommended options". D1 = the six
 hand-written notes, D2 = re-create through the connector, D3 = move the old file to
@@ -161,13 +161,13 @@ Assumes D1 = six notes, D2 = connector, D3 = move. Re-plan if any answer differs
       2026-11-08). Any difference: stop and explain it before A4.
 
 ### A3b. Phone check (founder)
-- [ ] Record the sync mode shown in the Mac app's settings. On the phone, open Capture and
+- [x] Record the sync mode shown in the Mac app's settings. On the phone, open Capture and
       check that `Wiki: Nuptia` and the `Wiki: index` block are there. If the phone isn't
       checked, record phone sync as **unverified** in the record. A4 does not touch the
       restored notes either way.
 
 ### A4. Retire the old file (founder approves this step separately)
-- [ ] `planner` 1. Before the move, check that every running Unli Rice process (app, agent,
+- [x] `planner` 1. Before the move, check that every running Unli Rice process (app, agent,
       each `unlirice-mcp`) reports the App Group log, and that no override or chosen
       folder points elsewhere: the `UNLIRICE_DATA_PATH` environment variable or the app's
       folder setting.
@@ -249,3 +249,14 @@ a data file, and none of it is code. No builder is used.
   original tag. A3: the `Wiki: index` block links all six. Dangling links are
   0/3/0/0/9/1, as expected. The live store now has 546 notes and no duplicate titles. The
   old log's hash is unchanged after the restore.
+- 2026-11-08, A3b: the phone shows "Published to iCloud", so sync is native iCloud
+  (founder's screenshot, 00:16). The restored notes can't be seen on the phone: Capture
+  lists only notes tagged with a project name (`UnliRiceCapture/CaptureStore.swift:704-706`),
+  and the hubs are tagged `wiki`. **Phone delivery: unverified.**
+- 2026-11-08, A4: before the move, no process held the old file, none of the 12 running
+  Unli Rice processes set `UNLIRICE_DATA_PATH`, the app has no folder setting, the hash
+  matched A0 and the backup name was free. The file was moved with `mv -n` to
+  `Backups/events-stranded-2026-07-20.jsonl`, and its hash is unchanged (`8fb86fd3…0829`).
+  The app was quit and relaunched; the old path is still absent, all six restored bodies
+  read back exactly, and the store holds 546 notes. The saved warning in Notices is left
+  for the founder to Clear.
