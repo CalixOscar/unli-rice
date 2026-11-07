@@ -64,6 +64,15 @@ Founder explicitly requested “get 1.3 10 submit for review”. Live ASC verifi
 Founder explicitly requested “Set both to auto distribute”, superseding the manual release hold. Root selected Automatically release this version and saved it for Mac1.5.1(13) and Capture1.3(10). Fresh page reloads confirmed automatic checked/manual unchecked, both still Waiting for Review. Existing all-users-immediately phased-update setting retained. Each update can release independently after Apple approval; no public-release or completed-QA claim is made. No build, source or data change.
 
 
+## Continuation evidence and screenshot candidates — 2026-11-03
+
+Capture1.3(10) upload completed and live TestFlight showed Ready to Submit, not Internal; it was selectable and persisted in the1.3 draft. Updated description/release/reviewer notes and What to Test saved. Public reviewer guide was refreshed target-only on GitHub main in1b74d88e590dd1696602cece6948954a7314c828; fresh read confirmed blob a29ef71e0e95537262b4ffc7502455b6b9a22857 and optional-iCloud section.
+
+Concurrent release checkpoints3947176/a2f3971 subsequently recorded founder-requested Capture submission and automatic release for both apps. This continuation independently observed Capture Waiting for Review, build10, automatic release selected; no new submission or release-preference change was made after detecting those updates. Mac was submitted/verified Waiting for Review earlier; its latest automatic setting is recorded by a2f3971, but a further independent reload here reached the expired ASC login page. Do not undo the recorded latest release preference or claim public availability.
+
+B6d produced six draft sample-data screenshots under Screenshots/AppStore-iOS-2026-11-03 with README provenance. Screenshot-only automation passed1/1 on each designated disposable simulator; production Capture/Core source diff frome3ddbda is empty. Builder inspectedall6; parent inspected representative iPhone Studio/iPad To do. Native phone1206x2622 and iPad1668x2420 are smaller classes than the primary large slots; compatibility is unverified. No resizing/cropping, no screenshot upload/replacement, no physical-sync or VoiceOver pass implied. B6d is not complete for store replacement. Existing QA limitations and physical acceptance item remain open. TestFlight10 had no groups or individual testers; only owner-email clarification was requested, no invitations sent.
+
+
 ## Capture startup recovery upload — 2026-11-04
 
 Capture1.3(10) reached Ready for Distribution. Founder then reported microphone-only

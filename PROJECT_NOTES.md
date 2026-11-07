@@ -2921,6 +2921,11 @@ Founder explicitly requested Capture1.3(10) review submission. Processed public-
 Founder explicitly requested auto distribution for Mac1.5.1(13) and Capture1.3(10), replacing the earlier manual hold. Both automatic-release choices were saved and independently verified after page reload at00:51UTC; both remained Waiting for Review. Release follows each app's Apple approval, without another manual release step. Remaining acceptance is not retroactively marked passed. No app source or user data changed.
 
 
+## Release continuation preserves newer submission settings (2026-11-03)
+
+Capture10 processed public-eligible and was selected in the1.3 draft. Its metadata and test notes were saved; public reviewer guide updated target-only in1b74d88e590dd1696602cece6948954a7314c828, confirmed by readback. Concurrent checkpoints3947176/a2f3971 record founder-requested Capture submission and automatic distribution for both apps; this continuation verified Capture Waiting for Review/automatic and did not override the newer state. Six draft synthetic-data screenshot candidates were prepared and preserved unedited; smaller native dimensions still need slot validation. No new screenshot upload, invite, public release or physical/full-accessibility acceptance claim.
+
+
 ## Capture startup registration recovery (2026-11-04)
 
 Ordinary iOS27.2 devices need not emit an initial nil hinge callback. The old awaiting
