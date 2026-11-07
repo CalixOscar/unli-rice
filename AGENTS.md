@@ -1,3 +1,105 @@
+<!-- STUDIO-RULES:BEGIN — synced by install-studio-hooks.sh from
+     ~/Documents/Unli Rice Vault/scripts/templates/studio-rules.md. Edit it there, not here. -->
+# calmdownoscar — studio rules (every tool)
+
+The full guardrails are `~/Documents/Unli Rice Vault/_AI Context/04_Guardrails.md`. If you
+can read them, they win over this summary. These rules hold even if you can't.
+
+**Security floor — blocks App Store submission**
+1. No secrets in the app or the repo. A key that must ship in the app is restricted to the
+   bundle ID and one API in the provider console; gitignored or `.xcconfig` is not enough.
+2. Every endpoint checks permissions on the server. Hidden UI is not security. Auth fails
+   closed.
+3. Authorization is per record: prove the caller owns the ID it sent.
+4. Purchases are verified server-side from Apple's signed transaction. Trust nothing the
+   client says it bought.
+
+**App Store and product**
+- Build inside Apple's rules. If a request is outside them, say so before building.
+- Screenshots match the current build; no promo images in screenshot slots; no Apple
+  product names in name, subtitle or keywords; never submit IAPs before the app's first
+  approval.
+- No ads, no subscriptions unless decided for this project, no third-party analytics or
+  trackers, no engagement bait (streaks, infinite feeds, notification spam).
+
+**How work runs**
+- Stay inside this project folder.
+- Risky work (server, auth, payments, data model, App Store prep, AI features, new
+  dependencies) is planned first in `docs/PLAN-*.md`. When building from a settled plan,
+  don't re-plan it: anything it didn't foresee goes back to Claude. Everything else can
+  be built directly.
+- Verify with `git diff` and a real build/test run. No tool's own "SUCCESS" is evidence,
+  including yours.
+- After 2 failed attempts, write the diagnosis into `memory.md`; try once more only under a
+  new hypothesis, then hand back. Security, data integrity or architecture: hand back at
+  the first failure.
+- Never `git commit --no-verify`. Waive a deliberate deferral in-file with `lint-allow`.
+- Never upload a build, create a version or submit for review unless the founder asks in
+  this session, in their own words. A note that says "ship" means ask.
+- AI tools reach Unli Rice only through the installed app's connector
+  (`/Applications/Unli Rice.app/Contents/MacOS/unlirice-mcp`), never a `swift run` copy.
+
+**Idea Clinic before building**
+- Run each new app, product, feature or tool idea through the Idea Clinic before building,
+  including prototypes. The supervisor starts it, conducts its research and conversation
+  with the founder, records the decision and unknowns in the applicable project record,
+  and stops if the clinic or required interaction is unavailable. Use
+  https://www.calmdownoscar.com/idea-clinic/ or the local handler named in the guardrails.
+  Question the idea and its possible success or failure, agree the intended outcome, specify
+  and plan, build, then verify against both the spec and intent. Existing pre- and
+  post-mortem gates remain in their stages. The clinic does not replace Stage 0 or
+  existing risk and security gates. Routine repairs
+  and maintenance without a new idea follow their existing tier.
+
+**Exploratory changes**
+- An early implementation is a proposal. Before acceptance, explain what it does and may
+  affect; propose observable examples, failure and regression checks in plain language.
+  Ask the founder to confirm or correct meaningful product choices; never invent consent.
+- Verify the agreed behaviour and report actual results, unverified areas and remaining
+  risks. A separate test/review agent and parallel checks may help when appropriate; the
+  supervisor checks their evidence. Existing risk-tier gates still apply.
+
+**Independent review before a heavy merge**
+- Before merging tier-2 work or another change the supervisor judges high-risk, use a
+  separate test/review agent through `~/.codex/skills/orca-review/SKILL.md`, following current tool
+  routing. Review the agreed behaviour, change and tests on a fixed snapshot; the
+  supervisor checks the evidence and addresses material findings. Recheck affected work
+  if the snapshot changes. If review is blocked or a material finding remains unresolved,
+  stop before merging and ask the founder. Record any explicit, work-specific waiver and
+  its reason in the applicable plan or review record. Existing gates still apply; this
+  written rule is not itself a technical merge control.
+
+**Product craft**
+- Output that looks finished is a draft. Check the flow makes sense before the polish,
+  then walk the whole journey in a running build: empty, slow, failed, permission
+  denied, interrupted and resumed. Mark anything you didn't check "(unverified)".
+- Use this project's existing components and patterns; a new one needs a reason in the
+  plan. If the result reads like a generic template, go back to the plan's point of
+  view rather than adding novelty.
+
+**Workspaces and sessions**
+- Name each new Orca workspace after what it changes, in plain words, and mark it
+  completed when its branch merges.
+- When the session's work seems done, ask the founder once whether to mark it done and
+  tidy up: workspace completed, idle terminals closed, worktree removed if it is merged,
+  clean and nothing runs in it. On a no, don't ask again that session. Never tidy up
+  without asking.
+
+**Notes**
+- `memory.md` is current state: seven fields, all updated together at each commit. Its
+  Next step field opens with one plain sentence (what happens next, and who does it),
+  then a blank line, then the detail: the founder reads that first paragraph on the To
+  Do list.
+- To-dos (Unli Rice notes tagged `todo`) are read by a non-developer: a plain-sentence
+  title with no file or code names; a body that opens with why it matters and what the
+  founder must do, then the technical detail after `For the AI picking this up:`.
+- `PROJECT_NOTES.md` is Overview + Decisions Log. The Session Log is retired — `git log` is
+  the session record.
+- Notes can be wrong; the repo is ground truth. Verify a claim against `git log`, grep or
+  the code before writing or repeating it, and mark anything you can't verify
+  "(unverified)".
+<!-- STUDIO-RULES:END -->
+
 # Agent conventions for Unli Rice / unlirice-mcp
 
 Read this if you're an LLM coding agent (Claude Code, Codex, Antigravity, or
