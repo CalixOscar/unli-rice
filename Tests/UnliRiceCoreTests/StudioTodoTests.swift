@@ -31,6 +31,56 @@ final class StudioTodoTests: XCTestCase {
         XCTAssertNotNil(t.items[0].fix, "an at-risk item should name the command that fixes it")
     }
 
+    // MARK: - "Saved only on this Mac" means unpushed commits, not an unmatched tip
+
+    private func b(_ name: String, remote: Bool, ahead: Int?, parent: String? = nil) -> RepoSnapshotFile.Branch {
+        .init(name: name, sha: name, tipOnRemote: remote, isCurrent: false,
+              parent: parent, aheadOfTrunk: ahead)
+    }
+
+    /// An old branch later merged into a pushed main: its tip is on no remote ref,
+    /// but every commit is on main, so nothing is only on this Mac.
+    func testBranchInsidePushedTrunkIsNotFlagged() {
+        let r = repo("X", [b("main", remote: true, ahead: 0),
+                           b("old-merged", remote: false, ahead: 0)])
+        XCTAssertEqual(r.branchesNotOnAnyRemote.map(\.name), [])
+        XCTAssertTrue(StudioTodo.derive(from: snapshot([r])).atRisk.isEmpty)
+    }
+
+    func testBranchWithALocalOnlyCommitIsFlagged() {
+        let r = repo("X", [b("main", remote: true, ahead: 0),
+                           b("old-merged", remote: false, ahead: 0),
+                           b("wip", remote: false, ahead: 1)])
+        XCTAssertEqual(r.branchesNotOnAnyRemote.map(\.name), ["wip"])
+        let t = StudioTodo.derive(from: snapshot([r]))
+        XCTAssertEqual(t.atRisk.count, 1)
+        XCTAssertTrue(t.atRisk[0].title.contains("1 piece of work is saved only on this Mac"))
+        XCTAssertTrue(t.atRisk[0].evidence.contains("wip"))
+    }
+
+    /// Inside main proves nothing when main itself has unpushed commits.
+    func testBranchInsideUnpushedTrunkStaysFlagged() {
+        let r = repo("X", [b("main", remote: false, ahead: 0),
+                           b("old", remote: false, ahead: 0)])
+        XCTAssertEqual(r.branchesNotOnAnyRemote.map(\.name).sorted(), ["main", "old"])
+    }
+
+    /// Strict ancestor of a pushed branch, even off the trunk, through a chain.
+    func testAncestorOfPushedBranchIsNotFlagged() {
+        let r = repo("X", [b("main", remote: true, ahead: 0),
+                           b("base", remote: false, ahead: 2),
+                           b("middle", remote: false, ahead: 3, parent: "base"),
+                           b("top", remote: true, ahead: 5, parent: "middle")])
+        XCTAssertEqual(r.branchesNotOnAnyRemote.map(\.name), [])
+    }
+
+    /// No ancestry (the in-app scan) cannot prove containment: unknown stays flagged.
+    func testWithoutAncestryOnlyExactTipsCount() {
+        let r = repo("X", [b("main", remote: true, ahead: nil),
+                           b("old", remote: false, ahead: nil)])
+        XCTAssertEqual(r.branchesNotOnAnyRemote.map(\.name), ["old"])
+    }
+
     /// A worktree's commits live in the shared object store and are safe. Its
     /// uncommitted files are in that folder and nowhere else, which is the risk.
     func testUncommittedWorktreeFilesCountAsAtRisk() {
