@@ -23,5 +23,9 @@ jobs:
         with:
           persist-credentials: false
 
+      # ClaudeProjectsFallbackTests needs this folder, which a clean runner lacks.
+      - name: Create the Claude Code projects folder
+        run: mkdir -p ~/.claude/projects
+
       - name: Swift tests
         run: swift test
