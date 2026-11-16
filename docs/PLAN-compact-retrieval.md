@@ -3,7 +3,9 @@
 **Intent:** `docs/intent/INTENT-014-compact-retrieval.md`
 **Spec:** `docs/SPEC-compact-retrieval.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 2 draft
+**Stage:** 2 draft, intent approved 2026-11-16
+**Founder skips (2026-11-16):** Idea Clinic and the stage-1.5 intent read. Asked how to record that neither was run, the founder chose "Skip both, record it". The pre-mortem, independent review and post-mortem still run.
+<!-- lint-allow intent-read "founder skip, 2026-11-16" -->
 **Pre-mortem:** not run
 **Branch:** `claude/compact-retrieval` (worktree `.claude/worktrees/compact-retrieval`)
 **Verified against:** `699d3bd` on `main`
@@ -51,8 +53,8 @@ departs from its wording, §2 says so.
 - CryptoKit is already used in the core (`Sources/UnliRiceCore/VaultSnapshot.swift`).
 - Fixtures for pending and conflicted projections exist in
   `Tests/UnliRiceCoreTests/ProjectionDiagnosticsTests.swift`.
-- Baseline: 633 tests, 0 failed, 2 skipped on `main` (from `memory.md`, 2026-11-07;
-  re-run at A0).
+- Baseline: 638 tests, 0 failed, 2 skipped at `699d3bd` (verified: `swift test`
+  2026-11-16).
 
 ## 2. Decisions
 
@@ -140,10 +142,10 @@ public enum CompactRetrieval {
 ```
 
 ### A0. Paperwork and baseline
-- [ ] `planner` Intent, spec and this plan committed on the branch — verify: `git log --oneline -3`
-- [ ] `planner` Founder approves the intent; status lines updated
+- [x] `planner` Intent, spec and this plan committed on the branch (`d043293`)
+- [x] `planner` Founder approved the intent 2026-11-16; status lines updated
 - [ ] `planner` Codex pre-mortem through the bridge; answered; dialogue `settled`
-- [ ] `planner` Baseline test run on the branch — verify: `swift test --scratch-path /tmp/unlirice-spm-compact`
+- [x] `planner` Baseline on the branch: 638 tests, 0 failed, 2 skipped (verified: `swift test --scratch-path /tmp/unlirice-spm-compact` 2026-11-16)
 
 ### A1. Revision, snapshot and compact search (core) — spec S2, S3, S5–S8, Q1–Q12
 - [ ] `build` Add the revision fold and `retrievalSnapshot()` to `NoteService`; route `searchNotes` through `matchedFields`; implement `SearchRequest`, `searchSummaries`, `toolResult`, `serializedByteCount`, the cursor and the errors; write the unit tests named in the spec's Check column for S3, S5–S8 and Q1–Q12.

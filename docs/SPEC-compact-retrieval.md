@@ -1,7 +1,7 @@
 # SPEC — Compact retrieval
 
 **Intent:** docs/intent/INTENT-014-compact-retrieval.md
-**Status:** draft — awaiting the founder's approval of the intent
+**Status:** intent approved by the founder 2026-11-16; spec open to the pre-mortem
 **Plan:** docs/PLAN-compact-retrieval.md
 
 Two new read-only MCP tools and a benchmark. "The result" below means the `result`

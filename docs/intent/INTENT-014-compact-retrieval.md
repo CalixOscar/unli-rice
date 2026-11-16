@@ -2,8 +2,8 @@
 
 **Date:** 2026-11-16
 **Author:** Claude Code (planner), drafted from the founder's handoff of 2026-11-16
-**Status:** draft — awaiting the founder's approval
-**Intent read:** not run
+**Status:** settled — approved by the founder 2026-11-16 ("Approve, carry on")
+**Intent read:** not run — founder skip 2026-11-16 ("Skip both, record it")
 **Plan:** docs/PLAN-compact-retrieval.md
 
 ## The problem

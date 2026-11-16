@@ -23,16 +23,15 @@
 # Unli Rice — Working Memory
 
 **Status:** Released: Mac **1.5.1 (13)** and Capture iOS **1.3.1 (13)** are both Ready for Distribution, and nothing is waiting for review (App Store Connect screenshot from the founder, 2026-11-07; not re-checked in App Store Connect by this session). Their source branch `CalixOscar/Unli-rice-Capture` is now merged into `main` (2026-11-07), so `main` holds the released code plus today's guardrails changes. 1.5.1 ships the Engineering Guardrails template from guardrails `7cf36bd`, so the 2026-10-31 screenshot 05 (`d84990f`) matches it. GitHub release `v1.5` is still build 10's source.
-**Task:** None in flight. Not yet in any released build: the Engineering Guardrails template refreshed from guardrails `299cb26`, and the studio rules block in `AGENTS.md`.
-**Files touched:** `memory.md` (merge of `CalixOscar/Unli-rice-Capture`, whose last checkpoint added `PROJECT_NOTES.md`, the production-studio plan and readiness docs, and `Screenshots/AppStore-iOS-2026-11-03/`). Earlier today: `Sources/UnliRiceCore/HouseRulesPreset.swift`, `AGENTS.md`, `CLAUDE.md`.
-**Next step:** Nothing is waiting on the founder; the next release is a founder decision.
+**Task:** Compact retrieval for AI tools (INTENT-014, tier 2, Claude plans, Codex reviews): two new read-only connector tools, `search_note_summaries` and `get_notes_batch`, plus a benchmark. On branch `claude/compact-retrieval` in the worktree `.claude/worktrees/compact-retrieval`. Stage: intent approved by the founder 2026-11-16, plan drafted, Codex pre-mortem not yet answered, no code written. Still not in any released build: the Engineering Guardrails template refreshed from guardrails `299cb26`, and the studio rules block in `AGENTS.md`.
+**Files touched:** `docs/intent/INTENT-014-compact-retrieval.md`, `docs/SPEC-compact-retrieval.md`, `docs/PLAN-compact-retrieval.md`, `memory.md` (all on the branch; `main` is untouched and still carries someone else's uncommitted `AGENTS.md` change).
+**Next step:** Claude answers the Codex pre-mortem and then has its Sonnet builders build the plan; nothing is waiting on the founder.
 
-The merge was not independently reviewed before it landed: the code had already shipped, and the founder asked for the merge on 2026-11-07. The production-studio work has a pre-mortem (`docs/dialogue/production-studio.md`) but no post-mortem yet; write it before planning 1.6.
+Order: answer `docs/dialogue/compact-retrieval.md`, mark it settled, hand plan steps A1–A4 to `builder` one at a time in the worktree, review each diff, run `swift test --scratch-path /tmp/unlirice-spm-compact`, then A5 (benchmark record, `xcodegen generate`, independent review, Codex post-mortem). Do not merge before the review and post-mortem.
 
-Before archiving the next build: re-shoot App Store screenshot 05, because the template text and counter changed.
-
-Decide with the founder whether a GitHub release should be cut from 1.5.1's source. Later (1.6), unchanged: premortem takeaways 1, 3, 4, 5; Developer ID for a downloadable build; fix the command-line upload; keywords still include "second brain".
+Carried over, unchanged: the production-studio work has a pre-mortem but no post-mortem (write it before planning 1.6); re-shoot App Store screenshot 05 before archiving the next build; decide with the founder whether to cut a GitHub release from 1.5.1's source; 1.6 list (premortem takeaways 1, 3, 4, 5; Developer ID; command-line upload; keywords still include "second brain").
 **Gotchas:**
+- Compact retrieval is built in a worktree because `main` has an uncommitted `AGENTS.md` change that is not this session's; build and test there with `--scratch-path /tmp/unlirice-spm-compact`. The Codex bridge refuses a dirty tree, so commit before dispatching a review.
 - Capture 1.3.1 (13): the final signed IPA and archive are in `/private/tmp/capture13-release/` (temporary). Simulator tests and the final 482-frame visual audit passed; the OCR checker stalled and was stopped, so no OCR pass is claimed. Physical-device acceptance is still open.
 - The draft iOS screenshots in `Screenshots/AppStore-iOS-2026-11-03/` use sample data and are not store-ready: their sizes may not fit the large screenshot slots.
 - App Store screenshot 05 (`Screenshots/AppStore-Mac-2026-10-31/05-house-rules.png`) shows the Engineering Guardrails template: build 11 shows ~900 tokens · 3,593 characters. The 2026-11-07 refresh keeps the first four paragraphs word for word but changes the later ones and the counter (~984 tokens · 3,930 characters), so re-shoot 05 with any build that carries it. The template is capped under 1,000 tokens by `HouseRulesTests`; only ~16 tokens of room are left.
@@ -75,8 +74,8 @@ Decide with the founder whether a GitHub release should be cut from 1.5.1's sour
 - `Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents; check before citing one.
 - **INTENT-008 (shared spec) exists only on Codex's local branch `codex/shared-spec`**; reconcile it with INTENT-009 before planning either.
 - The vault's `04_Guardrails.md` wins over the new build-gate rule in `AGENTS.md` until it is updated.
-**To-dos:** filed none; closed 1 ("Add two tidy-up rules to the guardrails", vault `9edef20`). Still open: `BC9A8A42`, physical-device acceptance `BBC01BEE-FE38-4D53-9999-59422F498AD8`, and the B6d store-screenshot task.
-**Left by:** Claude Code (desktop app, Opus) 2026-11-07, after merging `CalixOscar/Unli-rice-Capture`. Tests on the merged tree: 633 run, 0 failed, 2 skipped (verified: `swift test` 2026-11-07); Xcode app targets not built.
+**To-dos:** none this checkpoint. Still open: `BC9A8A42`, physical-device acceptance `BBC01BEE-FE38-4D53-9999-59422F498AD8`, and the B6d store-screenshot task.
+**Left by:** Claude Code (CLI, Fable 5.2) 2026-11-16, at the compact-retrieval paperwork checkpoint. Tests on the branch before any code change: 638 run, 0 failed, 2 skipped (verified: `swift test --scratch-path /tmp/unlirice-spm-compact` 2026-11-16); Xcode app targets not built.
 ## Earlier branch follow-ups
 
 The previous session's handoff (not revalidated in this session) left: restart Claude sessions for bridge changes; the older shipped-guardrails post-mortem; founder decision on pushing/merging chore/plan-high-build-low and its relationship with local main; committing vault changes; first two builder-model observations; and watching the sidebar before a release. These are separate from Garden and remain deferred.
