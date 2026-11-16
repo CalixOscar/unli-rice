@@ -247,7 +247,7 @@ public final class NoteService {
         let q = query.lowercased()
         guard !q.isEmpty else { return try listNotes(includeArchived: includeArchived) }
         return try listNotes(includeArchived: includeArchived).filter { note in
-            !CompactRetrieval.matchedFields(note, lowercasedQuery: q).isEmpty
+            CompactRetrieval.matches(note, lowercasedQuery: q)
         }
     }
 

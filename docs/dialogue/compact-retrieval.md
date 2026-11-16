@@ -381,3 +381,265 @@ Verdict: do not build.
 ## claude — settled — 2026-11-16
 
 Spec and plan revised to match (see plan §9). Nothing is left in dispute. Building.
+
+## codex — post-mortem — 2026-11-16
+
+Reviewed `git diff 699d3bd..6244070`, with HEAD exactly
+`624407087b0ff2edef8d176f69937bcc36c647c7`, against the settled spec, plan,
+pre-mortem/response and benchmark. This turn is the only tracked edit. No code,
+tests, configuration, earlier dialogue, memory or brief was changed; no commit,
+nested agent run, Unli Rice connector call or real vault read was made.
+
+1. **[should fix] The benchmark can pass a search task without discovering its
+   evidence.** Observed in
+   `Tests/UnliRiceCoreTests/CompactRetrievalBenchmarkTests.swift:667-673`: reaching
+   `next_cursor == null` ends paging, but the runner then batches **all** expected
+   evidence ids, regardless of `seen`. The correctness assertions at `:94-101`
+   only require the eventual body/absence outcomes. Inference: a regression that
+   returns an empty successful search with no cursor can still pass non-empty
+   search tasks by fetching the oracle's ids directly. This weakens M3/M5 and the
+   intended discovery-then-read procedure; it is not evidence that the current
+   recorded bytes are wrong. Require discovery of every evidence id before
+   fetching it, and exercise the unsuccessful end-of-search case. Also assert
+   task 24's expected restart rather than merely recording `restarts` (`:671`).
+   The actual run here recorded one restart, two retries in task 11 and one
+   fallback in task 12; those paths were exercised today.
+
+2. **[should fix] The benchmark narrative overstates its reply ceiling and what
+   the measurements establish.** `docs/BENCH-compact-retrieval.md:29-30` calls
+   all 54 checked replies “compact replies”, while the procedure makes 55 calls:
+   task 12 includes an unbounded `get_note` fallback
+   (`CompactRetrievalBenchmarkTests.swift:700-702`). Thus the claim at
+   `docs/BENCH-compact-retrieval.md:80` that the largest compact reply is bounded
+   by `max_bytes` is false for the complete procedure. Distinguish the 54 bounded
+   new-tool replies from that fallback. The task-15 row correctly shows equal
+   calls and 245 more bytes; the “one extra call/about 1,000 bytes” description
+   of tasks 13–16 at `:63-65` does not fit it. The worse-task **set** is complete
+   (1–18, 23, 24), including the call-only regressions 17 and 24, but that
+   explanation needs the zero-result exception.
+
+   Observed: totals and every per-task calls/bytes row reproduce exactly in this
+   review (31/386,744 versus 55/295,163), as do 42/43 baseline outcomes (task 20
+   deliberately unobservable) and 43/43 compact outcomes. The percentages are
+   reasonable rounded figures. Inference: “saving grows with the number of
+   matches” (`:75-76`) is unsupported as a general rule: adding matches ahead of
+   evidence can require additional summary pages; evidence position, body sizes,
+   budgets and restarts matter. “A real assistant ... same or worse” (`:17-19`)
+   describes this fixed oracle procedure, not a lower bound over every possible
+   assistant strategy. Narrow it accordingly. The fixed mix does not establish
+   the asserted real-query distribution or guaranteed understatement of savings
+   (`:96-99`). Timing, adoption, model accuracy and provider speed remain
+   unverified beyond the report's stated measurements.
+
+3. **[should fix] Revision tests do not establish the full S6 contract.**
+   `Tests/UnliRiceCoreTests/NoteServiceTests.swift:318-357` meaningfully checks
+   two-service agreement, count/hex shape, append changes, duplicate-id changes
+   and rebuild in both modes. It never independently computes the expected XOR;
+   two services using the same incorrect accumulator would agree. It also does
+   not check metadata, unrecognized, pending/conflicted occurrences, a service
+   transitioning from legacy to causal mode after caching, restart to an empty
+   log, or deferred partial lines. These branches matter because S6 includes
+   every decoded occurrence, not just visible semantic events. Add fixed-id
+   assertions against independent expected revision values and the reset/transition
+   cases. Code inspection found no incorrect fold: `NoteService.swift:313-345`
+   resets on restart, resets then folds the exact full causal array, folds the
+   incremental batch once, and retains the revision on an empty non-restart read.
+   `rebuild()` resets it (`:110-120`). Notes/diagnostics/revision are returned
+   under one lock (`:231-236`). The two-read causal race remains deterministically
+   untested, as explicitly accepted in the settled response; it is covered here
+   by code review, not claimed as a concurrency test pass.
+
+4. **[note] Remaining weak or missing acceptance checks should be recorded
+   precisely.** These are coverage limits, not demonstrated payload leaks or
+   budget overruns:
+
+   - **S3:** the adversarial three-budget matrix at
+     `CompactRetrievalTests.swift:81-101` exercises search. Batch has a large
+     Unicode round-trip at `:818-836` and real-process size checks at
+     `MCPProcessTests.swift:172-208`, but lacks the same adversarial matrix for
+     title/body/tags/creator/sources at all three budgets. The process id has 90
+     **characters**, hence 92 serialized bytes (`:184`); it successfully tests a
+     slightly larger id, but is not the exact 90-byte boundary the spec names.
+   - **S4/S5:** the conflicted process fixture checks search only
+     (`MCPProcessTests.swift:223-248`). Batch exclusion/key tests are meaningful
+     (`CompactRetrievalTests.swift:902-922`), but the search error-leak scan
+     (`:137-141`) inspects hand-selected error descriptions rather than actual
+     dispatched errors. The `try?` invalid-query expression always adds an empty
+     string and proves nothing about errors. Successful serialized payload
+     sentinel checks do exercise exclusion of title/body/tag/source.
+   - **S8:** search checks instruction-like text and a fixed allowed key set
+     (`CompactRetrievalTests.swift:160-174`); B3 checks the exact batch key set
+     using ordinary content (`:818-836`). There is no equivalent instruction-like
+     batch/provenance test. The implementation nevertheless serializes those
+     strings as data under the allowed keys.
+   - **Q5:** `CompactRetrievalTests.swift:390-409` exercises long matches, CJK and
+     case mappings, but asserts only the generic excerpt invariants on the dotted-I
+     and sharp-S fixtures. It does not prove the `lowered.count != body.count`
+     fallback was entered; scalar expansion is not grapheme-count expansion.
+     The plan acknowledges that no such character-count example was found.
+     That explicitly named check is unverified, rather than passed by the test name.
+   - **Q8:** stop reasons are checked (`:452-485`); no permanent boundary check
+     specifically protects the early-exit monotonicity argument below.
+   - **Q12:** malformed-cursor tests at `:689-736` cover each broad rejection
+     category, but not huge numeric offsets or combined query/digest/position
+     failures that pin check precedence. The strict-number helper is separately
+     tested by S9. This is partial check-order coverage, not a found decoder bug.
+   - **B1:** the event-count assertion at `:797-800` cannot demonstrate “before
+     any note is read”; reads do not append events. Dispatcher ordering proves
+     this by inspection: request validation precedes `retrievalSnapshot()`
+     (`Sources/unlirice-mcp/ToolDispatcher.swift:167-172`).
+   - **B4/B5:** the 20-readable-id partial-fill case uses 4096 bytes
+     (`CompactRetrievalTests.swift:846-856`); the specified 2048 boundary is only
+     exercised by B6's missing/oversized status tables. B5's claimed “small
+     omitted note gets the 2048 floor” fixture actually returns that small note
+     (`:880-883`), so it does not exercise omitted retry metadata at that floor.
+     The mid-size singleton retry and over-maximum cases are substantive.
+   - **M3/M5:** the discovery/restart weakness is finding 1. No size/speed
+     performance assertion was substituted for correctness.
+
+   S6's additional gaps are finding 3. No other required check was found wholly
+   absent; the table below distinguishes substantive coverage from these limits.
+
+5. **[note] Requirement-by-requirement conformance.** “Yes” here means the code
+   implements the settled contract on review and a substantive test exercises
+   it; it does not claim all possible inputs were tested. “Partial” refers to
+   the coverage limits above. Test locations below are in
+   `Tests/UnliRiceCoreTests/` unless otherwise stated.
+
+   | ID | Implementation and exercised evidence |
+   |---|---|
+   | S1 | Yes. Existing catalog entries/cases unchanged in the fixed diff; `MCPToolCatalogTests.swift:7` pins the literal set; `MCPProcessTests.swift:159` checks tools/list; empty-query regression at `NoteServiceTests.swift:371`. |
+   | S2 | Yes. Read classification in `MCPToolCatalogTests.swift:34`; search unit event check and both-tool process log-byte check at `MCPProcessTests.swift:207`; no retrieval write path found. |
+   | S3 | Implemented; partial adversarial batch/boundary matrix, finding 4. Real serializer and 128-byte reserve used for every successful candidate. |
+   | S4 | Implemented; one shared result wrapper; partial conflicted-process coverage, finding 4. |
+   | S5 | Implemented; substantive counts, exact notice and exclusion fixtures at `CompactRetrievalTests.swift:121,902`; partial actual-error scan, finding 4. |
+   | S6 | Implemented by inspection; partial independent revision/branch coverage, finding 3. |
+   | S7 | Yes by lock/causal-array inspection and two-instance tests; deterministic race injection unverified by agreement. |
+   | S8 | Implemented; partial batch adversarial coverage, finding 4. Both tool descriptions identify user text as data. |
+   | S9 | Yes. Search raw-JSON and programmatic argument matrix at `CompactRetrievalTests.swift:183`; batch at `:781,925`; process error/recovery at `MCPProcessTests.swift:211`. |
+   | Q1 | Yes. Shared predicate, paged equality and independent Unicode non-match assertions at `CompactRetrievalTests.swift:237-268`; original predicate compared in diff. |
+   | Q2 | Yes. Tied timestamps and duplicate titles at `:272`. |
+   | Q3 | Yes. Exact normal-result keys/date/archive assertions at `:285`. |
+   | Q4 | Yes. ASCII/emoji/combining/oversized-character truncation at `:294`. |
+   | Q5 | Implemented as the plan's explicit window algorithm; partial fallback coverage, finding 4; substring/predicate/cut checks at `:331-409`. |
+   | Q6 | Yes. All three matched fields in order at `:412`. |
+   | Q7 | Yes. Sorted/capped tags and oversized tags at `:425`. |
+   | Q8 | Yes by reviewed sizing argument; end/limit/budget at `:452`; boundary regression coverage partial. |
+   | Q9 | Yes. Actual 100,100-note snapshot, six-digit offset/counts, controls, notice, cursor and all fields matched at `:489`; forced failure and progress at `:532,544`. |
+   | Q10 | Yes. Mixed-limit/budget paging at `:563`; same-list content update changes revision and continues at `:587`. |
+   | Q11 | Yes. Reorder/add/archive/unrelated/second-service and archived-included cases at `:617-658`. |
+   | Q12 | Implemented; broad malformed/canonical/type/binding/range cases at `:663-736`; partial combined-error/huge-offset matrix, finding 4. |
+   | B1 | Yes. Array/type/UUID/case-insensitive duplicate/count failures at `:781`; pre-read ordering by code review, not the event-count assertion. |
+   | B2 | Yes. Every status and request order at `:803`; diagnostic precedence at `CompactRetrieval.swift:533-545`. |
+   | B3 | Yes. Exact complete large Unicode body, sorted tags/sources and all returned keys at `:818`. |
+   | B4 | Implemented. Oversized middle note followed by small note at `:839`; partial 20-id boundary coverage, finding 4. |
+   | B5 | Implemented. Exact singleton sizing by inspection; successful stated-budget retry, raw oversize and envelope oversize at `:859`; floor fixture weak. |
+   | B6 | Yes. 20 missing ids fit; 20 oversized ids produce the exact fixed error at `:886`. Counts/revision/diagnostics checked. |
+   | B7 | Yes. Archived inclusion/exclusion and pending/conflicted sentinels at `:902`. |
+   | M1 | Yes. Deterministic temporary fixtures and overridden subprocess data path (`CompactRetrievalBenchmarkTests.swift:21-33,756-761`); no live data in this review. |
+   | M2 | Yes. All 24 task definitions correspond to the plan, including evidence/absence, task-20 limitation, separate stores and writes (`:436-515`). |
+   | M3 | Actual run follows the expected successful paths and counts retries/restarts/fallbacks; discovery failure acceptance is defective, finding 1. |
+   | M4 | Yes. Calls/whole-line bytes/outcomes/fixture/host/timing emitted (`:104-142`); recorded task metrics reproduce, timings remain noisy. |
+   | M5 | Partial. Correctness and bounded-tool sizes asserted, benchmark really ran; discovery blind spot and narrative overclaims in findings 1–2. |
+
+6. **[note] No demonstrated retrieval correctness or compatibility bug was
+   found in the specifically requested attack paths.** Cursor decoding bounds
+   encoded bytes before decoding, rejects noncanonical alphabet/padding, validates
+   exact keys/types/shapes, checks query/archive before digest, and digest before
+   upper offset bound (`CompactRetrieval.swift:327-349`). Thus a structurally
+   valid cursor with both a changed match list and an old now-out-of-range offset
+   gives stale, as the build notes explicitly accept; this is not unsafe indexing.
+   Nonpositive offsets fail shape first. Hashes are weak bindings, not authorization.
+
+   The search early exit (`CompactRetrieval.swift:458-469`) initially looked
+   suspect because the final page drops its cursor. For this fixed schema it is
+   safe: even allowing empty note text and ignoring value costs, the required
+   result keys plus UUID already exceed the cursor removal saving. A conservative
+   tiny normal-item serialization is 223 bytes after escaping as content text;
+   an emitted cursor with a 19-digit Int64 offset is only 132 characters. Dropping
+   that cursor and shortening `stopped_by` saves less than adding a result.
+   Nonfinal cursors cannot shrink as offsets increase. Counts cannot shrink.
+   Hence a longer normal prefix cannot fit after a shorter one fails. This is a
+   schema-dependent argument, not a general JSON property; preserve it in a test
+   if changing the payload shape. The minimal form is only needed when no normal
+   prefix fits and is measured again before returning.
+
+   Excerpts are constructed from whole original characters, remain contiguous,
+   and only claim `match` after the excerpt itself passes the predicate
+   (`CompactRetrieval.swift:247-282`). Large/unlocatable matches fall back honestly;
+   no Foundation case-insensitive false match is used. Batch reserves the whole
+   omission/status table before upgrades, continues after an oversized candidate,
+   and measures every actual upgrade (`:532-560`). A multi-id returned payload
+   cannot be smaller than its singleton returned payload: other entries add
+   bytes, and count changes cannot remove that overhead. Therefore skipping an
+   id whose singleton cannot fit is valid. Retry sizing includes the actual
+   diagnostics/notice/revision and envelope reserve; raw bodies over 65536 are
+   not serialized for sizing. No id-dropping, excluded-note text path, successful
+   over-budget path or retrieval event append was identified. Arbitrarily large
+   metadata can still allocate during sizing; S3 explicitly bounds output, not
+   scan work or temporary memory.
+
+   Old catalog schemas/descriptions and dispatcher cases are unchanged; the common
+   warning tail remains for old tools. `projectionSnapshot` and legacy ordering
+   are unchanged. One performance difference is visible: the old `searchNotes`
+   predicate short-circuited after a matching title, whereas `matchedFields`
+   evaluates body and tags too (`NoteService.swift:246-251`,
+   `CompactRetrieval.swift:47-52`). Output is equivalent, but old title-heavy
+   searches can do more work; its magnitude is unverified. New revision accounting
+   also runs for all callers sharing the projection cache.
+
+7. **[note] Divergence and builder boundaries.** The §Build notes choices are
+   reasonable: archive inclusion must reach the batch follow-up; task 23 needs a
+   counted pre-write probe and fixed literal id; timing both the single call and
+   whole procedure is honest. Using a second EventStore instead of NoteService
+   for that deterministic creation changes the writer fixture, not what the
+   server must observe. Positioned non-string-id errors, canonical base64url,
+   always-present minimal tags_omitted and the fixed too-small error are coherent.
+   The overlong-cursor argument error and digest-before-upper-position precedence
+   are recorded exceptions/clarifications to Q12's blanket invalid-cursor wording,
+   not hidden behavior. They should have been fixed before the builder handoff;
+   the plan explicitly calls these the builder's open choices, so they were design
+   calls made too low even though the planner later accepted them. The planner's
+   singleton skip and early-exit optimization are sound as reviewed above.
+   No new dependency, persisted format, model call or unauthorized structural
+   note operation was introduced. A6/acceptance checkboxes and deferred to-do
+   filing remain planner bookkeeping; they were not completed by this review.
+
+8. **[note] Verification and lessons for the next plan.** Actual commands in this
+   sandbox on the fixed source snapshot:
+
+   - `swift build --disable-sandbox --scratch-path /tmp/unlirice-spm-codex`:
+     exit 0, build complete in 5.48 seconds, compiler warnings present.
+   - `UNLIRICE_BENCH_OUT=/tmp/unlirice-postmortem-bench.json swift test --disable-sandbox --scratch-path /tmp/unlirice-spm-codex`:
+     exit 1; **682 tests executed, 2 skipped, 24 failure records (19 unexpected),
+     across 18 failed cases**. One failed case is in
+     `NativeCloudEnvironmentMigrationTests`, 17 in `NativeCloudTransportTests`.
+     They report Cocoa 512 saving and 256 opening temporary cloud files, matching
+     the brief's known suites. No failure outside those two suites was found.
+     `CompactRetrievalTests`, `CompactRetrievalBenchmarkTests`, `MCPProcessTests`,
+     `MCPToolCatalogTests` and `NoteServiceRevisionTests` all passed. The benchmark
+     **ran; it was not skipped**. The two optional-fixture skips are not passes.
+     Exact sandbox-versus-product causation remains unverified here; the
+     planner's outside-sandbox green run is a recorded claim, not this run.
+   - `git diff --check`: exit 0. Git emits an fsmonitor IPC warning in this
+     environment. No `scripts/check.sh` exists, so SwiftPM is the fallback gate.
+
+   Test log: `/tmp/unlirice-postmortem-tests.log`; generated metrics:
+   `/tmp/unlirice-postmortem-bench.json`. Current medians (milliseconds): baseline
+   cold/warm 73.42/19.92; summaries alone 73.22/18.40; whole compact procedure
+   74.74/19.69. This corroborates no reliable speed advantage, not identical timing.
+   Xcode regeneration, native app/iOS builds and real-assistant selection behavior
+   are unverified by this review.
+
+   The next plan should require independent fixed-id revision expectations,
+   explicit discovery-stage outcomes before oracle reads, negative-path benchmark
+   tests, a separate label for unbounded fallbacks, and permanent sizing checks
+   at envelope/cursor transitions. Set validation precedence before delegation.
+   Do not describe an allocation optimization as proven merely because its
+   result-size tests pass. The new subprocess readers drain both pipes and pin
+   the scratch binary, but `stop()` still calls unbounded `waitUntilExit()` after
+   terminate (`CompactRetrievalBenchmarkTests.swift:824-831`,
+   `MCPProcessTests.swift:326-333`); bounded teardown remains a harness robustness
+   limitation if a child ignores termination (unverified failure scenario).
+
+Verdict: fit to merge after the listed fixes.

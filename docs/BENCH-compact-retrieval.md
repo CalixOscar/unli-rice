@@ -14,10 +14,11 @@ A second 7-note fixture holds the pending and conflicted notes. No real note was
 - **Compact:** `search_note_summaries`, paged until the needed notes appear, then
   `get_notes_batch` for exactly those notes, retrying anything left out for size.
 
-The compact procedure knows in advance which notes are the evidence. A real
-assistant has to choose from the summaries, so its numbers will be the same or
-worse. These figures are bytes and calls, not tokens, not model accuracy and not
-provider speed. Bytes are whole reply lines.
+The compact procedure knows in advance which notes are the evidence and reads only
+those. That describes this fixed procedure, not what an assistant would do: one that
+reads notes it turns out not to need will cost more, and one that stops at the
+summaries will cost less. These figures are bytes and calls, not tokens, not model
+accuracy and not provider speed. Bytes are whole reply lines.
 
 ## Totals over 24 tasks
 
@@ -26,8 +27,10 @@ provider speed. Bytes are whole reply lines.
 | Baseline | 31 | 386,744 | 42 of 43 (one cannot be observed, see task 20) |
 | Compact | 55 | 295,163 | 43 of 43 |
 
-Compact returned 24% fewer bytes overall and made 77% more calls. All 54 compact
-replies were within the `max_bytes` they were called with.
+Compact returned 24% fewer bytes overall and made 77% more calls. Of its 55 calls,
+54 were to the two new tools and every one of those replies was within the
+`max_bytes` it was called with. The other one was the `get_note` fallback in task
+12 (80,415 bytes), which has no ceiling.
 
 ## Per task
 
@@ -60,9 +63,12 @@ replies were within the `max_bytes` they were called with.
 
 ## Where compact is worse
 
-- **Narrow searches (tasks 1–10, 13–16, 18, 23).** When a search matches one to
-  three notes and all of them are wanted, the old tool already returns little.
-  Compact costs one extra call and about 1,000 more bytes (the summary page).
+- **Narrow searches (tasks 1–10, 13, 14, 16, 18, 23).** When a search matches one
+  to three notes and all of them are wanted, the old tool already returns little.
+  Compact costs one extra call and about 1,000 to 2,000 more bytes (the summary
+  page).
+- **A search with no results (task 15).** Same single call, 245 more bytes: the
+  compact reply carries counts, revision and diagnostics even when empty.
 - **Notes larger than the default reply size (tasks 11, 12).** Each 30 KB note
   needs its own retry at a larger size; the 80 KB note falls back to `get_note`.
   More calls, slightly more bytes.
@@ -72,13 +78,16 @@ replies were within the `max_bytes` they were called with.
 ## Where compact is better
 
 - **Wide searches where few notes are wanted (17, 24):** 61% and 54% fewer bytes.
-  This is the case the intent describes, and its saving grows with the number of
-  matches, while the old tool's cost grows with it.
+  This is the case the intent describes. How much is saved depends on where the
+  wanted notes sit in the results, how large the notes are and whether a restart is
+  needed; these two tasks do not establish a general rule.
 - **Reading several notes by id (19, 21, 22):** one call instead of two to five.
 - **Archived notes (20):** the old `get_note` returns an archived note in full with
   no way to say "not wanted"; compact reports `archived_excluded` in 350 bytes.
-- **A stated ceiling.** The largest compact reply is bounded by `max_bytes`. The
-  largest baseline reply here was 93,899 bytes and has no ceiling.
+- **A stated ceiling on the new tools.** Every reply from `search_note_summaries`
+  and `get_notes_batch` is bounded by `max_bytes`. The largest baseline reply here
+  was 93,899 bytes and has no ceiling. A note too large for any batch still has to
+  be read with `get_note`, which is unbounded (task 12).
 
 ## Timing (one body-only search, task 4; noisy, not asserted)
 
@@ -93,11 +102,17 @@ and lowercase every note, as planned.
 
 ## Limits of this benchmark
 
-- 18 of the 24 tasks search for a token that only one to three notes contain. Real
-  queries ("auth", "release") match many notes, which is where compact saves the
-  most. The totals above therefore understate the saving on wide queries and say
-  nothing reliable about the mix a real assistant produces.
+- 18 of the 24 tasks search for a token that only one to three notes contain, and
+  2 search a token 40 notes contain. Nobody has measured what mix of narrow and
+  wide searches real assistants make, so the totals say nothing reliable about
+  real use in either direction.
 - The oracle never reads a note it does not need. A model will.
 - Byte counts are not token counts.
 - One machine, one run for timings, debug build.
 - No assistant was told to prefer the new tools; nothing here measures adoption.
+
+## Re-run by the reviewer
+
+Codex re-ran the benchmark in its own sandbox for the post-mortem and reproduced
+every calls and bytes figure above exactly. Its timings: baseline 73.4 / 19.9 ms,
+summaries 73.2 / 18.4 ms, whole procedure 74.7 / 19.7 ms.

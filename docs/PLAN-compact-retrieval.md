@@ -284,6 +284,13 @@ launch to the first `tools/call` reply, three fresh launches, median. Warm: the 
 call repeated 10 times on a running process, median. Timings and sizes are written
 to the report and never asserted. The harness follows A4's process-test rules.
 
+### A7. Post-mortem fixes — codex post-mortem findings 1, 3, 4, 8
+- [ ] `build` Test-only changes, each named in the post-mortem. (a) Benchmark: a search task may fetch an evidence id only after that id appeared in a summary page; an evidence id never seen fails the task; task 24 asserts at least one restart. (b) Revision: tests that compute the expected `r1-<n>-<hex>` independently from fixed event ids, and cover a metadata (`causalOrder`) event, an unrecognized kind, a pending and a conflicted occurrence, a service that moves from legacy to causal mode after caching, and a restart to an empty log. (c) Process test request id of exactly 90 serialized bytes. (d) Batch: the adversarial text matrix at 2048, 16384 and 65536 across title, body, tags, creator and sources; an instruction-like body and source; a small note that is omitted and reports the 2048 floor in `retry_max_bytes`. (e) Cursor: a huge `o`, and a cursor wrong in both query and digest (invalid, not stale). (f) Search: a page whose results stop one short of `limit` for budget, pinning the early exit. (g) Both process harnesses: after `terminate()`, wait at most 5 seconds, then `SIGKILL`.
+  — files: `Tests/UnliRiceCoreTests/CompactRetrievalBenchmarkTests.swift`, `Tests/UnliRiceCoreTests/CompactRetrievalTests.swift`, `Tests/UnliRiceCoreTests/NoteServiceTests.swift`, `Tests/UnliRiceCoreTests/MCPProcessTests.swift`
+  — done when: the full suite is green and the benchmark's calls and bytes are unchanged
+  — verify: `UNLIRICE_BENCH_OUT=/tmp/unlirice-bench2.json swift test --scratch-path /tmp/unlirice-spm-compact`
+- [x] `planner` (2026-11-16) `searchNotes` stops at the first matching field again (`CompactRetrieval.matches`); benchmark write-up narrowed as the post-mortem asked
+
 ### A6. Record
 - [x] `planner` (2026-11-16) Run the benchmark for real (not skipped); write `docs/BENCH-compact-retrieval.md` with hardware, fixture size, the table, regressions and limits
 - [x] `planner` (2026-11-16) `xcodegen generate` in the worktree; `unlirice-mcp` (macOS) and `UnliRiceCoreiOS` (simulator) built unsigned with Xcode. The main checkout needs `xcodegen generate` after a merge. App targets not built

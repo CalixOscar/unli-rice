@@ -44,12 +44,23 @@ public enum CompactRetrieval {
         public static let tags = MatchedFields(rawValue: 1 << 2)
     }
 
-    /// The one match predicate, shared by `searchNotes` and compact search.
+    // The one match predicate, in three parts, shared by `searchNotes` and compact search.
+    private static func titleMatches(_ note: Note, _ q: String) -> Bool { note.title.lowercased().contains(q) }
+    private static func bodyMatches(_ note: Note, _ q: String) -> Bool { note.body.lowercased().contains(q) }
+    private static func tagsMatch(_ note: Note, _ q: String) -> Bool { note.tags.contains { $0.lowercased().contains(q) } }
+
+    /// Whether the note matches at all. Stops at the first field that does, as
+    /// `searchNotes` always has, so a title hit never lowercases the body.
+    public static func matches(_ note: Note, lowercasedQuery q: String) -> Bool {
+        titleMatches(note, q) || bodyMatches(note, q) || tagsMatch(note, q)
+    }
+
+    /// Which fields match. Checks all three.
     public static func matchedFields(_ note: Note, lowercasedQuery q: String) -> MatchedFields {
         var fields: MatchedFields = []
-        if note.title.lowercased().contains(q) { fields.insert(.title) }
-        if note.body.lowercased().contains(q) { fields.insert(.body) }
-        if note.tags.contains(where: { $0.lowercased().contains(q) }) { fields.insert(.tags) }
+        if titleMatches(note, q) { fields.insert(.title) }
+        if bodyMatches(note, q) { fields.insert(.body) }
+        if tagsMatch(note, q) { fields.insert(.tags) }
         return fields
     }
 
