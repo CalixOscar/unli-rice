@@ -3,7 +3,7 @@
 **Intent:** `docs/intent/INTENT-014-compact-retrieval.md`
 **Spec:** `docs/SPEC-compact-retrieval.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 4 settled, ready to build
+**Stage:** 5 built: A1–A5 done 2026-11-16; post-mortem and independent review pending; not merged
 **Founder skips (2026-11-16):** Idea Clinic and the stage-1.5 intent read. Asked how to record that neither was run, the founder chose "Skip both, record it". The pre-mortem, independent review and post-mortem still run.
 <!-- lint-allow intent-read "founder skip, 2026-11-16" -->
 **Pre-mortem:** `docs/dialogue/compact-retrieval.md` (codex, 2026-11-16: do not build until the blockers are resolved), answered there and in §9; settled 2026-11-16
@@ -286,8 +286,9 @@ to the report and never asserted. The harness follows A4's process-test rules.
 
 ### A6. Record
 - [x] `planner` (2026-11-16) Run the benchmark for real (not skipped); write `docs/BENCH-compact-retrieval.md` with hardware, fixture size, the table, regressions and limits
-- [ ] `planner` `xcodegen generate` for the new source file; build the Mac target once
-- [ ] `planner` `memory.md`, `PROJECT_NOTES.md` decision entry, to-dos for deferred work
+- [x] `planner` (2026-11-16) `xcodegen generate` in the worktree; `unlirice-mcp` (macOS) and `UnliRiceCoreiOS` (simulator) built unsigned with Xcode. The main checkout needs `xcodegen generate` after a merge. App targets not built
+- [x] `planner` (2026-11-16) `memory.md`, `PROJECT_NOTES.md` decision entry
+- [ ] `planner` To-dos for deferred work
 - [ ] `planner` Independent review of the fixed snapshot, then the Codex post-mortem
 
 ## 6. Acceptance — against reality, not a builder's report

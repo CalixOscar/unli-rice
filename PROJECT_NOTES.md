@@ -2970,3 +2970,27 @@ owner sign-in; request is pending. Capture1.3.1 draft and release notes were sav
 before expiry. No further build/upload needed if13 processes normally. Final signed
 IPA is /private/tmp/capture13-release/UnliRiceCapture-1.3.1-13.ipa. Existing physical
 acceptance/screenshot tasks were not closed; no broad source push.
+
+## Compact retrieval tools for the connector (2026-11-16)
+
+Decision (INTENT-014, founder-approved 2026-11-16; Idea Clinic and intent read skipped
+by the founder, recorded in `docs/PLAN-compact-retrieval.md`): the connector gains two
+read-only tools beside the unchanged fifteen. `search_note_summaries` returns id, title,
+a verbatim excerpt, tags and date; `get_notes_batch` returns up to 20 full notes with a
+status per id. Every reply is held under a caller-chosen `max_bytes` by measuring the
+real serialized result, and nothing is shortened or left out without saying so.
+
+Why these shapes: a paging cursor is tied to the ordered list of matching note ids, not
+to the whole corpus, because capture sync, the janitor and other agents append
+constantly and would otherwise break almost every second page. Each reply carries a
+weak local revision (event count plus XOR of event ids). Argument parsing is strict and
+lives in the core, since `as? Bool` accepts JSON `1`. Diagnostics travel as counts
+inside the payload; the old appended warning lists every affected id and has no bound.
+
+Measured, not assumed (`docs/BENCH-compact-retrieval.md`, 600 made-up notes, 24 tasks):
+24% fewer bytes and 77% more calls overall. Worse for narrow searches (one extra call,
+about 1 KB more); 54–61% fewer bytes for wide searches; one call instead of several for
+reads by id. Not done on purpose: the connector's instructions and the guide do not yet
+tell assistants to prefer the new tools. Branch `claude/compact-retrieval`, not merged
+at the time of writing.
+
