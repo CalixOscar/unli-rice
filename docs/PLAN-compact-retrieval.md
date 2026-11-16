@@ -295,7 +295,7 @@ to the report and never asserted. The harness follows A4's process-test rules.
 - [x] `planner` (2026-11-16) Run the benchmark for real (not skipped); write `docs/BENCH-compact-retrieval.md` with hardware, fixture size, the table, regressions and limits
 - [x] `planner` (2026-11-16) `xcodegen generate` in the worktree; `unlirice-mcp` (macOS) and `UnliRiceCoreiOS` (simulator) built unsigned with Xcode. The main checkout needs `xcodegen generate` after a merge. App targets not built
 - [x] `planner` (2026-11-16) `memory.md`, `PROJECT_NOTES.md` decision entry
-- [ ] `planner` To-dos for deferred work
+- [x] `planner` (2026-11-16) To-dos filed for deferred work: `D2A94583` (recommend the new tools to assistants) and `F2F73435` (evaluate with real assistants)
 - [x] `planner` (2026-11-16) Codex post-mortem on snapshot `6244070`, answered in the dialogue
 - [ ] `planner` Independent review through the Orca review workflow: not run. The post-mortem brief asked Codex to check the change and its tests on a fixed snapshot, which covers the same ground; whether that is enough is the founder's decision before a merge
 

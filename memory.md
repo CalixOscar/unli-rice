@@ -75,7 +75,7 @@ Carried over, unchanged: the production-studio work has a pre-mortem but no post
 - `Screenshots/AppStore-Mac-2026-09-03/` filenames do not match their contents; check before citing one.
 - **INTENT-008 (shared spec) exists only on Codex's local branch `codex/shared-spec`**; reconcile it with INTENT-009 before planning either.
 - The vault's `04_Guardrails.md` wins over the new build-gate rule in `AGENTS.md` until it is updated.
-**To-dos:** none this checkpoint. Still open: `BC9A8A42`, physical-device acceptance `BBC01BEE-FE38-4D53-9999-59422F498AD8`, and the B6d store-screenshot task.
+**To-dos:** filed 2 ("Tell AI assistants to use the new short search once it is merged" `D2A94583`; "Check with real AI assistants whether the new short search actually saves usage" `F2F73435`), with handoff note `D5A966DC`; closed none. Still open: `BC9A8A42`, physical-device acceptance `BBC01BEE-FE38-4D53-9999-59422F498AD8`, and the B6d store-screenshot task.
 **Left by:** Claude Code (CLI, Fable 5.2) 2026-11-16, after the compact-retrieval post-mortem fixes. Tests on the branch: 694 run, 0 failed, 2 skipped (verified: `swift test --scratch-path /tmp/unlirice-spm-compact` 2026-11-16). Xcode: `unlirice-mcp` (macOS) and `UnliRiceCoreiOS` (simulator) built unsigned at `6244070`; the app targets were not built.
 ## Earlier branch follow-ups
 
