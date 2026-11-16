@@ -211,7 +211,7 @@ Argument descriptions: `query` "Search text"; `limit` "Most results to return";
 previous page"; `include_archived` "Include archived notes"; `ids` "Note ids (UUID)".
 
 ### A5. Benchmark — spec M1–M5
-- [ ] `build` One test file with the fixture generator, the task table and both procedures, as below. It prints a table and, when `UNLIRICE_BENCH_OUT` is set, writes the JSON report there. It skips when the binary beside the test bundle is missing.
+- [x] `build` (done, planner-verified 2026-11-16: 682 tests, 0 failed, 2 skipped, benchmark not skipped) One test file with the fixture generator, the task table and both procedures, as below. It prints a table and, when `UNLIRICE_BENCH_OUT` is set, writes the JSON report there. It skips when the binary beside the test bundle is missing.
   — files: `Tests/UnliRiceCoreTests/CompactRetrievalBenchmarkTests.swift` (new)
   — done when: the test passes and the JSON holds, per task and procedure, outcomes expected and observed, calls, bytes, and the timing block
   — verify: `UNLIRICE_BENCH_OUT=/tmp/unlirice-bench.json swift test --scratch-path /tmp/unlirice-spm-compact --filter CompactRetrievalBenchmarkTests`
@@ -285,7 +285,7 @@ call repeated 10 times on a running process, median. Timings and sizes are writt
 to the report and never asserted. The harness follows A4's process-test rules.
 
 ### A6. Record
-- [ ] `planner` Run the benchmark for real (not skipped); write `docs/BENCH-compact-retrieval.md` with hardware, fixture size, the table, regressions and limits
+- [x] `planner` (2026-11-16) Run the benchmark for real (not skipped); write `docs/BENCH-compact-retrieval.md` with hardware, fixture size, the table, regressions and limits
 - [ ] `planner` `xcodegen generate` for the new source file; build the Mac target once
 - [ ] `planner` `memory.md`, `PROJECT_NOTES.md` decision entry, to-dos for deferred work
 - [ ] `planner` Independent review of the fixed snapshot, then the Codex post-mortem
@@ -353,6 +353,8 @@ worktree. A0, A6 → planner. Nothing is `build-light`: no step has its exact te
 given.
 
 ## Build notes
+
+- A5: three readings by the builder, accepted. The follow-up `get_notes_batch` carries the task's `include_archived` (task 16 needs it). Task 23 makes one counted probe search before the other writer creates the note. Task 23's writer is a second `EventStore` so the new note's id can be a literal. Timing is reported for the summaries call alone and for the whole procedure.
 
 - A3: accepted as built. A non-string entry in `ids` reports "ids[N] is not a valid note id." The planner added a guard so a note that cannot fit alone is not serialized a second time during the fill.
 
