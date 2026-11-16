@@ -2993,3 +2993,8 @@ about 1 KB more); 54–61% fewer bytes for wide searches; one call instead of se
 reads by id. Not done on purpose: the connector's instructions and the guide do not yet
 tell assistants to prefer the new tools. Branch `claude/compact-retrieval`, not merged
 at the time of writing.
+
+
+## 2026-11-16 — Mac 1.5.2 release preparation
+
+Founder authorized GitHub/App Store publication and explicitly waived this release's six-month failure analysis. Generic Engineering Guardrails refreshed from baseline 0112345 and exact-source SHA-256 ac47f99f9b047996e740fadf4a25f20864d341caf6e772ecffe96b7f8e00cd97; drift check now validates that snapshot without changing the private source. Saved notes and drafts remain unchanged. Older saved template text can display Your own rules, because labels compare current template bodies. Mac app/helper/widget set to1.5.2(14); Capture unchanged. Independent review and scoped recheck recorded in docs/dialogue/release-1.5.2.md; tests, screenshot and signature evidence in docs/PLAN-release-1.5.2.md. No upload/submission/publication at this checkpoint.

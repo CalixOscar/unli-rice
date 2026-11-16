@@ -116,36 +116,34 @@ public struct HouseRulesPreset: Identifiable, Codable, Equatable, Sendable {
     - Check claims against current evidence; mark what you couldn't check as unverified.
     """
 
-    // guardrails-refreshed-from: 299cb26
-    // The studio guardrails commit this text was last distilled from, in generic
-    // words. Scripts/check-template-drift.sh compares it with the guardrails
-    // history before a release; move it forward whenever the text is refreshed.
+    // guardrails-refreshed-from: 0112345
+    // guardrails-source-sha256: ac47f99f9b047996e740fadf4a25f20864d341caf6e772ecffe96b7f8e00cd97
+    // The commit is the baseline; the digest identifies the exact source snapshot,
+    // including uncommitted edits. Scripts/check-template-drift.sh checks both.
     private static let engineeringGuardrailsBody = """
-    Instructions for any coding assistant working in a repository and connected to these notes over the `unlirice` MCP server.
+    Instructions for coding assistants using the `unlirice` MCP server.
 
-    **Notes basics.** Search before writing, and check `Wiki: index` first when it exists. Append to an existing topic; create a note only for a genuinely new concept. Titles are permanent. Pass your own lowercase tool name as `source`, and never write as `janitor` or `ingest`. Flag suspected duplicates or contradictions with `flag_for_review` rather than resolving them yourself. Nothing is deleted; archiving is soft and reversible.
+    **Notes safety.** Search before writing; read `Wiki: index` when present. Append to an existing topic; create only for a new concept. Titles are permanent. Use your lowercase tool name as `source`, never `janitor` or `ingest`. Flag duplicates or contradictions with `flag_for_review`; never resolve them yourself. Archiving is reversible; there is no delete.
 
-    **Keep the user's to-do list in plain words.** File deferred work as a note tagged `todo` plus the project's lowercased folder name. The title is one plain sentence with no file names, code names or acronyms. The body opens with two or three plain sentences, saying why it matters and what the user must do or "An AI can do this", then the technical detail after a line reading `For the AI picking this up:`. These items appear on the user's To Do list and widget. Archive one only when you finished it, naming the evidence.
+    **Readable to-dos.** Tag deferred work `todo` plus the lowercased project folder name. Use a plain-sentence title without code names or paths. Open with why it matters and what the user must do, or "An AI can do this". Put technical detail after `For the AI picking this up:`. Archive only completed work, with evidence.
 
-    **Working state and history are different files.** Keep the current state (status, task in flight, files touched, next step, gotchas) in one short working-state file, and update it as a whole when it changes. Keep what was decided, when, and why in an append-only file such as `PROJECT_NOTES.md`. If either disagrees with the repository, the repository wins: check `git log` and `git status` before building on them.
+    **State and history.** Keep status, task, files, next step, gotchas and deferred work in one short working-state file; update it as a whole. Keep decisions and reasons in append-only history such as `PROJECT_NOTES.md`. Check `git log` and `git status`: the repository wins over notes.
 
-    **Plans and intents live in `docs/`.** A plan is `docs/PLAN-<slug>.md` and traces back to a statement of intent in `docs/intent/`, never the repository root. Start work on a fresh branch off the main branch.
+    **Intent before code.** Question new ideas with the user: the problem, alternatives, demand and whether software is needed. Agree the outcome and observable acceptance. Plans belong in `docs/PLAN-<slug>.md`, linked to intent in `docs/intent/`. Start on a fresh branch from the main branch.
 
-    **Question new ideas first.** Before building a new app or feature, talk it through with the user: the problem, the alternatives, whether software is needed and who wants it. An early build is a proposal; agree the outcome before calling it done.
+    **Risk decides the process.** New foundations, servers, auth, secrets, payments, persisted data, releases, AI features and dependencies need the full process. Routine repairs need a branch, reviewed diff and real verification. If risk grows or is uncertain, stop and use the full process.
 
-    **Sort work by risk, not size.** The full process is for a new app or foundation, servers, auth, secrets or payments, anything persisted, release submission, AI features or a new dependency. Everything else is a branch, a reviewed diff and a real build and test run. Unsure, or it grows into that list? Use the full process.
+    **Plan high, build low.** The planner chooses the design; cheaper builders implement bounded steps and stop on ambiguity. The other tool reviews before and after building in append-only `docs/dialogue/<slug>.md`; risky merges need independent review. Unresolved disagreement goes to the user.
 
-    **Plan high, build low.** Plan on your most capable model, in steps labelled as a full build or a small, fully specified edit. Your own cheaper models build them; a builder never makes a design call and stops on any ambiguity.
+    **Security first.** Plan privacy, permission, record ownership, payment verification and abuse protections where relevant. Keep secrets out of code and apps; rotate leaked keys. Check applicable parsing, authentication, caching and dependency attacks against current official guidance. Use isolated tests; never attack production. Local tests do not prove hosted security.
 
-    **A second tool only reviews.** The assistant that did not plan writes a pre-mortem before the build and a post-mortem after, in `docs/dialogue/<slug>.md`, append-only, and reviews risky work again before it is merged. Plans and builds never cross between tools. A point still disputed after one rebuttal each goes to the user.
+    **Product quality.** Define user, task, outcome, desired feeling and full journey. Agree measurable performance targets on realistic devices and connections. For a new app or major redesign, compare three directions on the same realistic screen and get the user's choice. Reuse established patterns for routine work. Bundle essential questions; own routine decisions without inventing consent.
 
-    **Evidence or "unverified".** "Tests pass" names the command and result; a check proves only the setup it ran against. Walk the whole journey in a running build, including empty, slow and failed states. After two failed fixes, write down the diagnosis; try once more only with a new hypothesis, otherwise hand back.
+    **Evidence or "unverified".** Run the repository's full check command when available; a fast pass is insufficient. Name commands and results. Review changes to checks; never silently weaken them. Walk success, empty, slow, failed, denied, interrupted and resumed states as relevant. Report unchecked areas. After two failed fixes, record the diagnosis; retry only with a new hypothesis. Escalate security, integrity or architecture failures immediately.
 
-    **Checkpoint as you go.** At every meaningful step, once its diff has been reviewed, commit and update the working-state file. Whoever planned the work does this, never the builder. Flag stale branches, local-only commits and uncommitted worktrees. When the work is done, ask once before tidying up.
+    **Checkpoint and cleanup.** Commit and update working state once its diff has been reviewed; the planner does this, never the builder. Name workspaces by their task. Keep the main workspace. Remove temporary worktrees only when merged, pushed, clean and idle. Ask once before cleanup unless already authorized; never force removal.
 
-    **Stay in bounds.** Work only in this project's folder. Never upload a build, submit for review or change pricing unless the user asks in this session, in their own words. Keep secrets out of the repository; a leaked one must be rotated.
-
-    **Exception Guardrail.** If the user asks for something that contradicts these rules, ask whether it's a one-time exception or whether the rule should change. One-time → note the exception in the session; change → update the rules.
+    **Exception Guardrail.** Stay in the project. Upload, submit or change pricing only when the user explicitly asks this session. If instructions conflict, ask whether the user wants a one-time exception or a rule change, and record the answer.
     """
 }
 
