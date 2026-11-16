@@ -21,6 +21,8 @@ public enum MCPTool: String, CaseIterable, Sendable {
     case pendingReviews = "pending_reviews"
     case transactionLog = "transaction_log"
     case projectContext = "project_context"
+    case searchNoteSummaries = "search_note_summaries"
+    case getNotesBatch = "get_notes_batch"
 
     /// Appends an Event. No `default` — a new case must be classified here.
     public var isWrite: Bool {
@@ -29,7 +31,8 @@ public enum MCPTool: String, CaseIterable, Sendable {
              .archiveNote, .unarchiveNote, .flagForReview, .resolveReview:
             return true
         case .getNote, .listNotes, .searchNotes, .noteHistory,
-             .pendingReviews, .transactionLog, .projectContext:
+             .pendingReviews, .transactionLog, .projectContext,
+             .searchNoteSummaries, .getNotesBatch:
             return false
         }
     }

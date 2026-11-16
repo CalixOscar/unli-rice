@@ -153,4 +153,193 @@ final class MCPProcessTests: XCTestCase {
         try? stdinHandle.close()
         process.waitUntilExit()
     }
+
+    // MARK: - Compact retrieval process tests (A4)
+
+    func testToolsListContainsAllSeventeenTools() throws {
+        let server = try ProcessHarness.launch(dataFile: tempDir.appendingPathComponent("events.jsonl"))
+        defer { server.stop() }
+        let reply = try server.call(#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#)
+        let result = try XCTUnwrap(reply.json["result"] as? [String: Any])
+        let tools = try XCTUnwrap(result["tools"] as? [[String: Any]])
+        let names = Set(tools.compactMap { $0["name"] as? String })
+        XCTAssertEqual(tools.count, 17)
+        XCTAssertEqual(names, Set(MCPTool.allCases.map(\.rawValue)))
+        XCTAssertTrue(names.contains("search_note_summaries"))
+        XCTAssertTrue(names.contains("get_notes_batch"))
+    }
+
+    func testSearchAndBatchReplyLinesStayWithinMaxBytes() throws {
+        let dataFile = tempDir.appendingPathComponent("events.jsonl")
+        let store = try EventStore(fileURL: dataFile)
+        let service = NoteService(store: store)
+        var ids: [String] = []
+        for index in 0..<25 {
+            let body = "alpha " + String(repeating: "lorem ipsum dolor \(index) ", count: 150)
+            ids.append(try service.createNote(title: "Alpha note \(index)", body: body, source: "human").id.uuidString)
+        }
+        let eventsBefore = try String(contentsOf: dataFile, encoding: .utf8)
+        let requestID = String(repeating: "i", count: 88)
+        XCTAssertEqual(try JSONSerialization.data(withJSONObject: requestID, options: [.fragmentsAllowed]).count, 90, "the id must serialize to exactly 90 bytes with its quotes")
+        let server = try ProcessHarness.launch(dataFile: dataFile)
+        defer { server.stop() }
+
+        func call(_ name: String, _ arguments: String) throws -> ProcessHarness.Reply {
+            try server.call(#"{"jsonrpc":"2.0","id":"\#(requestID)","method":"tools/call","params":{"name":"\#(name)","arguments":\#(arguments)}}"#)
+        }
+        func checkOne(_ reply: ProcessHarness.Reply, maxBytes: Int, label: String) throws {
+            XCTAssertLessThanOrEqual(reply.lineBytes, maxBytes, label)
+            XCTAssertEqual(reply.json["id"] as? String, requestID, label)
+            let result = try XCTUnwrap(reply.json["result"] as? [String: Any], label)
+            XCTAssertNotEqual(result["isError"] as? Bool, true, label)
+            XCTAssertEqual((result["content"] as? [[String: Any]])?.count, 1, label)
+        }
+
+        for maxBytes in [2048, 16384] {
+            try checkOne(try call("search_note_summaries", #"{"query":"alpha","limit":50,"max_bytes":\#(maxBytes)}"#), maxBytes: maxBytes, label: "search \(maxBytes)")
+            // 20 oversized ids cannot be reported at 2048 (spec B6), so use fewer there.
+            let quoted = ids.prefix(maxBytes == 2048 ? 5 : 20).map { "\"\($0)\"" }.joined(separator: ",")
+            try checkOne(try call("get_notes_batch", #"{"ids":[\#(quoted)],"max_bytes":\#(maxBytes)}"#), maxBytes: maxBytes, label: "batch \(maxBytes)")
+        }
+        // Default max_bytes (omitted).
+        try checkOne(try call("search_note_summaries", #"{"query":"alpha","limit":50}"#), maxBytes: 16384, label: "search default")
+        let quoted = ids.prefix(20).map { "\"\($0)\"" }.joined(separator: ",")
+        try checkOne(try call("get_notes_batch", #"{"ids":[\#(quoted)]}"#), maxBytes: 16384, label: "batch default")
+
+        XCTAssertEqual(try String(contentsOf: dataFile, encoding: .utf8), eventsBefore, "retrieval must not append events")
+    }
+
+    func testBadArgumentIsAnErrorAndServerAnswersNextCall() throws {
+        let server = try ProcessHarness.launch(dataFile: tempDir.appendingPathComponent("events.jsonl"))
+        defer { server.stop() }
+        let bad = try server.call(#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_note_summaries","arguments":{"query":"x","limit":true}}}"#)
+        let badResult = try XCTUnwrap(bad.json["result"] as? [String: Any])
+        XCTAssertEqual(badResult["isError"] as? Bool, true)
+        let next = try server.call(#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_note_summaries","arguments":{"query":"x"}}}"#)
+        let nextResult = try XCTUnwrap(next.json["result"] as? [String: Any])
+        XCTAssertNotEqual(nextResult["isError"] as? Bool, true)
+        XCTAssertEqual(next.json["id"] as? Int, 2)
+    }
+
+    func testConflictedStoreGivesOneContentBlockWithIncompleteDiagnostics() throws {
+        let dataFile = tempDir.appendingPathComponent("events.jsonl")
+        let store = try EventStore(fileURL: dataFile)
+        let service = NoteService(store: store)
+        _ = try service.createNote(title: "Healthy", body: "", source: "human")
+        let conflictID = UUID(), a = UUID(), b = UUID()
+        let cycleA = Event(id: a, noteId: conflictID, source: "human", kind: .created, title: "Conflict", causalParents: [b])
+        let cycleB = Event(id: b, noteId: conflictID, source: "human", kind: .tagged, tag: "x", causalParents: [a])
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        try store.appendRawBatch(try [cycleA, cycleB].map { try encoder.encode($0) })
+
+        let server = try ProcessHarness.launch(dataFile: dataFile)
+        defer { server.stop() }
+        let reply = try server.call(#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_note_summaries","arguments":{"query":"Healthy"}}}"#)
+        let result = try XCTUnwrap(reply.json["result"] as? [String: Any])
+        let content = try XCTUnwrap(result["content"] as? [[String: Any]])
+        XCTAssertEqual(content.count, 1)
+        let text = try XCTUnwrap(content.first?["text"] as? String)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        let diagnostics = try XCTUnwrap(payload["diagnostics"] as? [String: Any])
+        XCTAssertEqual(diagnostics["incomplete"] as? Bool, true)
+    }
+}
+
+/// Launches the real `unlirice-mcp` binary found beside the test bundle (no other
+/// location). Stdout and stderr are drained on background threads; every reply
+/// wait times out after 10 seconds.
+private final class ProcessHarness {
+    struct Reply {
+        let json: [String: Any]
+        /// Bytes of the reply line including its trailing newline.
+        let lineBytes: Int
+    }
+
+    private let process = Process()
+    private let stdin = Pipe()
+    private let lock = NSLock()
+    private let arrived = DispatchSemaphore(value: 0)
+    private var buffer = Data()
+    private var closed = false
+    private var stopped = false
+
+    static func launch(dataFile: URL) throws -> ProcessHarness {
+        let bundle = Bundle(for: MCPProcessTests.self)
+        let binary = bundle.bundleURL.deletingLastPathComponent().appendingPathComponent("unlirice-mcp")
+        guard FileManager.default.isExecutableFile(atPath: binary.path) else {
+            throw XCTSkip("unlirice-mcp binary not found beside the test bundle")
+        }
+        let harness = ProcessHarness()
+        try harness.start(binary: binary, dataFile: dataFile)
+        return harness
+    }
+
+    private func start(binary: URL, dataFile: URL) throws {
+        process.executableURL = binary
+        var env = ProcessInfo.processInfo.environment
+        env["UNLIRICE_DATA_PATH"] = dataFile.path
+        process.environment = env
+        let stdout = Pipe(), stderr = Pipe()
+        process.standardInput = stdin
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        let outHandle = stdout.fileHandleForReading, errHandle = stderr.fileHandleForReading
+        Thread.detachNewThread { [weak self] in
+            while true {
+                let chunk = outHandle.availableData
+                guard let self else { return }
+                self.lock.lock()
+                if chunk.isEmpty { self.closed = true } else { self.buffer.append(chunk) }
+                self.lock.unlock()
+                self.arrived.signal()
+                if chunk.isEmpty { return }
+            }
+        }
+        Thread.detachNewThread { while !errHandle.availableData.isEmpty {} }
+        _ = try call(#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"compact-test","version":"1.0"}}}"#)
+    }
+
+    func call(_ line: String) throws -> Reply {
+        stdin.fileHandleForWriting.write(Data((line + "\n").utf8))
+        let deadline = Date().addingTimeInterval(10)
+        while true {
+            lock.lock()
+            if let newline = buffer.firstIndex(of: 0x0A) {
+                let lineData = buffer.subdata(in: buffer.startIndex..<newline)
+                let total = buffer.distance(from: buffer.startIndex, to: newline) + 1
+                buffer.removeSubrange(buffer.startIndex...newline)
+                lock.unlock()
+                guard let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                    throw HarnessError.badReply
+                }
+                return Reply(json: json, lineBytes: total)
+            }
+            let isClosed = closed
+            lock.unlock()
+            if isClosed { throw HarnessError.processEnded }
+            if arrived.wait(timeout: .now() + max(0.01, deadline.timeIntervalSinceNow)) == .timedOut, Date() >= deadline {
+                throw HarnessError.timeout
+            }
+        }
+    }
+
+    func stop() {
+        lock.lock()
+        if stopped { lock.unlock(); return }
+        stopped = true
+        lock.unlock()
+        try? stdin.fileHandleForWriting.close()
+        if process.isRunning {
+            process.terminate()
+            let deadline = Date().addingTimeInterval(5)
+            while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        }
+        process.waitUntilExit()
+    }
+
+    deinit { stop() }
+
+    enum HarnessError: Error { case timeout, processEnded, badReply }
 }
