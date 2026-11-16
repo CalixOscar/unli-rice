@@ -168,7 +168,7 @@ them. Error messages are fixed strings and never include caller or note text.
   — verify: `swift test --scratch-path /tmp/unlirice-spm-compact --filter "NoteServiceTests|ProjectionDiagnosticsTests|ProjectionCacheTests|EventCausalOrderTests"`
 
 ### A2. Compact search (core) — spec S3, S5, S8, S9, Q1–Q12
-- [ ] `build` Implement the errors, constants, `SearchRequest` (both initializers), `toolResult`, `serializedByteCount`, `searchSummaries` and the cursor, exactly as the spec rows say; one unit test per Check entry of S3, S5, S8, S9 (search arguments) and Q1–Q12.
+- [x] `build` (done, planner-verified 2026-11-16) Implement the errors, constants, `SearchRequest` (both initializers), `toolResult`, `serializedByteCount`, `searchSummaries` and the cursor, exactly as the spec rows say; one unit test per Check entry of S3, S5, S8, S9 (search arguments) and Q1–Q12.
   — files: `Sources/UnliRiceCore/CompactRetrieval.swift`, `Tests/UnliRiceCoreTests/CompactRetrievalTests.swift` (new)
   — done when: every listed check has a passing test
   — verify: `swift test --scratch-path /tmp/unlirice-spm-compact --filter CompactRetrievalTests`
@@ -353,3 +353,5 @@ worktree. A0, A6 → planner. Nothing is `build-light`: no step has its exact te
 given.
 
 ## Build notes
+
+- A2: the builder's open choices were accepted as built: an over-long cursor is an argument error; cursor checks run shape, then query and archive flag (invalid), then match digest (stale), then position (invalid); a non-canonical base64url cursor is invalid; minimal form always carries `tags_omitted`; the Q9 failure text is "max_bytes is too small to return a result. Raise max_bytes." The planner added an early exit to the fill loop. No Swift string was found whose character count changes when lowercased, so that excerpt fallback is defensive only.
