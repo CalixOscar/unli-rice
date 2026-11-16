@@ -157,6 +157,16 @@ struct ToolDispatcher {
                 } else {
                     payload = try JSONRPC.plain(try service.transactionLog())
                 }
+
+            case .searchNoteSummaries:
+                let request = try CompactRetrieval.SearchRequest(arguments: arguments)
+                let snapshot = try service.retrievalSnapshot()
+                return CompactRetrieval.toolResult(text: try CompactRetrieval.searchSummaries(request, in: snapshot))
+
+            case .getNotesBatch:
+                let request = try CompactRetrieval.BatchRequest(arguments: arguments)
+                let snapshot = try service.retrievalSnapshot()
+                return CompactRetrieval.toolResult(text: try CompactRetrieval.batch(request, in: snapshot))
             }
 
             let text = try jsonString(payload)
