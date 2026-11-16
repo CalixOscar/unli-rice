@@ -3,7 +3,7 @@
 **Intent:** `docs/intent/INTENT-014-compact-retrieval.md`
 **Spec:** `docs/SPEC-compact-retrieval.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 5 built: A1–A5 done 2026-11-16; post-mortem and independent review pending; not merged
+**Stage:** 6 post-mortem answered 2026-11-16 (codex: fit to merge after the listed fixes; fixes made in A7). Not merged: the Orca independent review has not been run, and the merge is the founder's call
 **Founder skips (2026-11-16):** Idea Clinic and the stage-1.5 intent read. Asked how to record that neither was run, the founder chose "Skip both, record it". The pre-mortem, independent review and post-mortem still run.
 <!-- lint-allow intent-read "founder skip, 2026-11-16" -->
 **Pre-mortem:** `docs/dialogue/compact-retrieval.md` (codex, 2026-11-16: do not build until the blockers are resolved), answered there and in §9; settled 2026-11-16
@@ -285,7 +285,7 @@ call repeated 10 times on a running process, median. Timings and sizes are writt
 to the report and never asserted. The harness follows A4's process-test rules.
 
 ### A7. Post-mortem fixes — codex post-mortem findings 1, 3, 4, 8
-- [ ] `build` Test-only changes, each named in the post-mortem. (a) Benchmark: a search task may fetch an evidence id only after that id appeared in a summary page; an evidence id never seen fails the task; task 24 asserts at least one restart. (b) Revision: tests that compute the expected `r1-<n>-<hex>` independently from fixed event ids, and cover a metadata (`causalOrder`) event, an unrecognized kind, a pending and a conflicted occurrence, a service that moves from legacy to causal mode after caching, and a restart to an empty log. (c) Process test request id of exactly 90 serialized bytes. (d) Batch: the adversarial text matrix at 2048, 16384 and 65536 across title, body, tags, creator and sources; an instruction-like body and source; a small note that is omitted and reports the 2048 floor in `retry_max_bytes`. (e) Cursor: a huge `o`, and a cursor wrong in both query and digest (invalid, not stale). (f) Search: a page whose results stop one short of `limit` for budget, pinning the early exit. (g) Both process harnesses: after `terminate()`, wait at most 5 seconds, then `SIGKILL`.
+- [x] `build` (done in two handoffs, planner-verified 2026-11-16: 694 tests, 0 failed, 2 skipped; benchmark calls and bytes unchanged) Test-only changes, each named in the post-mortem. (a) Benchmark: a search task may fetch an evidence id only after that id appeared in a summary page; an evidence id never seen fails the task; task 24 asserts at least one restart. (b) Revision: tests that compute the expected `r1-<n>-<hex>` independently from fixed event ids, and cover a metadata (`causalOrder`) event, an unrecognized kind, a pending and a conflicted occurrence, a service that moves from legacy to causal mode after caching, and a restart to an empty log. (c) Process test request id of exactly 90 serialized bytes. (d) Batch: the adversarial text matrix at 2048, 16384 and 65536 across title, body, tags, creator and sources; an instruction-like body and source; a small note that is omitted and reports the 2048 floor in `retry_max_bytes`. (e) Cursor: a huge `o`, and a cursor wrong in both query and digest (invalid, not stale). (f) Search: a page whose results stop one short of `limit` for budget, pinning the early exit. (g) Both process harnesses: after `terminate()`, wait at most 5 seconds, then `SIGKILL`.
   — files: `Tests/UnliRiceCoreTests/CompactRetrievalBenchmarkTests.swift`, `Tests/UnliRiceCoreTests/CompactRetrievalTests.swift`, `Tests/UnliRiceCoreTests/NoteServiceTests.swift`, `Tests/UnliRiceCoreTests/MCPProcessTests.swift`
   — done when: the full suite is green and the benchmark's calls and bytes are unchanged
   — verify: `UNLIRICE_BENCH_OUT=/tmp/unlirice-bench2.json swift test --scratch-path /tmp/unlirice-spm-compact`
@@ -296,23 +296,24 @@ to the report and never asserted. The harness follows A4's process-test rules.
 - [x] `planner` (2026-11-16) `xcodegen generate` in the worktree; `unlirice-mcp` (macOS) and `UnliRiceCoreiOS` (simulator) built unsigned with Xcode. The main checkout needs `xcodegen generate` after a merge. App targets not built
 - [x] `planner` (2026-11-16) `memory.md`, `PROJECT_NOTES.md` decision entry
 - [ ] `planner` To-dos for deferred work
-- [ ] `planner` Independent review of the fixed snapshot, then the Codex post-mortem
+- [x] `planner` (2026-11-16) Codex post-mortem on snapshot `6244070`, answered in the dialogue
+- [ ] `planner` Independent review through the Orca review workflow: not run. The post-mortem brief asked Codex to check the change and its tests on a fixed snapshot, which covers the same ground; whether that is enough is the founder's decision before a merge
 
 ## 6. Acceptance — against reality, not a builder's report
 
 **Mechanical**
-- [ ] `swift build` and `swift test` (scratch path above) green
-- [ ] `git diff --check` clean
-- [ ] `git diff --name-only main...` stays within the files named in §5 plus `docs/`, `memory.md`, `PROJECT_NOTES.md`
-- [ ] The 15 old catalog entries are byte-identical to `main`
-- [ ] No test or tool touched the live vault (every process test sets `UNLIRICE_DATA_PATH`)
+- [x] `swift test --scratch-path /tmp/unlirice-spm-compact` green: 694 tests, 0 failed, 2 skipped (verified: planner 2026-11-16)
+- [x] `git diff --check` clean (verified 2026-11-16)
+- [x] `git diff --name-only 699d3bd` stays within the files named in §5 plus `docs/`, `memory.md`, `PROJECT_NOTES.md` (verified 2026-11-16)
+- [x] `ToolCatalog.swift` and `ToolDispatcher.swift`: 24 and 10 lines added, 0 removed, so the 15 old entries and cases are untouched (verified: `git diff --numstat 699d3bd`)
+- [x] Every process test sets `UNLIRICE_DATA_PATH` to a temp file (read in review); no connector tool was called on the live vault during the build
 
 **Editorial:** no user-facing surface.
 
 **Record**
-- Built:
-- Verified: / Unverified:
-- Ready to release: no
+- Built: `search_note_summaries` and `get_notes_batch` in the connector, the revision and snapshot in `NoteService`, unit, process and benchmark tests.
+- Verified: the full SwiftPM suite; the benchmark run for real and reproduced by Codex; `unlirice-mcp` (macOS) and `UnliRiceCoreiOS` (simulator) built unsigned in Xcode at `6244070`. Unverified: the Mac and Capture app targets were not built; no signed build; no assistant has used the tools; the gap between the two causal reads is covered by code review only.
+- Ready to release: no. Not merged, and the tools reach assistants only in a new App Store build.
 
 ## 7. Known limits, accepted
 
@@ -361,6 +362,8 @@ worktree. A0, A6 → planner. Nothing is `build-light`: no step has its exact te
 given.
 
 ## Build notes
+
+- Post-mortem lessons: fix validation order and every error text in the spec before a handoff (the A2 builder had to choose them); make a benchmark prove discovery before it reads; label unbounded fallbacks separately from bounded replies; compute expected values in tests independently of the code under test. The first A7 handoff was only half done because the builder misread its scope; the rest went back as a second, narrower handoff.
 
 - A5: three readings by the builder, accepted. The follow-up `get_notes_batch` carries the task's `include_archived` (task 16 needs it). Task 23 makes one counted probe search before the other writer creates the note. Task 23's writer is a second `EventStore` so the new note's id can be a literal. Timing is reported for the summaries call alone and for the whole procedure.
 
