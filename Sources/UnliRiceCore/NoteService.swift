@@ -29,6 +29,12 @@ public struct ProjectionSnapshot: Sendable {
     public let diagnostics: ProjectionDiagnostics
 }
 
+public struct RetrievalSnapshot: Sendable {
+    public let notes: [UUID: Note]            // complete notes only, archived included
+    public let diagnostics: ProjectionDiagnostics
+    public let revision: String               // "r1-<n>-<32 hex>"
+}
+
 public enum NoteServiceError: Error, CustomStringConvertible, LocalizedError {
     case noteNotFound(UUID)
     case projectionFailed
@@ -73,6 +79,11 @@ public final class NoteService {
     private var cachedDiagnostics = ProjectionDiagnostics()
     private var cursor: EventStoreCursor = .start
     private var causalMode = false
+    /// Count and 128-bit XOR of the ids of every complete event the projection
+    /// has read. Together they make the `revision` fingerprint.
+    private var eventCount = 0
+    private var idXorHigh: UInt64 = 0
+    private var idXorLow: UInt64 = 0
     private let cacheLock = NSLock()
 
     /// Keeps wiki-links current without rebuilding them for the whole corpus on
@@ -101,6 +112,7 @@ public final class NoteService {
         links.reset()
         cursor = .start
         causalMode = false
+        resetRevision()
     }
 
     @discardableResult
@@ -219,6 +231,14 @@ public final class NoteService {
         return ProjectionSnapshot(notes: notes.values.filter { includeArchived || !$0.archived }.sorted { $0.updatedAt > $1.updatedAt }, diagnostics: diagnostics)
     }
 
+    /// Notes, diagnostics and revision from a single `cacheLock` hold.
+    public func retrievalSnapshot() throws -> RetrievalSnapshot {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        try refreshProjectionLocked()
+        return RetrievalSnapshot(notes: cachedNotes, diagnostics: cachedDiagnostics, revision: currentRevisionLocked())
+    }
+
     public func listNotes(includeArchived: Bool = false) throws -> [Note] {
         try projectionSnapshot(includeArchived: includeArchived).notes
     }
@@ -227,9 +247,7 @@ public final class NoteService {
         let q = query.lowercased()
         guard !q.isEmpty else { return try listNotes(includeArchived: includeArchived) }
         return try listNotes(includeArchived: includeArchived).filter { note in
-            note.title.lowercased().contains(q)
-                || note.body.lowercased().contains(q)
-                || note.tags.contains { $0.lowercased().contains(q) }
+            !CompactRetrieval.matchedFields(note, lowercasedQuery: q).isEmpty
         }
     }
 
@@ -261,17 +279,51 @@ public final class NoteService {
     private func currentProjection() throws -> ([UUID: Note], ProjectionDiagnostics) {
         cacheLock.lock()
         defer { cacheLock.unlock() }
+        try refreshProjectionLocked()
+        return (cachedNotes, cachedDiagnostics)
+    }
 
+    private func resetRevision() {
+        eventCount = 0
+        idXorHigh = 0
+        idXorLow = 0
+    }
+
+    private func foldRevision(_ events: [Event]) {
+        for event in events {
+            let b = event.id.uuid
+            let bytes = [b.0, b.1, b.2, b.3, b.4, b.5, b.6, b.7, b.8, b.9, b.10, b.11, b.12, b.13, b.14, b.15]
+            var high: UInt64 = 0
+            var low: UInt64 = 0
+            for i in 0..<8 { high = (high << 8) | UInt64(bytes[i]) }
+            for i in 8..<16 { low = (low << 8) | UInt64(bytes[i]) }
+            idXorHigh ^= high
+            idXorLow ^= low
+            eventCount += 1
+        }
+    }
+
+    private func currentRevisionLocked() -> String {
+        let high = String(idXorHigh, radix: 16)
+        let low = String(idXorLow, radix: 16)
+        return "r1-\(eventCount)-" + String(repeating: "0", count: 16 - high.count) + high + String(repeating: "0", count: 16 - low.count) + low
+    }
+
+    /// Caller must hold `cacheLock`.
+    private func refreshProjectionLocked() throws {
         let batch = try store.read(from: cursor)
         if batch.restarted {
             cachedNotes = [:]
             cachedDiagnostics = ProjectionDiagnostics()
             causalMode = false
             links.reset()
+            resetRevision()
         }
         if !batch.events.isEmpty && (causalMode || batch.events.contains(where: { $0.causalParents != nil || $0.kind == .causalOrder })) {
             causalMode = true
             let events = try store.readAll()
+            resetRevision()
+            foldRevision(events)
             let result = Projector.projectResult(events)
             let pendingNotes = Set(events.filter { result.pendingEventIDs.contains($0.id) }.map(\.noteId))
             cachedDiagnostics = ProjectionDiagnostics(pendingEventIDs: result.pendingEventIDs, pendingNoteIDs: pendingNotes, conflictedNoteIDs: result.conflictedNoteIDs)
@@ -280,6 +332,7 @@ public final class NoteService {
             links.reset()
         } else if !batch.events.isEmpty {
             Projector.apply(batch.events, to: &cachedNotes)
+            foldRevision(batch.events)
             // Only these two kinds can change a link. A run of tags and flags —
             // which is what a whole janitor pass consists of — costs nothing
             // here at all.
@@ -290,7 +343,6 @@ public final class NoteService {
             )
         }
         cursor = batch.cursor
-        return (cachedNotes, cachedDiagnostics)
     }
 
     private func checkOrdering(_ id: UUID, diagnostics: ProjectionDiagnostics) throws {

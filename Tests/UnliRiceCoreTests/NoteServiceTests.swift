@@ -302,3 +302,75 @@ final class NoteServiceTests: XCTestCase {
         }
     }
 }
+
+final class NoteServiceRevisionTests: XCTestCase {
+    private func makeLog(causal: Bool) throws -> (URL, URL) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unlirice-rev-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("events.jsonl")
+        if causal {
+            _ = try EventStore(fileURL: url)
+            _ = try NativeCloudBinding.open(eventLogURL: url, provider: NativeCloudIdentityFixture(token: "token" as NSString), allowCreate: true)
+        }
+        return (dir, url)
+    }
+
+    private func checkRevisionBehaviour(causal: Bool) throws {
+        let (dir, url) = try makeLog(causal: causal)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let a = NoteService(store: try EventStore(fileURL: url))
+        let b = NoteService(store: try EventStore(fileURL: url))
+        let empty = try a.retrievalSnapshot().revision
+        XCTAssertEqual(empty, "r1-0-00000000000000000000000000000000")
+        let n1 = try a.createNote(title: "One", body: "x", source: "t")
+        _ = try b.createNote(title: "Two", body: "y", source: "t")
+        _ = try a.appendToNote(id: n1.id, text: "more", source: "t")
+        _ = try b.tagNote(id: n1.id, tag: "k", source: "t")
+        let ra = try a.retrievalSnapshot().revision, rb = try b.retrievalSnapshot().revision
+        XCTAssertEqual(ra, rb)
+        XCTAssertNotEqual(ra, empty)
+        XCTAssertTrue(ra.hasPrefix("r1-4-"))
+        let hex = ra.dropFirst("r1-4-".count)
+        XCTAssertEqual(hex.count, 32)
+        XCTAssertTrue(hex.allSatisfy { "0123456789abcdef".contains($0) })
+
+        _ = try a.appendToNote(id: n1.id, text: "again", source: "t")
+        let appended = try a.retrievalSnapshot().revision
+        XCTAssertNotEqual(appended, ra)
+        XCTAssertEqual(appended, try b.retrievalSnapshot().revision)
+
+        // An event whose id duplicates an earlier one still changes the revision.
+        let earlier = try XCTUnwrap(try a.noteHistory(id: n1.id).first)
+        let dup = Event(id: earlier.id, noteId: n1.id, source: "t", kind: .tagged, tag: "dup", causalParents: causal ? [] : nil)
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        try EventStore(fileURL: url).appendRaw(try encoder.encode(dup))
+        let afterDup = try a.retrievalSnapshot().revision
+        XCTAssertNotEqual(afterDup, appended)
+        XCTAssertEqual(afterDup, try b.retrievalSnapshot().revision)
+
+        a.rebuild()
+        XCTAssertEqual(try a.retrievalSnapshot().revision, afterDup)
+        XCTAssertEqual(try NoteService(store: try EventStore(fileURL: url)).retrievalSnapshot().revision, afterDup)
+    }
+
+    func testRevisionAgreesAndTracksAppendsInLegacyMode() throws { try checkRevisionBehaviour(causal: false) }
+    func testRevisionAgreesAndTracksAppendsInCausalMode() throws { try checkRevisionBehaviour(causal: true) }
+
+    func testSearchNotesResultsUnchanged() throws {
+        let (dir, url) = try makeLog(causal: false)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let s = NoteService(store: try EventStore(fileURL: url))
+        let t = try s.createNote(title: "Alpha Plan", body: "nothing", source: "t")
+        let bd = try s.createNote(title: "Other", body: "has a Needle inside", source: "t")
+        let tg = try s.createNote(title: "Third", body: "plain", source: "t")
+        _ = try s.tagNote(id: tg.id, tag: "Beta", source: "t")
+        func ids(_ q: String) throws -> Set<UUID> { Set(try s.searchNotes(query: q).map(\.id)) }
+        XCTAssertEqual(try ids("alpha"), [t.id])
+        XCTAssertEqual(try ids("needle"), [bd.id])
+        XCTAssertEqual(try ids("beta"), [tg.id])
+        XCTAssertEqual(try ids("ALPHA pLaN"), [t.id])
+        XCTAssertEqual(try ids("zzz"), [])
+        XCTAssertEqual(try s.searchNotes(query: "").map(\.id), try s.listNotes().map(\.id))
+        XCTAssertEqual(try s.searchNotes(query: "").count, 3)
+    }
+}
