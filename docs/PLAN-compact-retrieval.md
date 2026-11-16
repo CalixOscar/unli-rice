@@ -176,7 +176,7 @@ them. Error messages are fixed strings and never include caller or note text.
   Fixed details. Cursor: unpadded base64url of `.sortedKeys` JSON `{"a":0|1,"m":…,"o":…,"q":…,"v":1}`; `q` = first 16 hex of SHA-256 of the lowercased query's UTF-8; `m` = first 32 hex of SHA-256 over the 16 raw bytes of each match id in order (CryptoKit). Fill: for k = 1…limit build the complete final payload for the first k results (with the `next_cursor`, `stopped_by` and counts it would have) and measure `serializedByteCount(toolResult(text:))`; keep the largest k that fits; if k = 0 with matches remaining, try the first result in minimal form; if that fails throw `budgetTooSmall`. Excerpt placement: find the query in the lowercased body; if the lowercased body has the same character count as the body, start the window at that character position moved back by up to 100 bytes of whole characters, extend to 320 bytes, and keep it only if the excerpt satisfies the predicate; otherwise use the start of the body.
 
 ### A3. Batch reads (core) — spec B1–B7, S3, S5, S8, S9
-- [ ] `build` Implement `BatchRequest` (both initializers) and `batch` as B1–B7 say; one unit test per Check entry of B1–B7 and S9 (batch arguments).
+- [x] `build` (done, planner-verified 2026-11-16) Implement `BatchRequest` (both initializers) and `batch` as B1–B7 say; one unit test per Check entry of B1–B7 and S9 (batch arguments).
   — files: `Sources/UnliRiceCore/CompactRetrieval.swift`, `Tests/UnliRiceCoreTests/CompactRetrievalTests.swift`
   — done when: every B check has a passing test
   — verify: `swift test --scratch-path /tmp/unlirice-spm-compact --filter CompactRetrievalTests`
@@ -353,5 +353,7 @@ worktree. A0, A6 → planner. Nothing is `build-light`: no step has its exact te
 given.
 
 ## Build notes
+
+- A3: accepted as built. A non-string entry in `ids` reports "ids[N] is not a valid note id." The planner added a guard so a note that cannot fit alone is not serialized a second time during the fill.
 
 - A2: the builder's open choices were accepted as built: an over-long cursor is an argument error; cursor checks run shape, then query and archive flag (invalid), then match digest (stale), then position (invalid); a non-canonical base64url cursor is invalid; minimal form always carries `tags_omitted`; the Q9 failure text is "max_bytes is too small to return a result. Raise max_bytes." The planner added an early exit to the fill loop. No Swift string was found whose character count changes when lowercased, so that excerpt fallback is defensive only.

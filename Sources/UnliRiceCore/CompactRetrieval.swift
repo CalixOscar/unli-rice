@@ -104,6 +104,58 @@ public enum CompactRetrieval {
         }
     }
 
+    public struct BatchRequest: Sendable {
+        public let ids: [UUID]
+        public let maxBytes: Int
+        public let includeArchived: Bool
+
+        public init(ids: [String], maxBytes: Int? = nil, includeArchived: Bool = false) throws {
+            guard (1...CompactRetrieval.maxBatchIDs).contains(ids.count) else {
+                throw CompactRetrievalError.invalidArgument(CompactRetrieval.idsMessage)
+            }
+            var parsed: [UUID] = []
+            var seen = Set<UUID>()
+            for (position, text) in ids.enumerated() {
+                guard let id = UUID(uuidString: text) else {
+                    throw CompactRetrievalError.invalidArgument("ids[\(position)] is not a valid note id.")
+                }
+                guard seen.insert(id).inserted else {
+                    throw CompactRetrievalError.invalidArgument("ids[\(position)] repeats an earlier id.")
+                }
+                parsed.append(id)
+            }
+            let maxBytes = maxBytes ?? CompactRetrieval.defaultMaxBytes
+            guard CompactRetrieval.maxBytesRange.contains(maxBytes) else {
+                throw CompactRetrievalError.invalidArgument(CompactRetrieval.maxBytesMessage)
+            }
+            self.ids = parsed
+            self.maxBytes = maxBytes
+            self.includeArchived = includeArchived
+        }
+
+        /// Raw JSON-RPC arguments (SPEC S9). Unknown keys are ignored.
+        public init(arguments: [String: Any]) throws {
+            guard let raw = arguments["ids"] as? [Any] else {
+                throw CompactRetrievalError.invalidArgument(CompactRetrieval.idsMessage)
+            }
+            guard (1...CompactRetrieval.maxBatchIDs).contains(raw.count) else {
+                throw CompactRetrievalError.invalidArgument(CompactRetrieval.idsMessage)
+            }
+            var strings: [String] = []
+            for (position, element) in raw.enumerated() {
+                guard let text = element as? String else {
+                    throw CompactRetrievalError.invalidArgument("ids[\(position)] is not a valid note id.")
+                }
+                strings.append(text)
+            }
+            let maxBytes = try CompactRetrieval.optionalInteger(arguments, "max_bytes", message: CompactRetrieval.maxBytesMessage)
+            let include = try CompactRetrieval.optionalBoolean(arguments, "include_archived", message: CompactRetrieval.includeArchivedMessage)
+            try self.init(ids: strings, maxBytes: maxBytes, includeArchived: include ?? false)
+        }
+    }
+
+    static let idsMessage = "ids must be an array of 1 to 20 note id strings."
+
     static let queryMessage = "query must be a non-empty string of at most 1024 bytes."
     static let limitMessage = "limit must be an integer from 1 to 50."
     static let maxBytesMessage = "max_bytes must be an integer from 2048 to 65536."
@@ -416,6 +468,98 @@ public enum CompactRetrieval {
         let text = try page([minimalResult(first.note, first.fields)])
         guard fits(text, maxBytes: request.maxBytes) else { throw tooSmall }
         return text
+    }
+
+    // MARK: - Batch
+
+    static let batchTooSmall = CompactRetrievalError.budgetTooSmall("max_bytes is too small to report every requested id. Raise max_bytes or request fewer ids.")
+    static let retryCeiling = 65_536
+
+    private enum BatchEntry {
+        case plain(String)                       // missing, archived_excluded, unavailable_*
+        case omitted(retry: Int?)                // readable, not (yet) returned
+        case returned(Note)
+    }
+
+    /// Payload JSON text. Guarantees `serializedByteCount(toolResult(text:)) <= maxBytes - envelopeReserve`.
+    public static func batch(_ request: BatchRequest, in snapshot: RetrievalSnapshot) throws -> String {
+        let diagnostics = diagnosticsPayload(snapshot.diagnostics)
+        let incomplete = !snapshot.diagnostics.incompleteNoteIDs.isEmpty
+
+        func entryObject(_ id: UUID, _ entry: BatchEntry) -> [String: Any] {
+            switch entry {
+            case .plain(let status):
+                return ["id": id.uuidString, "status": status]
+            case .omitted(let retry):
+                var object: [String: Any] = ["id": id.uuidString, "status": "omitted_for_budget", "fits_max_budget": retry != nil]
+                if let retry { object["retry_max_bytes"] = retry }
+                return object
+            case .returned(let note):
+                return [
+                    "id": id.uuidString, "status": "returned",
+                    "title": note.title, "body": note.body,
+                    "tags": note.tags.sorted(),
+                    "created_at": timestamp(note.createdAt), "updated_at": timestamp(note.updatedAt),
+                    "archived": note.archived,
+                    "creator": note.creator,
+                    "sources": note.sources.sorted()
+                ]
+            }
+        }
+        func payload(_ ids: [UUID], _ entries: [BatchEntry]) throws -> String {
+            var returned = 0, omitted = 0
+            for entry in entries {
+                if case .returned = entry { returned += 1 }
+                if case .omitted = entry { omitted += 1 }
+            }
+            var object: [String: Any] = [
+                "notes": zip(ids, entries).map { entryObject($0, $1) },
+                "returned": returned,
+                "omitted_for_budget": omitted,
+                "revision": snapshot.revision,
+                "diagnostics": diagnostics
+            ]
+            if incomplete { object["notice"] = incompleteNotice }
+            return try payloadText(object)
+        }
+        func retryBytes(for note: Note) throws -> Int? {
+            if note.body.utf8.count > retryCeiling { return nil }
+            let alone = try payload([note.id], [.returned(note)])
+            let needed = serializedByteCount(toolResult(text: alone)) + envelopeReserve
+            return needed > retryCeiling ? nil : max(maxBytesRange.lowerBound, needed)
+        }
+
+        var entries: [BatchEntry] = []
+        for id in request.ids {
+            if snapshot.diagnostics.conflictedNoteIDs.contains(id) {
+                entries.append(.plain("unavailable_conflicted"))
+            } else if snapshot.diagnostics.pendingNoteIDs.contains(id) {
+                entries.append(.plain("unavailable_pending"))
+            } else if let note = snapshot.notes[id] {
+                if note.archived && !request.includeArchived {
+                    entries.append(.plain("archived_excluded"))
+                } else {
+                    entries.append(.omitted(retry: try retryBytes(for: note)))
+                }
+            } else {
+                entries.append(.plain("missing"))
+            }
+        }
+        var best = try payload(request.ids, entries)
+        guard fits(best, maxBytes: request.maxBytes) else { throw batchTooSmall }
+        for index in entries.indices {
+            // A note that cannot fit alone cannot fit here either, so it is never serialized again.
+            guard case .omitted(let retry?) = entries[index], retry <= request.maxBytes,
+                  let note = snapshot.notes[request.ids[index]] else { continue }
+            var trial = entries
+            trial[index] = .returned(note)
+            let text = try payload(request.ids, trial)
+            if fits(text, maxBytes: request.maxBytes) {
+                entries = trial
+                best = text
+            }
+        }
+        return best
     }
 
     static let tooSmall = CompactRetrievalError.budgetTooSmall("max_bytes is too small to return a result. Raise max_bytes.")

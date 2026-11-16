@@ -747,4 +747,202 @@ final class CompactRetrievalTests: XCTestCase {
         XCTAssertEqual(CR.serializedByteCount(r), try JSONSerialization.data(withJSONObject: r).count)
         XCTAssertEqual(CR.serializedByteCount(CR.toolResult(text: "é")), CR.serializedByteCount(CR.toolResult(text: "e")) + 1)
     }
+
+    // MARK: Batch (B1-B7, S9)
+
+    @discardableResult
+    func batch(_ f: Fixture, _ ids: [String], maxBytes: Int? = nil, archived: Bool = false) throws -> [String: Any] {
+        let request = try CR.BatchRequest(ids: ids, maxBytes: maxBytes, includeArchived: archived)
+        let text = try CR.batch(request, in: try f.snapshot())
+        XCTAssertLessThanOrEqual(CR.serializedByteCount(CR.toolResult(text: text)), request.maxBytes - CR.envelopeReserve)
+        return try parse(text)
+    }
+    func entries(_ p: [String: Any]) -> [[String: Any]] { p["notes"] as? [[String: Any]] ?? [] }
+    func statuses(_ p: [String: Any]) -> [String] { entries(p).compactMap { $0["status"] as? String } }
+    func message(_ block: () throws -> Any) -> String? {
+        do { _ = try block(); return nil } catch { return (error as? CompactRetrievalError)?.description }
+    }
+
+    private func batchIncompleteFixture() throws -> (Fixture, healthy: UUID, pending: UUID, conflicted: UUID) {
+        let f = try Fixture(causal: true)
+        let healthy = try f.service.createNote(title: "Healthy", body: "fine", source: "human").id
+        let missing = UUID(), pendingID = UUID(), conflictID = UUID(), a = UUID(), b = UUID()
+        let events = [
+            Event(noteId: pendingID, source: "SRC_PEND", kind: .created, title: "TITLE_PEND", text: "BODY_PEND", causalParents: [missing]),
+            Event(noteId: pendingID, source: "SRC_PEND", kind: .tagged, tag: "TAG_PEND", causalParents: [missing]),
+            Event(id: a, noteId: conflictID, source: "SRC_CONF", kind: .created, title: "TITLE_CONF", text: "BODY_CONF", causalParents: [b]),
+            Event(id: b, noteId: conflictID, source: "SRC_CONF", kind: .tagged, tag: "TAG_CONF", causalParents: [a])
+        ]
+        let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
+        try f.store.appendRawBatch(try events.map { try encoder.encode($0) })
+        return (f, healthy, pendingID, conflictID)
+    }
+
+    func testB1BadIdsAreRejectedWithPositionsAndFixedText() throws {
+        let f = try Fixture()
+        let good = try f.note("n").uuidString
+        let fixed = "ids must be an array of 1 to 20 note id strings."
+        XCTAssertEqual(message { try CR.BatchRequest(ids: []) }, fixed)
+        XCTAssertEqual(message { try CR.BatchRequest(ids: (0..<21).map { _ in UUID().uuidString }) }, fixed)
+        XCTAssertNil(message { try CR.BatchRequest(ids: (0..<20).map { _ in UUID().uuidString }) })
+        XCTAssertEqual(message { try CR.BatchRequest(ids: [good, "SECRET-not-an-id"]) }, "ids[1] is not a valid note id.")
+        XCTAssertEqual(message { try CR.BatchRequest(ids: [good, UUID().uuidString, good.lowercased()]) }, "ids[2] repeats an earlier id.")
+        // raw: not an array, null, non-string element
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: [:]) }, fixed)
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: ["ids": good]) }, fixed)
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: ["ids": NSNull()]) }, fixed)
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: ["ids": [good, 7]]) }, "ids[1] is not a valid note id.")
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: ["ids": [good, true]]) }, "ids[1] is not a valid note id.")
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: ["ids": [Any]()]) }, fixed)
+        // the error is raised before any note is read and returns nothing partial
+        let before = try f.eventCount()
+        XCTAssertThrowsError(try CR.BatchRequest(ids: [good, "bad"]))
+        XCTAssertEqual(try f.eventCount(), before)
+    }
+
+    func testB2OneEntryPerIdInRequestOrderWithEveryStatus() throws {
+        let (f, healthy, pendingID, conflictID) = try batchIncompleteFixture()
+        let archived = try f.note("old"); try f.archive(archived, at: 5)
+        let big = try f.note("big", body: String(repeating: "x", count: 4000))
+        let absent = UUID()
+        let order = [absent, conflictID, archived, healthy, pendingID, big]
+        let p = try batch(f, order.map(\.uuidString), maxBytes: 2048)
+        XCTAssertEqual(entries(p).compactMap { $0["id"] as? String }, order.map(\.uuidString))
+        XCTAssertEqual(statuses(p), ["missing", "unavailable_conflicted", "archived_excluded", "returned", "unavailable_pending", "omitted_for_budget"])
+        XCTAssertEqual(Set(p.keys), ["notes", "returned", "omitted_for_budget", "revision", "diagnostics", "notice"])
+        XCTAssertEqual(p["returned"] as? Int, 1)
+        XCTAssertEqual(p["omitted_for_budget"] as? Int, 1)
+        XCTAssertEqual(p["revision"] as? String, try f.snapshot().revision)
+    }
+
+    func testB3ReturnedEntryCarriesCompleteContent() throws {
+        let f = try Fixture()
+        let body = String(repeating: "héllo 😀 日本語 \"q\"\n", count: 600)
+        let id = try f.note("Title é", body: body, tags: ["zeta", "alpha", String(repeating: "t", count: 100)], at: 3, source: "creator-src")
+        try f.store.append(Event(noteId: id, timestamp: Fixture.at(4), source: "other-src", kind: .appended, text: "!"))
+        let p = try batch(f, [id.uuidString], maxBytes: 65536)
+        let e = try XCTUnwrap(entries(p).first)
+        XCTAssertEqual(Set(e.keys), ["id", "status", "title", "body", "tags", "created_at", "updated_at", "archived", "creator", "sources"])
+        let note = try XCTUnwrap(try f.snapshot().notes[id])
+        XCTAssertEqual(e["body"] as? String, note.body)
+        XCTAssertTrue((e["body"] as? String ?? "").hasPrefix(body))
+        XCTAssertEqual(e["title"] as? String, "Title é")
+        XCTAssertEqual(e["tags"] as? [String], note.tags.sorted())
+        XCTAssertEqual((e["tags"] as? [String])?.count, 3)
+        XCTAssertEqual(e["sources"] as? [String], note.sources.sorted())
+        XCTAssertEqual(e["creator"] as? String, note.creator)
+        XCTAssertEqual(e["created_at"] as? String, CR.timestamp(note.createdAt))
+        XCTAssertEqual(e["updated_at"] as? String, CR.timestamp(note.updatedAt))
+        XCTAssertEqual(e["archived"] as? Bool, false)
+    }
+
+    func testB4LaterSmallNotesStillFitAfterAnOversizedMiddleNote() throws {
+        let f = try Fixture()
+        let a = try f.note("a", body: "small a", at: 1)
+        let big = try f.note("big", body: String(repeating: "B", count: 5000), at: 2)
+        let c = try f.note("c", body: "small c", at: 3)
+        let p = try batch(f, [a, big, c].map(\.uuidString), maxBytes: 2048)
+        XCTAssertEqual(statuses(p), ["returned", "omitted_for_budget", "returned"])
+        // 20 ids: whole result still fits, upgrades happen in request order
+        var all: [String] = []
+        for i in 0..<20 { all.append(try f.note("n\(i)", body: String(repeating: "w", count: 150), at: 10 + i).uuidString) }
+        let q = try batch(f, all, maxBytes: 4096)
+        let s = statuses(q)
+        XCTAssertEqual(s.count, 20)
+        let firstOmitted = try XCTUnwrap(s.firstIndex(of: "omitted_for_budget"))
+        XCTAssertGreaterThan(firstOmitted, 0)
+        XCTAssertEqual(q["returned"] as? Int, s.filter { $0 == "returned" }.count)
+        XCTAssertEqual(q["omitted_for_budget"] as? Int, s.filter { $0 == "omitted_for_budget" }.count)
+        XCTAssertEqual(Array(s[0..<firstOmitted]), Array(repeating: "returned", count: firstOmitted))
+    }
+
+    func testB5RetryValueRetrievesTheNoteAndOversizeReportsFalse() throws {
+        let f = try Fixture()
+        let mid = try f.note("mid", body: String(repeating: "m", count: 6000), at: 1)
+        let huge = try f.note("huge", body: String(repeating: "H", count: 70_000), at: 2)
+        let nearMax = try f.note("near", body: String(repeating: "N", count: 65_500), at: 3)
+        let p = try batch(f, [mid, huge, nearMax].map(\.uuidString), maxBytes: 2048)
+        let e = entries(p)
+        XCTAssertEqual(statuses(p), ["omitted_for_budget", "omitted_for_budget", "omitted_for_budget"])
+        XCTAssertEqual(e[0]["fits_max_budget"] as? Bool, true)
+        let retry = try XCTUnwrap(e[0]["retry_max_bytes"] as? Int)
+        XCTAssertGreaterThanOrEqual(retry, 2048)
+        XCTAssertLessThanOrEqual(retry, 65_536)
+        let again = try batch(f, [mid.uuidString], maxBytes: retry)
+        XCTAssertEqual(statuses(again), ["returned"])
+        let tooLow = try batch(f, [mid.uuidString], maxBytes: max(2048, retry - 1000))
+        XCTAssertEqual(statuses(tooLow), ["omitted_for_budget"])
+        XCTAssertEqual(e[1]["fits_max_budget"] as? Bool, false)
+        XCTAssertNil(e[1]["retry_max_bytes"])
+        // body under 65536 but the whole result would exceed it
+        XCTAssertEqual(e[2]["fits_max_budget"] as? Bool, false)
+        XCTAssertNil(e[2]["retry_max_bytes"])
+        // a small omitted note gets the 2048 floor
+        let small = try f.note("s", body: "tiny", at: 4)
+        let tiny = try batch(f, [mid.uuidString, small.uuidString], maxBytes: 2048)
+        XCTAssertEqual(statuses(tiny), ["omitted_for_budget", "returned"])
+    }
+
+    func testB6CountsAndTooSmallTable() throws {
+        let f = try Fixture()
+        let missing = try batch(f, (0..<20).map { _ in UUID().uuidString }, maxBytes: 2048)
+        XCTAssertEqual(missing["returned"] as? Int, 0)
+        XCTAssertEqual(missing["omitted_for_budget"] as? Int, 0)
+        XCTAssertNotNil(missing["revision"])
+        XCTAssertNotNil(missing["diagnostics"])
+        XCTAssertNil(missing["notice"])
+        var big: [String] = []
+        for i in 0..<20 { big.append(try f.note("n\(i)", body: String(repeating: "x", count: 70_000), at: i).uuidString) }
+        let request = try CR.BatchRequest(ids: big, maxBytes: 2048)
+        XCTAssertThrowsError(try CR.batch(request, in: try f.snapshot())) {
+            XCTAssertEqual($0 as? CompactRetrievalError, .budgetTooSmall("max_bytes is too small to report every requested id. Raise max_bytes or request fewer ids."))
+        }
+    }
+
+    func testB7ArchivedAndExcludedNotesWithSentinels() throws {
+        let (f, healthy, pendingID, conflictID) = try batchIncompleteFixture()
+        let archived = try f.note("ARCH_TITLE", body: "ARCH_BODY", tags: ["ARCH_TAG"], at: 7)
+        try f.archive(archived, at: 8)
+        let ids = [archived, pendingID, conflictID, healthy].map(\.uuidString)
+        let hidden = try batch(f, ids)
+        XCTAssertEqual(statuses(hidden), ["archived_excluded", "unavailable_pending", "unavailable_conflicted", "returned"])
+        XCTAssertEqual(hidden["notice"] as? String, CR.incompleteNotice)
+        let shown = try batch(f, ids, archived: true)
+        XCTAssertEqual(statuses(shown), ["returned", "unavailable_pending", "unavailable_conflicted", "returned"])
+        XCTAssertEqual(entries(shown)[0]["archived"] as? Bool, true)
+        for text in [hidden, shown].map({ String(decoding: try! JSONSerialization.data(withJSONObject: $0), as: UTF8.self) }) {
+            for s in ["TITLE_PEND", "BODY_PEND", "TAG_PEND", "SRC_PEND", "TITLE_CONF", "BODY_CONF", "TAG_CONF", "SRC_CONF"] {
+                XCTAssertFalse(text.contains(s), s)
+            }
+        }
+        for e in entries(shown) where (e["status"] as? String)?.hasPrefix("unavailable") == true {
+            XCTAssertEqual(Set(e.keys), ["id", "status"])
+        }
+        let hiddenText = String(decoding: try JSONSerialization.data(withJSONObject: hidden), as: UTF8.self)
+        XCTAssertFalse(hiddenText.contains("ARCH_TITLE") || hiddenText.contains("ARCH_BODY"))
+    }
+
+    func testS9BatchArgumentsAreStrict() throws {
+        let id = UUID().uuidString
+        let ok: [String: Any] = ["ids": [id]]
+        func with(_ k: String, _ v: Any) -> [String: Any] { var a = ok; a[k] = v; return a }
+        let mb = "max_bytes must be an integer from 2048 to 65536."
+        let ia = "include_archived must be true or false."
+        for bad: Any in [true, false, 2048.5, 1e300, -1, 0, 2047, 65537, NSNull(), "4096", [1], ["a": 1], Double.nan] {
+            XCTAssertEqual(message { try CR.BatchRequest(arguments: with("max_bytes", bad)) }, mb, "\(bad)")
+        }
+        for good: Any in [2048, 65536, 4096.0] { XCTAssertNil(message { try CR.BatchRequest(arguments: with("max_bytes", good)) }) }
+        for bad: Any in [1, 0, 1.0, "true", NSNull(), [true]] {
+            XCTAssertEqual(message { try CR.BatchRequest(arguments: with("include_archived", bad)) }, ia, "\(bad)")
+        }
+        for good: Any in [true, false] { XCTAssertNil(message { try CR.BatchRequest(arguments: with("include_archived", good)) }) }
+        let r = try CR.BatchRequest(arguments: ["ids": [id], "unknown": 1])
+        XCTAssertEqual(r.maxBytes, 16_384)
+        XCTAssertFalse(r.includeArchived)
+        XCTAssertEqual(try CR.BatchRequest(arguments: ["ids": [id], "include_archived": true, "max_bytes": 3000]).maxBytes, 3000)
+        XCTAssertEqual(message { try CR.BatchRequest(ids: [id], maxBytes: 100) }, mb)
+        // raw JSON numbers as parsed by the server
+        let parsed = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data("{\"ids\":[\"\(id)\"],\"max_bytes\":true,\"include_archived\":1}".utf8)) as? [String: Any])
+        XCTAssertEqual(message { try CR.BatchRequest(arguments: parsed) }, mb)
+    }
 }
