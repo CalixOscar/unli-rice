@@ -677,4 +677,3 @@ Verdict: fit to merge after the listed fixes.
    seconds. Final state at the commit after this turn: 694 tests, 0 failed, 2
    skipped outside the sandbox (`swift test --scratch-path /tmp/unlirice-spm-compact`,
    2026-11-16). Lessons are in the plan's build notes and `PROJECT_NOTES.md`.
-

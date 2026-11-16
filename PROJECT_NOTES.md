@@ -2993,4 +2993,3 @@ about 1 KB more); 54–61% fewer bytes for wide searches; one call instead of se
 reads by id. Not done on purpose: the connector's instructions and the guide do not yet
 tell assistants to prefer the new tools. Branch `claude/compact-retrieval`, not merged
 at the time of writing.
-

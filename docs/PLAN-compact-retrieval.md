@@ -3,7 +3,7 @@
 **Intent:** `docs/intent/INTENT-014-compact-retrieval.md`
 **Spec:** `docs/SPEC-compact-retrieval.md`
 **Planner:** claude. **Reviewer:** codex.
-**Stage:** 6 post-mortem answered 2026-11-16 (codex: fit to merge after the listed fixes; fixes made in A7). Not merged: the Orca independent review has not been run, and the merge is the founder's call
+**Stage:** 6 post-mortem answered 2026-11-16 (codex: fit to merge after the listed fixes; fixes made in A7); independent review 2026-11-16: safe to merge. Merged into `main` locally on the founder's "keep going" (2026-11-16); not pushed
 **Founder skips (2026-11-16):** Idea Clinic and the stage-1.5 intent read. Asked how to record that neither was run, the founder chose "Skip both, record it". The pre-mortem, independent review and post-mortem still run.
 <!-- lint-allow intent-read "founder skip, 2026-11-16" -->
 **Pre-mortem:** `docs/dialogue/compact-retrieval.md` (codex, 2026-11-16: do not build until the blockers are resolved), answered there and in §9; settled 2026-11-16
@@ -297,7 +297,7 @@ to the report and never asserted. The harness follows A4's process-test rules.
 - [x] `planner` (2026-11-16) `memory.md`, `PROJECT_NOTES.md` decision entry
 - [x] `planner` (2026-11-16) To-dos filed for deferred work: `D2A94583` (recommend the new tools to assistants) and `F2F73435` (evaluate with real assistants)
 - [x] `planner` (2026-11-16) Codex post-mortem on snapshot `6244070`, answered in the dialogue
-- [ ] `planner` Independent review through the Orca review workflow: not run. The post-mortem brief asked Codex to check the change and its tests on a fixed snapshot, which covers the same ground; whether that is enough is the founder's decision before a merge
+- [x] `planner` (2026-11-16) Independent review through the Orca review workflow: a separate Codex worker (`gpt-6.1-sol`, medium, as reported by the worker; not independently confirmed) reviewed fixed snapshot `1aaa513` read-only. Verdict: safe to merge, no blocker or should-fix. Its own run: 694 tests, 18 failed (the two known sandbox cloud suites), 2 skipped; 205 process probes of its own passed. Notes it left: the error-leak unit test scans hand-picked error texts rather than dispatched errors; the changed-character-count excerpt fallback is unexercised; B1's pre-read order is true by code order; two blank lines at end of file (fixed)
 
 ## 6. Acceptance — against reality, not a builder's report
 
