@@ -374,3 +374,101 @@ final class NoteServiceRevisionTests: XCTestCase {
         XCTAssertEqual(try s.searchNotes(query: "").count, 3)
     }
 }
+
+/// The revision checked against a value computed here, from fixed event ids, with no
+/// help from `NoteService`: `r1-<n>-<hex>`, n = events written, hex = XOR of every
+/// event id's 16 raw bytes as 32 lowercase hex characters.
+final class NoteServiceRevisionExpectedValueTests: XCTestCase {
+    private var dir: URL!
+    private var url: URL!
+    private let encoder: JSONEncoder = { let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; return e }()
+
+    override func setUpWithError() throws {
+        dir = FileManager.default.temporaryDirectory.appendingPathComponent("unlirice-rev-exp-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        url = dir.appendingPathComponent("events.jsonl")
+    }
+    override func tearDown() { try? FileManager.default.removeItem(at: dir) }
+
+    private func fixed(_ n: Int) -> UUID { UUID(uuidString: String(format: "00000000-0000-4000-8000-%012x", 0xA5A5_0000_0000 + n * 0x1111_1111))! }
+    private func expected(_ ids: [UUID]) -> String {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for id in ids { withUnsafeBytes(of: id.uuid) { raw in for i in 0..<16 { bytes[i] ^= raw[i] } } }
+        return "r1-\(ids.count)-" + bytes.map { String(format: "%02x", $0) }.joined()
+    }
+    private func revision(_ service: NoteService) throws -> String { try service.retrievalSnapshot().revision }
+    private func raw(_ event: Event) throws -> Data { try encoder.encode(event) }
+
+    func testPlainLegacyLog() throws {
+        let store = try EventStore(fileURL: url)
+        let note = UUID(), ids = (1...3).map(fixed)
+        try store.append(Event(id: ids[0], noteId: note, source: "t", kind: .created, title: "A"))
+        try store.append(Event(id: ids[1], noteId: note, source: "t", kind: .appended, text: "more"))
+        try store.append(Event(id: ids[2], noteId: note, source: "t", kind: .tagged, tag: "k"))
+        XCTAssertEqual(try revision(NoteService(store: store)), expected(ids))
+    }
+
+    func testCausalOrderMetadataEventCounts() throws {
+        let store = try EventStore(fileURL: url)
+        let note = UUID(), first = fixed(1), meta = fixed(2), second = fixed(3)
+        try store.append(Event(id: first, noteId: note, source: "t", kind: .created, title: "A"))
+        try store.appendRaw(try raw(Event(id: meta, noteId: note, source: "unlirice", kind: .causalOrder, relatedEventId: first, causalParents: [])))
+        try store.appendRaw(try raw(Event(id: second, noteId: note, source: "t", kind: .tagged, tag: "k", causalParents: [first])))
+        XCTAssertEqual(try revision(NoteService(store: store)), expected([first, meta, second]))
+    }
+
+    func testUnrecognizedKindEventCounts() throws {
+        let store = try EventStore(fileURL: url)
+        let note = UUID(), first = fixed(1), foreign = fixed(2)
+        try store.append(Event(id: first, noteId: note, source: "t", kind: .created, title: "A"))
+        var line = try XCTUnwrap(String(data: try raw(Event(id: foreign, noteId: note, source: "t", kind: .tagged, tag: "k")), encoding: .utf8))
+        XCTAssertTrue(line.contains("\"tagged\""))
+        line = line.replacingOccurrences(of: "\"tagged\"", with: "\"someFutureKind\"")
+        try store.appendRaw(Data(line.utf8))
+        XCTAssertEqual(try revision(NoteService(store: store)), expected([first, foreign]))
+    }
+
+    func testPendingAndConflictedOccurrencesCount() throws {
+        let store = try EventStore(fileURL: url)
+        let healthy = UUID(), pendingNote = UUID(), conflictNote = UUID()
+        let h = fixed(1), p = fixed(2), a = fixed(3), b = fixed(4), missing = fixed(5)
+        try store.appendRaw(try raw(Event(id: h, noteId: healthy, source: "t", kind: .created, title: "Healthy", causalParents: [])))
+        try store.appendRawBatch([
+            try raw(Event(id: p, noteId: pendingNote, source: "t", kind: .created, title: "Pending", causalParents: [missing])),
+            try raw(Event(id: a, noteId: conflictNote, source: "t", kind: .created, title: "Conflict", causalParents: [b])),
+            try raw(Event(id: b, noteId: conflictNote, source: "t", kind: .tagged, tag: "x", causalParents: [a])),
+        ])
+        let service = NoteService(store: store)
+        let snapshot = try service.retrievalSnapshot()
+        XCTAssertEqual(snapshot.diagnostics.pendingNoteIDs, [pendingNote])
+        XCTAssertEqual(snapshot.diagnostics.conflictedNoteIDs, [conflictNote])
+        XCTAssertEqual(snapshot.revision, expected([h, p, a, b]))
+    }
+
+    func testServiceThatCachedLegacyThenReadsCausalEvents() throws {
+        let store = try EventStore(fileURL: url)
+        let note = UUID(), l1 = fixed(1), l2 = fixed(2), c1 = fixed(3), c2 = fixed(4)
+        try store.append(Event(id: l1, noteId: note, source: "t", kind: .created, title: "A"))
+        try store.append(Event(id: l2, noteId: note, source: "t", kind: .appended, text: "x"))
+        let service = NoteService(store: store)
+        XCTAssertEqual(try revision(service), expected([l1, l2]))
+        try store.appendRaw(try raw(Event(id: c1, noteId: note, source: "t", kind: .tagged, tag: "k", causalParents: [l2])))
+        XCTAssertEqual(try revision(service), expected([l1, l2, c1]))
+        try store.appendRaw(try raw(Event(id: c2, noteId: note, source: "t", kind: .tagged, tag: "j", causalParents: [c1])))
+        XCTAssertEqual(try revision(service), expected([l1, l2, c1, c2]))
+        XCTAssertEqual(try revision(NoteService(store: try EventStore(fileURL: url))), expected([l1, l2, c1, c2]))
+    }
+
+    func testLogTruncatedToEmptyAfterCachingResetsRevision() throws {
+        let store = try EventStore(fileURL: url)
+        let note = UUID(), ids = [fixed(1), fixed(2)]
+        try store.append(Event(id: ids[0], noteId: note, source: "t", kind: .created, title: "A"))
+        try store.append(Event(id: ids[1], noteId: note, source: "t", kind: .appended, text: "x"))
+        let service = NoteService(store: store)
+        XCTAssertEqual(try revision(service), expected(ids))
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.truncate(atOffset: 0)
+        try handle.close()
+        XCTAssertEqual(try revision(service), "r1-0-" + String(repeating: "0", count: 32))
+    }
+}

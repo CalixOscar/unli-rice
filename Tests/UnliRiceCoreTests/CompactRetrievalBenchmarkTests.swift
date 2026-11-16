@@ -95,6 +95,7 @@ final class CompactRetrievalBenchmarkTests: XCTestCase {
                 XCTAssertTrue(missing.isEmpty, "task \(number) \(procedure): not observed: \(missing.sorted())")
             }
         }
+        XCTAssertGreaterThanOrEqual(outcomes[24]?["compact"]?.restarts ?? 0, 1, "task 24 must restart at least once")
         XCTAssertTrue(s3Violations.isEmpty, "compact replies over their max_bytes: \(s3Violations)")
 
         // Report.
@@ -670,7 +671,11 @@ private final class BenchRunner {
             }
             outcome.restarts = restarts
             if failed || task.evidence.isEmpty { return }
-            try readEvidence(ids: task.evidence.keys.sorted { $0.uuidString < $1.uuidString }, includeArchived: includeArchived, task: task, &outcome)
+            // Only ids that appeared in a summary page may be fetched; an id that never
+            // appeared stays unobserved, which the coverage assertion reports.
+            let discovered = task.evidence.keys.filter { seen.contains($0) }.sorted { $0.uuidString < $1.uuidString }
+            if discovered.isEmpty { return }
+            try readEvidence(ids: discovered, includeArchived: includeArchived, task: task, &outcome)
         case .ids(let ids, let includeArchived):
             try readEvidence(ids: ids, includeArchived: includeArchived, task: task, &outcome)
         }
@@ -827,7 +832,12 @@ private final class BenchServer {
         stopped = true
         lock.unlock()
         try? stdin.fileHandleForWriting.close()
-        if process.isRunning { process.terminate() }
+        if process.isRunning {
+            process.terminate()
+            let deadline = Date().addingTimeInterval(5)
+            while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        }
         process.waitUntilExit()
     }
 

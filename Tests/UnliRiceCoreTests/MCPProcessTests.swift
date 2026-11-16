@@ -179,7 +179,8 @@ final class MCPProcessTests: XCTestCase {
             ids.append(try service.createNote(title: "Alpha note \(index)", body: body, source: "human").id.uuidString)
         }
         let eventsBefore = try String(contentsOf: dataFile, encoding: .utf8)
-        let requestID = String(repeating: "i", count: 90)
+        let requestID = String(repeating: "i", count: 88)
+        XCTAssertEqual(try JSONSerialization.data(withJSONObject: requestID, options: [.fragmentsAllowed]).count, 90, "the id must serialize to exactly 90 bytes with its quotes")
         let server = try ProcessHarness.launch(dataFile: dataFile)
         defer { server.stop() }
 
@@ -329,7 +330,12 @@ private final class ProcessHarness {
         stopped = true
         lock.unlock()
         try? stdin.fileHandleForWriting.close()
-        if process.isRunning { process.terminate() }
+        if process.isRunning {
+            process.terminate()
+            let deadline = Date().addingTimeInterval(5)
+            while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.05) }
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        }
         process.waitUntilExit()
     }
 
